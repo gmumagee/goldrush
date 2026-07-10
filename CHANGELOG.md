@@ -1,0 +1,1 @@
+2026-07-10, Update the machine detail page summary and bins layout, Changed the machine detail page to use horizontal summary cards, renamed the bins card to Bins, grouped bins into collapsible row sections labeled by row letter, sized row bin cards to fit on a single line, and updated row labels to display as "Row: X".
