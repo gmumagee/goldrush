@@ -1,58 +1,113 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# GoldRush
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+GoldRush is a multi-account vending machine management application for operators who need to organize field inventory, machine placement, and service-related stock movement from a single admin interface.
 
-## About Laravel
+## Application Intent
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The application is built to help a vending business answer a few practical questions:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Which accounts does a user manage?
+- Which routes and customer locations belong to that account?
+- Which machines are installed at those locations?
+- How are machine bins arranged by row, and what product is assigned to each bin?
+- Which products, vendors, and warehouses support machine stocking?
+- Which service and transaction records describe inventory movement over time?
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+In its current form, GoldRush already provides the account-aware structure for those workflows and implements the core management screens for the operational entities that sit underneath them.
 
-## Learning Laravel
+## Current Functional Scope
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+The codebase currently supports these flows:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- User registration, login, logout, and account selection
+- Account-scoped data isolation through session-based account context
+- Dashboard metrics for machines, locations, products, warehouses, bins, services, transactions, vendors, and routes
+- CRUD-style creation and listing for routes, locations, machines, products, warehouses, and vendors
+- Machine detail pages with summary data and row-based bin layout inspection
+- Bin row creation for machines using row prefixes such as `A1`, `A2`, `B1`, and `B2`
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Domain Model
 
-## Agentic Development
+GoldRush is centered around the following business objects:
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+- `Account`: The tenant boundary for all operational data
+- `User`: Authenticated operators linked to one or more accounts
+- `VendingRoute`: A route used to group service locations
+- `Location`: A customer site on a route where machines are installed
+- `Machine`: A vending machine assigned to a location
+- `Bin`: A slot within a machine, identified by a row-and-position code such as `A1`
+- `Product`: A saleable item that can be assigned to bins
+- `Vendor`: The supplier associated with products
+- `Warehouse`: A storage location used in inventory movement records
+- `Service`: A service event performed against a machine
+- `Transaction`: Inventory or financial movement tied to services, bins, products, and optionally warehouses
+
+## Current Product Shape
+
+GoldRush is not just a generic inventory tracker. The current schema and UI are specifically shaped around vending operations:
+
+- Machines belong to locations, and locations belong to routes
+- Bins belong to machines and are organized by row letters
+- Inventory on the machine detail page is derived from transactions per bin
+- Products, vendors, and warehouses support downstream stocking workflows
+- Services and transactions are modeled in the database even where the UI is still lighter than the rest of the platform
+
+That makes the present application best described as a vending operations admin system with a strong machine-and-bin management foundation.
+
+## Tech Stack
+
+- PHP 8.3
+- Laravel 13
+- Blade templates
+- Tailwind CSS 4
+- Vite
+- Alpine.js
+- Linux-friendly deployment target with relational database backing
+
+## Running The Application
+
+1. Install PHP, Composer, Node.js, and a supported database for your environment.
+2. Copy `.env.example` to `.env` if needed.
+3. Run the project setup script:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer run setup
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+4. Start the local development stack:
 
-## Contributing
+```bash
+composer run dev
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+This starts the Laravel application server, queue listener, log tailing, and Vite development server together.
 
-## Code of Conduct
+If you only need to run the application without the full development stack, you can use:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan serve
+```
 
-## Security Vulnerabilities
+## Database Notes
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The project includes the vending management schema in `database/migrations/2026_07_09_225448_create_vending_mt_schema.php`.
 
-## License
+The schema is multi-account from the start. Most tables carry `account_id`, and the web layer enforces an active selected account before a user can access the operational screens.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Major Screens
+
+- `/dashboard`
+- `/machines`
+- `/machines/{machine}`
+- `/machines/{machine}/bins/create`
+- `/products`
+- `/locations`
+- `/warehouses`
+- `/vendors`
+- `/routes`
+
+## Notes On Current Scope
+
+- The machine and bin experience is one of the most complete operational flows in the current UI.
+- Services and transactions are already represented in models and dashboard metrics, but the CRUD surface for those areas is not yet as complete as machines, locations, and products.
+- The application uses custom authentication and account membership logic rather than Laravel Breeze or Jetstream scaffolding.
