@@ -4,11 +4,14 @@ use App\Http\Controllers\AccountSelectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\BinController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MachineBinController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VendingRouteController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\WarehouseController;
@@ -37,53 +40,38 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', DashboardController::class)
             ->name('dashboard');
 
-        Route::get('/machines', [MachineController::class, 'index'])
-            ->name('machines.index');
-        Route::get('/machines/create', [MachineController::class, 'create'])
-            ->name('machines.create');
-        Route::post('/machines', [MachineController::class, 'store'])
-            ->name('machines.store');
-        Route::get('/machines/{machine}', [MachineController::class, 'show'])
-            ->name('machines.show');
+        Route::resource('warehouses', WarehouseController::class);
+        Route::resource('vendors', VendorController::class);
+        Route::resource('products', ProductController::class);
+        Route::resource('routes', VendingRouteController::class);
+        Route::resource('locations', LocationController::class);
+        Route::resource('machines', MachineController::class);
+        Route::resource('bins', BinController::class);
+        Route::resource('services', ServiceController::class)->except(['show']);
+        Route::resource('transactions', TransactionController::class);
 
         Route::get('/machines/{machine}/bins/create', [MachineBinController::class, 'create'])
             ->name('machines.bins.create');
         Route::post('/machines/{machine}/bins', [MachineBinController::class, 'store'])
             ->name('machines.bins.store');
+        Route::get('/machines/{machine}/bins/edit', [MachineBinController::class, 'edit'])
+            ->name('machines.bins.edit');
+        Route::patch('/machines/{machine}/bins', [MachineBinController::class, 'update'])
+            ->name('machines.bins.update');
 
-        Route::get('/products', [ProductController::class, 'index'])
-            ->name('products.index');
-        Route::get('/products/create', [ProductController::class, 'create'])
-            ->name('products.create');
-        Route::post('/products', [ProductController::class, 'store'])
-            ->name('products.store');
-
-        Route::get('/locations', [LocationController::class, 'index'])
-            ->name('locations.index');
-        Route::get('/locations/create', [LocationController::class, 'create'])
-            ->name('locations.create');
-        Route::post('/locations', [LocationController::class, 'store'])
-            ->name('locations.store');
-
-        Route::get('/warehouses', [WarehouseController::class, 'index'])
-            ->name('warehouses.index');
-        Route::get('/warehouses/create', [WarehouseController::class, 'create'])
-            ->name('warehouses.create');
-        Route::post('/warehouses', [WarehouseController::class, 'store'])
-            ->name('warehouses.store');
-
-        Route::get('/vendors', [VendorController::class, 'index'])
-            ->name('vendors.index');
-        Route::get('/vendors/create', [VendorController::class, 'create'])
-            ->name('vendors.create');
-        Route::post('/vendors', [VendorController::class, 'store'])
-            ->name('vendors.store');
-
-        Route::get('/routes', [VendingRouteController::class, 'index'])
-            ->name('routes.index');
-        Route::get('/routes/create', [VendingRouteController::class, 'create'])
-            ->name('routes.create');
-        Route::post('/routes', [VendingRouteController::class, 'store'])
-            ->name('routes.store');
+        Route::get('/services/{service}', [ServiceController::class, 'show'])
+            ->name('services.show');
+        Route::post('/services/{service}/open', [ServiceController::class, 'open'])
+            ->name('services.open');
+        Route::post('/services/{service}/close', [ServiceController::class, 'close'])
+            ->name('services.close');
+        Route::get('/services/{service}/machines/{machine}/count', [ServiceController::class, 'countMachine'])
+            ->name('services.machines.count');
+        Route::post('/services/{service}/machines/{machine}/count', [ServiceController::class, 'storeCount'])
+            ->name('services.machines.count.store');
+        Route::get('/services/{service}/machines/{machine}/fill', [ServiceController::class, 'fillMachine'])
+            ->name('services.machines.fill');
+        Route::post('/services/{service}/machines/{machine}/fill', [ServiceController::class, 'storeFill'])
+            ->name('services.machines.fill.store');
     });
 });

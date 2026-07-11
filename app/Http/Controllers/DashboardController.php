@@ -51,7 +51,7 @@ class DashboardController extends Controller
         try {
             return Transaction::query()
                 ->where('account_id', $accountId)
-                ->with(['product', 'warehouse', 'service'])
+                ->with(['product', 'machine', 'service'])
                 ->latest('id')
                 ->limit(8)
                 ->get();

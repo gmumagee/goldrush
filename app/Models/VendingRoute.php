@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class VendingRoute extends Model
 {
+    protected $withCount = [];
+
     protected $table = 'tbl_routes';
 
     public $timestamps = false;

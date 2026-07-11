@@ -11,14 +11,25 @@ class WarehouseController extends Controller
 {
     public function index(Request $request): View
     {
-        $accountId = (int) $request->session()->get('current_account_id');
+        $accountId = $this->currentAccountId($request);
+        $search = trim((string) $request->string('search'));
 
         $warehouses = Warehouse::query()
             ->where('account_id', $accountId)
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($warehouseQuery) use ($search) {
+                    $warehouseQuery
+                        ->where('warehouse_name', 'like', '%'.$search.'%')
+                        ->orWhere('city', 'like', '%'.$search.'%')
+                        ->orWhere('state', 'like', '%'.$search.'%')
+                        ->orWhere('zip_code', 'like', '%'.$search.'%');
+                });
+            })
             ->orderBy('id', 'desc')
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
-        return view('warehouses.index', compact('warehouses'));
+        return view('warehouses.index', compact('warehouses', 'search'));
     }
 
     public function create(): View
@@ -28,7 +39,7 @@ class WarehouseController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $accountId = (int) $request->session()->get('current_account_id');
+        $accountId = $this->currentAccountId($request);
 
         $data = $request->validate([
             'warehouse_name' => ['required', 'string', 'max:255'],
@@ -43,5 +54,51 @@ class WarehouseController extends Controller
         Warehouse::create($data);
 
         return redirect()->route('warehouses.index')->with('status', 'Warehouse created successfully.');
+    }
+
+    public function show(Request $request, int $warehouse): View
+    {
+        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+
+        return view('warehouses.show', compact('warehouse'));
+    }
+
+    public function edit(Request $request, int $warehouse): View
+    {
+        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+
+        return view('warehouses.edit', compact('warehouse'));
+    }
+
+    public function update(Request $request, int $warehouse): RedirectResponse
+    {
+        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+
+        $data = $request->validate([
+            'warehouse_name' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'state' => ['nullable', 'string', 'max:100'],
+            'zip_code' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $warehouse->update($data);
+
+        return redirect()->route('warehouses.show', $warehouse)->with('status', 'Warehouse updated successfully.');
+    }
+
+    public function destroy(Request $request, int $warehouse): RedirectResponse
+    {
+        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+        $warehouse->delete();
+
+        return redirect()->route('warehouses.index')->with('status', 'Warehouse deleted successfully.');
+    }
+
+    protected function warehouseForAccount(int $accountId, int $warehouseId): Warehouse
+    {
+        return Warehouse::query()
+            ->where('account_id', $accountId)
+            ->findOrFail($warehouseId);
     }
 }

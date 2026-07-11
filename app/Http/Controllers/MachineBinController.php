@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Bin;
 use App\Models\Machine;
+use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MachineBinController extends Controller
@@ -22,6 +26,27 @@ class MachineBinController extends Controller
             'machine' => $machine,
             'nextRowLetter' => $this->nextRowLetter($machine->bins),
             'rows' => $this->groupRows($machine->bins),
+        ]);
+    }
+
+    public function edit(Request $request, Machine $machine): View
+    {
+        $accountId = (int) $request->session()->get('current_account_id');
+        abort_unless($machine->account_id === $accountId, 404);
+
+        $machine->load([
+            'location',
+            'bins' => fn ($query) => $query->with('product')->orderBy('bin_code'),
+        ]);
+
+        $products = Product::query()
+            ->where('account_id', $accountId)
+            ->orderBy('product_name')
+            ->get();
+
+        return view('machines.bins.edit', [
+            'machine' => $machine,
+            'products' => $products,
         ]);
     }
 
@@ -71,6 +96,86 @@ class MachineBinController extends Controller
         return redirect()
             ->route('machines.bins.create', $machine)
             ->with('status', 'Added row '.$rowLetter.' with '.$count.' bins.');
+    }
+
+    public function update(Request $request, Machine $machine): RedirectResponse
+    {
+        $accountId = (int) $request->session()->get('current_account_id');
+        abort_unless($machine->account_id === $accountId, 404);
+
+        $machine->load([
+            'bins' => fn ($query) => $query->orderBy('bin_code'),
+        ]);
+
+        if ($machine->bins->isEmpty()) {
+            throw ValidationException::withMessages([
+                'machine' => 'This machine does not have any bins to edit.',
+            ]);
+        }
+
+        $rules = [
+            'bins' => ['required', 'array'],
+        ];
+
+        $attributes = [];
+
+        foreach ($machine->bins as $bin) {
+            $rules['bins.'.$bin->id.'.bin_code'] = ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'];
+            $rules['bins.'.$bin->id.'.product_id'] = [
+                'nullable',
+                'integer',
+                Rule::exists('tbl_products', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
+            ];
+            $rules['bins.'.$bin->id.'.capacity'] = ['required', 'integer', 'min:0'];
+            $rules['bins.'.$bin->id.'.price'] = ['nullable', 'numeric', 'min:0'];
+
+            $attributes['bins.'.$bin->id.'.bin_code'] = $bin->bin_code.' code';
+            $attributes['bins.'.$bin->id.'.product_id'] = $bin->bin_code.' product';
+            $attributes['bins.'.$bin->id.'.capacity'] = $bin->bin_code.' capacity';
+            $attributes['bins.'.$bin->id.'.price'] = $bin->bin_code.' price';
+        }
+
+        $validated = validator($request->all(), $rules, [], $attributes)->validate();
+        $binPayload = $validated['bins'];
+
+        $normalizedCodes = collect();
+
+        foreach ($machine->bins as $bin) {
+            $payload = $binPayload[$bin->id] ?? null;
+
+            if (! is_array($payload)) {
+                throw ValidationException::withMessages([
+                    'bins' => 'Update data is required for every bin on this machine.',
+                ]);
+            }
+
+            $normalizedCodes->push(strtoupper((string) $payload['bin_code']));
+        }
+
+        if ($normalizedCodes->count() !== $normalizedCodes->unique()->count()) {
+            throw ValidationException::withMessages([
+                'bins' => 'Bin codes must be unique within a machine.',
+            ]);
+        }
+
+        DB::transaction(function () use ($machine, $binPayload): void {
+            foreach ($machine->bins as $bin) {
+                $payload = $binPayload[$bin->id];
+
+                $bin->update([
+                    'product_id' => $payload['product_id'] ?? null,
+                    'bin_code' => strtoupper((string) $payload['bin_code']),
+                    'capacity' => (int) $payload['capacity'],
+                    'price' => $payload['price'] !== null && $payload['price'] !== ''
+                        ? (float) $payload['price']
+                        : null,
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('machines.show', $machine->id)
+            ->with('status', 'Bins updated successfully.');
     }
 
     protected function groupRows(Collection $bins): Collection

@@ -41,6 +41,11 @@ class Machine extends Model
 
     public function services()
     {
-        return $this->hasMany(Service::class, 'machine_id');
+        return $this->hasMany(Service::class, 'location_id', 'location_id');
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'machine_id');
     }
 }

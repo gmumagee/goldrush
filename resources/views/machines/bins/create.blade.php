@@ -127,6 +127,9 @@
                             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Existing Rows</h2>
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Current bin layout for this machine.</p>
                         </div>
+                        <a href="{{ route('machines.bins.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                            Edit Existing Bins
+                        </a>
                     </div>
                     <div class="panel-body space-y-4">
                         @forelse ($rows as $row)

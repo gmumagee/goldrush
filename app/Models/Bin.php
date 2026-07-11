@@ -16,6 +16,11 @@ class Bin extends Model
         'product_id',
         'bin_code',
         'capacity',
+        'price',
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
     ];
 
     public function account()

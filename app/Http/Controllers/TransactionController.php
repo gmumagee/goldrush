@@ -1,0 +1,280 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Bin;
+use App\Models\Location;
+use App\Models\Machine;
+use App\Models\Service;
+use App\Models\Transaction;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+
+class TransactionController extends Controller
+{
+    protected const TYPES = ['count', 'fill', 'add', 'waste', 'remove', 'adjustment'];
+
+    public function index(Request $request): View
+    {
+        $accountId = $this->currentAccountId($request);
+        $serviceId = $request->integer('service_id');
+        $machineId = $request->integer('machine_id');
+        $transactionType = $request->string('transaction_type')->toString();
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        $transactions = Transaction::query()
+            ->where('account_id', $accountId)
+            ->with(['service.location', 'machine', 'bin', 'product'])
+            ->when($serviceId, fn ($query) => $query->where('service_id', $serviceId))
+            ->when($machineId, fn ($query) => $query->where('machine_id', $machineId))
+            ->when($transactionType !== '', fn ($query) => $query->where('transaction_type', $transactionType))
+            ->when($dateFrom, fn ($query) => $query->whereDate('transaction_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($query) => $query->whereDate('transaction_at', '<=', $dateTo))
+            ->orderByDesc('transaction_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('transactions.index', [
+            'transactions' => $transactions,
+            'services' => $this->servicesForAccount($accountId),
+            'machines' => $this->machinesForAccount($accountId),
+            'transactionTypes' => self::TYPES,
+            'filters' => [
+                'service_id' => $serviceId,
+                'machine_id' => $machineId,
+                'transaction_type' => $transactionType,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+        ]);
+    }
+
+    public function create(Request $request): View
+    {
+        $accountId = $this->currentAccountId($request);
+        $selectedMachineId = $request->integer('machine_id');
+        $selectedBinId = $request->integer('bin_id');
+
+        return view('transactions.create', [
+            'services' => $this->servicesForAccount($accountId),
+            'machines' => $this->machinesForAccount($accountId),
+            'bins' => $this->binsForAccount($accountId, $selectedMachineId),
+            'transactionTypes' => self::TYPES,
+            'selectedBin' => $selectedBinId ? $this->binForAccount($accountId, $selectedBinId, ['product', 'machine']) : null,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $accountId = $this->currentAccountId($request);
+        [$service, $bin, $payload] = $this->validatedTransactionPayload($request, $accountId);
+
+        Transaction::create([
+            'account_id' => $accountId,
+            'service_id' => $service->id,
+            // Machine isolation: writes always derive the machine from the
+            // persisted bin instead of trusting request input.
+            'machine_id' => $bin->machine_id,
+            'bin_id' => $bin->id,
+            'product_id' => $bin->product_id,
+            'transaction_type' => $payload['transaction_type'],
+            'quantity' => (int) $payload['quantity'],
+            'price' => $payload['price'] ?? $bin->price,
+            'unit_cost' => $payload['unit_cost'] ?? null,
+            'transaction_at' => $payload['transaction_at'],
+        ]);
+
+        return redirect()
+            ->route('transactions.index')
+            ->with('status', 'Transaction created successfully.');
+    }
+
+    public function show(Request $request, int $transaction): View
+    {
+        $transaction = $this->transactionForAccount($this->currentAccountId($request), $transaction, [
+            'service.location',
+            'machine.location',
+            'bin',
+            'product',
+        ]);
+
+        return view('transactions.show', [
+            'transaction' => $transaction,
+        ]);
+    }
+
+    public function edit(Request $request, int $transaction): View|RedirectResponse
+    {
+        $accountId = $this->currentAccountId($request);
+        $transaction = $this->transactionForAccount($accountId, $transaction, [
+            'service.location',
+            'machine',
+            'bin.product',
+            'product',
+        ]);
+
+        if ($transaction->service?->isServiceClosed()) {
+            return redirect()
+                ->route('transactions.show', $transaction->id)
+                ->withErrors(['transaction' => 'Closed service transactions are read-only.']);
+        }
+
+        return view('transactions.edit', [
+            'transaction' => $transaction,
+            'services' => $this->servicesForAccount($accountId),
+            'machines' => $this->machinesForAccount($accountId),
+            'bins' => $this->binsForAccount($accountId, $transaction->machine_id),
+            'transactionTypes' => self::TYPES,
+        ]);
+    }
+
+    public function update(Request $request, int $transaction): RedirectResponse
+    {
+        $accountId = $this->currentAccountId($request);
+        $transaction = $this->transactionForAccount($accountId, $transaction, ['service']);
+
+        if ($transaction->service?->isServiceClosed()) {
+            return back()->withErrors(['transaction' => 'Closed service transactions are read-only.']);
+        }
+
+        [$service, $bin, $payload] = $this->validatedTransactionPayload($request, $accountId);
+
+        $transaction->update([
+            'service_id' => $service->id,
+            'machine_id' => $bin->machine_id,
+            'bin_id' => $bin->id,
+            'product_id' => $bin->product_id,
+            'transaction_type' => $payload['transaction_type'],
+            'quantity' => (int) $payload['quantity'],
+            'price' => $payload['price'] ?? $bin->price,
+            'unit_cost' => $payload['unit_cost'] ?? null,
+            'transaction_at' => $payload['transaction_at'],
+        ]);
+
+        return redirect()
+            ->route('transactions.show', $transaction->id)
+            ->with('status', 'Transaction updated successfully.');
+    }
+
+    public function destroy(Request $request, int $transaction): RedirectResponse
+    {
+        $transaction = $this->transactionForAccount($this->currentAccountId($request), $transaction, ['service']);
+
+        if ($transaction->service?->isServiceClosed()) {
+            return back()->withErrors(['transaction' => 'Closed service transactions cannot be deleted.']);
+        }
+
+        $transaction->delete();
+
+        return redirect()
+            ->route('transactions.index')
+            ->with('status', 'Transaction deleted successfully.');
+    }
+
+    protected function validatedTransactionPayload(Request $request, int $accountId): array
+    {
+        $payload = $request->validate([
+            'service_id' => [
+                'required',
+                'integer',
+                Rule::exists('tbl_services', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
+            ],
+            'machine_id' => [
+                'required',
+                'integer',
+                Rule::exists('tbl_machines', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
+            ],
+            'bin_id' => [
+                'required',
+                'integer',
+                Rule::exists('tbl_bins', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
+            ],
+            'transaction_type' => ['required', Rule::in(self::TYPES)],
+            'quantity' => ['required', 'integer'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'transaction_at' => ['required', 'date'],
+        ]);
+
+        $service = Service::query()
+            ->where('account_id', $accountId)
+            ->findOrFail((int) $payload['service_id']);
+
+        $bin = $this->binForAccount($accountId, (int) $payload['bin_id'], ['machine', 'product']);
+
+        if ($service->isServiceClosed()) {
+            throw ValidationException::withMessages([
+                'service_id' => 'Transactions cannot be added to Service Closed services.',
+            ]);
+        }
+
+        if ((int) $payload['machine_id'] !== (int) $bin->machine_id) {
+            throw ValidationException::withMessages([
+                'machine_id' => 'The selected machine must match the selected bin.',
+            ]);
+        }
+
+        // Location isolation: manual transaction entry cannot bind a bin from
+        // a different machine or location than the selected service.
+        if ((int) $bin->machine?->location_id !== (int) $service->location_id) {
+            throw ValidationException::withMessages([
+                'bin_id' => 'The selected bin is not on a machine at the service location.',
+            ]);
+        }
+
+        return [$service, $bin, $payload];
+    }
+
+    protected function transactionForAccount(int $accountId, int $transactionId, array $with = []): Transaction
+    {
+        // Account isolation: every transaction lookup stays inside the current
+        // account before related service, machine, bin, and product data load.
+        return Transaction::query()
+            ->where('account_id', $accountId)
+            ->with($with)
+            ->findOrFail($transactionId);
+    }
+
+    protected function servicesForAccount(int $accountId)
+    {
+        return Service::query()
+            ->where('account_id', $accountId)
+            ->with('location')
+            ->orderByDesc('service_date')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    protected function machinesForAccount(int $accountId)
+    {
+        return Machine::query()
+            ->where('account_id', $accountId)
+            ->with('location')
+            ->orderBy('type')
+            ->orderBy('serial_number')
+            ->get();
+    }
+
+    protected function binsForAccount(int $accountId, ?int $machineId = null)
+    {
+        return Bin::query()
+            ->where('account_id', $accountId)
+            ->with(['machine', 'product'])
+            ->when($machineId, fn ($query) => $query->where('machine_id', $machineId))
+            ->orderBy('bin_code')
+            ->get();
+    }
+
+    protected function binForAccount(int $accountId, int $binId, array $with = []): Bin
+    {
+        return Bin::query()
+            ->where('account_id', $accountId)
+            ->with($with)
+            ->findOrFail($binId);
+    }
+}

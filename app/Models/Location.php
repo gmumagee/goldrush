@@ -37,4 +37,21 @@ class Location extends Model
     {
         return $this->hasMany(Machine::class, 'location_id');
     }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class, 'location_id');
+    }
+
+    public function transactions()
+    {
+        return $this->hasManyThrough(
+            Transaction::class,
+            Machine::class,
+            'location_id',
+            'machine_id',
+            'id',
+            'id'
+        );
+    }
 }

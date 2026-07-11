@@ -79,120 +79,36 @@
             <div>
                 <h3 class="pl-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">
                     <span class="hidden w-6 text-center lg:hidden" aria-hidden="true">•••</span>
-                    <span class="block">Machines</span>
+                    <span class="block">Operations</span>
                 </h3>
-
                 <ul class="mt-3 space-y-1">
-                    <li>
-                        <a
-                            href="{{ route('machines.index') }}"
-                            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('machines.index') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"
-                        >
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
-                                <path d="M2 3h12v2H2zm1 4h10v6H3zm2 2v2h2V9zm4 0v2h2V9z" />
-                            </svg>
-                            <span class="opacity-100">Machine Inventory</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a
-                            href="{{ route('machines.create') }}"
-                            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('machines.create') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"
-                        >
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
-                                <path d="M7 1h2v6h6v2H9v6H7V9H1V7h6z" />
-                            </svg>
-                            <span class="opacity-100">Add Machine</span>
-                        </a>
-                    </li>
+                    <li><a href="{{ route('services.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('services.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 3h12v10H2zm2 2v6h8V5zm1 1h2v1H5zm0 2h6v1H5z" /></svg><span class="opacity-100">Services</span></a></li>
+                    <li><a href="{{ route('transactions.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('transactions.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M3 2h10v12H3zm2 2v2h6V4zm0 4v1h6V8zm0 3v1h4v-1z" /></svg><span class="opacity-100">Transactions</span></a></li>
                 </ul>
             </div>
 
             <div>
                 <h3 class="pl-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">
                     <span class="hidden w-6 text-center lg:hidden" aria-hidden="true">•••</span>
-                    <span class="block">Products</span>
+                    <span class="block">Inventory Setup</span>
                 </h3>
-
                 <ul class="mt-3 space-y-1">
-                    <li>
-                        <a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.index') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 3h12v10H2zm2 2v2h8V5zm0 4v2h5V9z" /></svg>
-                            <span class="opacity-100">Product Inventory</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('products.create') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.create') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M7 1h2v6h6v2H9v6H7V9H1V7h6z" /></svg>
-                            <span class="opacity-100">Add Product</span>
-                        </a>
-                    </li>
+                    <li><a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 3h12v10H2zm2 2v2h8V5zm0 4v2h5V9z" /></svg><span class="opacity-100">Products</span></a></li>
+                    <li><a href="{{ route('vendors.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M3 3h10v10H3zm2 2v6h6V5z" /></svg><span class="opacity-100">Vendors</span></a></li>
+                    <li><a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 5l6-3 6 3v7H2zm2 1.2V10h8V6.2L8 4.2z" /></svg><span class="opacity-100">Warehouses</span></a></li>
                 </ul>
             </div>
 
             <div>
                 <h3 class="pl-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">
                     <span class="hidden w-6 text-center lg:hidden" aria-hidden="true">•••</span>
-                    <span class="block">Locations</span>
+                    <span class="block">Route Management</span>
                 </h3>
-
                 <ul class="mt-3 space-y-1">
-                    <li>
-                        <a href="{{ route('locations.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('locations.index') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M8 1l6 4v9H2V5zm0 2.2L4 5.7V12h8V5.7z" /></svg>
-                            <span class="opacity-100">Location Inventory</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('locations.create') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('locations.create') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M7 1h2v6h6v2H9v6H7V9H1V7h6z" /></svg>
-                            <span class="opacity-100">Add Location</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h3 class="pl-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">
-                    <span class="hidden w-6 text-center lg:hidden" aria-hidden="true">•••</span>
-                    <span class="block">Warehouses</span>
-                </h3>
-
-                <ul class="mt-3 space-y-1">
-                    <li>
-                        <a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.index') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 5l6-3 6 3v7H2zm2 1.2V10h8V6.2L8 4.2z" /></svg>
-                            <span class="opacity-100">Warehouse Inventory</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('warehouses.create') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.create') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M7 1h2v6h6v2H9v6H7V9H1V7h6z" /></svg>
-                            <span class="opacity-100">Add Warehouse</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h3 class="pl-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">
-                    <span class="hidden w-6 text-center lg:hidden" aria-hidden="true">•••</span>
-                    <span class="block">Vendors</span>
-                </h3>
-
-                <ul class="mt-3 space-y-1">
-                    <li>
-                        <a href="{{ route('vendors.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.index') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M3 3h10v10H3zm2 2v6h6V5z" /></svg>
-                            <span class="opacity-100">Vendor Inventory</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('vendors.create') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.create') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}">
-                            <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M7 1h2v6h6v2H9v6H7V9H1V7h6z" /></svg>
-                            <span class="opacity-100">Add Vendor</span>
-                        </a>
-                    </li>
+                    <li><a href="{{ route('routes.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('routes.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 3h12v2H2zm0 4h9v2H2zm0 4h6v2H2z" /></svg><span class="opacity-100">Routes</span></a></li>
+                    <li><a href="{{ route('locations.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('locations.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M8 1l6 4v9H2V5zm0 2.2L4 5.7V12h8V5.7z" /></svg><span class="opacity-100">Locations</span></a></li>
+                    <li><a href="{{ route('machines.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('machines.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 3h12v2H2zm1 4h10v6H3zm2 2v2h2V9zm4 0v2h2V9z" /></svg><span class="opacity-100">Machines</span></a></li>
+                    <li><a href="{{ route('bins.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('bins.*') ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60' }}"><svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16"><path d="M2 3h12v3H2zm0 5h12v5H2z" /></svg><span class="opacity-100">Bins</span></a></li>
                 </ul>
             </div>
 

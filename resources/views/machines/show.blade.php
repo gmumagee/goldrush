@@ -13,6 +13,12 @@
                     <a href="{{ route('machines.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                         Back to Machines
                     </a>
+                    <a href="{{ route('machines.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                        Edit Machine
+                    </a>
+                    <a href="{{ route('machines.bins.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                        Edit Bins
+                    </a>
                     <a href="{{ route('machines.bins.create', $machine) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
                         Add Bins
                     </a>
@@ -62,59 +68,40 @@
                             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Bins</h2>
                         </div>
                     </div>
-                    <div class="p-5">
-                        @php
-                            $rows = $machine->bins
-                                ->sortBy('bin_code')
-                                ->groupBy(function ($bin) {
-                                    if (preg_match('/^([A-Z]+)/', strtoupper($bin->bin_code), $matches)) {
-                                        return $matches[1];
-                                    }
-
-                                    return 'OTHER';
-                                });
-                        @endphp
-                        <div class="space-y-3">
-                            @forelse ($rows as $row => $rowBins)
-                                <details class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700/60 dark:bg-gray-800">
-                                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-medium text-gray-800 marker:hidden dark:text-gray-100">
-                                        <span>Row: {{ $row === 'OTHER' ? 'Other' : $row }}</span>
-                                        <span aria-hidden="true" class="text-lg leading-none text-gray-400 dark:text-gray-500">+</span>
-                                    </summary>
-                                    <div
-                                        class="grid gap-3 border-t border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-700/60 dark:bg-gray-900/40"
-                                        style="grid-template-columns: repeat({{ max($rowBins->count(), 1) }}, minmax(0, 1fr));"
-                                    >
-                                        @foreach ($rowBins as $bin)
-                                            @php
-                                                $currentInventory = (int) ($bin->current_inventory ?? 0);
-                                            @endphp
-                                            <div class="min-w-0 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm dark:border-gray-700/60 dark:bg-gray-800">
-                                                <div class="font-medium text-gray-800 dark:text-gray-100">{{ $bin->bin_code }}</div>
-                                                <div class="mt-3 space-y-3">
-                                                    <div>
-                                                        <div class="text-gray-500 dark:text-gray-400">Product</div>
-                                                        <div class="mt-1 text-gray-800 dark:text-gray-100">{{ $bin->product?->product_name ?? '—' }}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="text-gray-500 dark:text-gray-400">Capacity</div>
-                                                        <div class="mt-1 text-gray-800 dark:text-gray-100">{{ $bin->capacity }}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="text-gray-500 dark:text-gray-400">Current Inventory</div>
-                                                        <div class="mt-1 text-gray-800 dark:text-gray-100">{{ $currentInventory }}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </details>
-                            @empty
-                                <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-700/60 dark:text-gray-400">
-                                    No bins yet.
-                                </div>
-                            @endforelse
-                        </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full table-fixed divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
+                            <colgroup>
+                                <col class="w-24">
+                                <col class="w-auto">
+                                <col class="w-28">
+                                <col class="w-28">
+                                <col class="w-40">
+                            </colgroup>
+                            <thead class="bg-gray-50 dark:bg-gray-800/80">
+                                <tr>
+                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Bin</th>
+                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Product</th>
+                                    <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Capacity</th>
+                                    <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Price</th>
+                                    <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Current Inventory</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
+                                @forelse ($machine->bins as $bin)
+                                    <tr class="bg-white dark:bg-gray-800">
+                                        <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $bin->bin_code }}</td>
+                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $bin->product?->product_name ?? '—' }}</td>
+                                        <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $bin->capacity }}</td>
+                                        <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $bin->price !== null ? number_format((float) $bin->price, 2) : '—' }}</td>
+                                        <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $inventoryByBin[$bin->id] ?? 0 }}</td>
+                                    </tr>
+                                @empty
+                                    <tr class="bg-white dark:bg-gray-800">
+                                        <td colspan="5" class="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No bins yet.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </section>
             </div>

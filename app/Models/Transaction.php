@@ -13,16 +13,18 @@ class Transaction extends Model
     protected $fillable = [
         'account_id',
         'service_id',
-        'warehouse_id',
+        'machine_id',
         'bin_id',
         'product_id',
         'transaction_type',
         'quantity',
+        'transaction_at',
         'price',
         'unit_cost',
     ];
 
     protected $casts = [
+        'transaction_at' => 'datetime',
         'price' => 'decimal:2',
         'unit_cost' => 'decimal:2',
     ];
@@ -37,9 +39,9 @@ class Transaction extends Model
         return $this->belongsTo(Service::class, 'service_id');
     }
 
-    public function warehouse()
+    public function machine()
     {
-        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+        return $this->belongsTo(Machine::class, 'machine_id');
     }
 
     public function bin()

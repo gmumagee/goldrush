@@ -21,8 +21,16 @@
                         </select>
                     </div>
                     <div class="grid gap-5 md:grid-cols-2">
+                        <div><x-label for="category" value="Category" /><x-input id="category" name="category" type="text" :value="old('category')" /></div>
+                        <div><x-label for="brand" value="Brand" /><x-input id="brand" name="brand" type="text" :value="old('brand')" /></div>
+                    </div>
+                    <div class="grid gap-5 md:grid-cols-2">
                         <div><x-label for="product_name" value="Product Name" /><x-input id="product_name" name="product_name" type="text" :value="old('product_name')" required /></div>
                         <div><x-label for="sku" value="SKU" /><x-input id="sku" name="sku" type="text" :value="old('sku')" /></div>
+                    </div>
+                    <div class="grid gap-5 md:grid-cols-2">
+                        <div><x-label for="size" value="Size" /><x-input id="size" name="size" type="text" :value="old('size')" /></div>
+                        <div><x-label for="package_type" value="Package Type" /><x-input id="package_type" name="package_type" type="text" :value="old('package_type')" /></div>
                     </div>
                     <div><x-label for="barcode" value="Barcode" /><x-input id="barcode" name="barcode" type="text" :value="old('barcode')" /></div>
                     <div class="flex items-center justify-end gap-3"><a href="{{ route('products.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Cancel</a><x-button>Create Product</x-button></div>
