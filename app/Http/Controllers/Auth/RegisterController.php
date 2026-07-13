@@ -35,13 +35,13 @@ class RegisterController extends Controller
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
-                'status' => 'active',
+                'status' => User::STATUS_ACTIVE,
             ]);
 
             $account = Account::create([
                 'account_name' => $data['account_name'],
                 'slug' => $this->generateUniqueAccountSlug($data['account_name']),
-                'status' => 'active',
+                'status' => Account::STATUS_ACTIVE,
                 'billing_email' => $data['email'],
             ]);
 
@@ -49,7 +49,7 @@ class RegisterController extends Controller
                 'account_id' => $account->id,
                 'user_id' => $user->id,
                 'role' => 'owner',
-                'status' => 'active',
+                'status' => AccountUser::STATUS_ACTIVE,
             ]);
 
             return [$user, $account];

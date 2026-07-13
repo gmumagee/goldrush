@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
+use App\Models\AccountUser;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,8 +41,8 @@ class AccountSelectionController extends Controller
     private function activeAccountsFor(User $user)
     {
         return $user->accounts()
-            ->where('tbl_accounts.status', 'active')
-            ->wherePivot('status', 'active')
+            ->where('tbl_accounts.status', Account::STATUS_ACTIVE)
+            ->wherePivot('status', AccountUser::STATUS_ACTIVE)
             ->orderBy('account_name')
             ->get();
     }

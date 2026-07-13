@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\VendingRoute;
+use App\Services\DataDictionaryService;
 use App\Services\InventoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +16,10 @@ use Illuminate\View\View;
 class MachineController extends Controller
 {
     protected const TYPES = ['soda', 'snack', 'combo', 'other'];
-    protected const STATUSES = ['active', 'inactive', 'repair', 'retired'];
+
+    public function __construct(protected DataDictionaryService $dataDictionaryService)
+    {
+    }
 
     public function index(Request $request): View
     {
@@ -74,7 +79,7 @@ class MachineController extends Controller
             'locations' => $locations,
             'defaultLocationId' => $locations->first()?->id,
             'machineTypes' => self::TYPES,
-            'machineStatuses' => self::STATUSES,
+            'machineStatuses' => $this->dataDictionaryService->options(DataDictionary::GROUP_MACHINE_STATUS, $accountId),
         ]);
     }
 
@@ -103,7 +108,7 @@ class MachineController extends Controller
             'locations' => $this->locationsForAccount($accountId),
             'defaultLocationId' => $machine->location_id,
             'machineTypes' => self::TYPES,
-            'machineStatuses' => self::STATUSES,
+            'machineStatuses' => $this->dataDictionaryService->options(DataDictionary::GROUP_MACHINE_STATUS, $accountId),
         ]);
     }
 
@@ -142,7 +147,7 @@ class MachineController extends Controller
 
     protected function validateMachine(Request $request, int $accountId, ?Machine $machine = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'location_id' => [
                 'nullable',
                 'integer',
@@ -158,9 +163,18 @@ class MachineController extends Controller
                     ->ignore($machine?->id),
             ],
             'model' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', 'string', 'max:50'],
-            'installed_on' => ['nullable', 'date'],
+            'status' => [
+                'required',
+                'string',
+                'max:50',
+                $this->activeDictionaryValueRule(DataDictionary::GROUP_MACHINE_STATUS, $accountId),
+            ],
+            'installed_on' => ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
         ]);
+
+        $data['installed_on'] = $this->normalizeDateInput($data['installed_on'] ?? null, 'installed_on', true);
+
+        return $data;
     }
 
     protected function locationsForAccount(int $accountId)

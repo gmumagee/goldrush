@@ -52,7 +52,7 @@
                             </div>
                             <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
                                 <dt class="text-gray-500 dark:text-gray-400">Installed</dt>
-                                <dd class="mt-1 font-medium text-gray-800 dark:text-gray-100">{{ $machine->installed_on?->format('Y-m-d') ?? '—' }}</dd>
+                                <dd class="mt-1 font-medium text-gray-800 dark:text-gray-100">{{ \App\Support\AppDateTime::displayDate($machine->installed_on) }}</dd>
                             </div>
                             <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
                                 <dt class="text-gray-500 dark:text-gray-400">Bin Count</dt>

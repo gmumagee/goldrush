@@ -202,13 +202,20 @@ return new class extends Migration
                 ->constrained('tbl_users')
                 ->nullOnDelete();
 
+            $table->foreignId('closed_by_user_id')
+                ->nullable()
+                ->constrained('tbl_users')
+                ->nullOnDelete();
+
             $table->string('service_type', 50);
             $table->dateTime('service_date');
+            $table->decimal('amount_collected', 10, 2)->nullable();
             $table->string('status', 50)->default('open');
 
             $table->index('account_id');
             $table->index('machine_id');
             $table->index('user_id');
+            $table->index('closed_by_user_id');
             $table->index('service_date');
             $table->index('status');
         });

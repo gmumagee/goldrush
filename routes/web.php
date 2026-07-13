@@ -63,8 +63,12 @@ Route::middleware('auth')->group(function () {
             ->name('services.show');
         Route::post('/services/{service}/open', [ServiceController::class, 'open'])
             ->name('services.open');
-        Route::post('/services/{service}/close', [ServiceController::class, 'close'])
-            ->name('services.close');
+        Route::post('/services/{service}/complete', [ServiceController::class, 'complete'])
+            ->name('services.complete');
+        Route::get('/services/{service}/amount-collected/edit', [ServiceController::class, 'editAmountCollected'])
+            ->name('services.amount-collected.edit');
+        Route::post('/services/{service}/amount-collected', [ServiceController::class, 'updateAmountCollected'])
+            ->name('services.amount-collected.update');
         Route::get('/services/{service}/machines/{machine}/count', [ServiceController::class, 'countMachine'])
             ->name('services.machines.count');
         Route::post('/services/{service}/machines/{machine}/count', [ServiceController::class, 'storeCount'])

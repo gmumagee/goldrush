@@ -43,7 +43,7 @@
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->model ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->location?->location_name ?? '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->status }}</td>
-                                    <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->installed_on?->format('Y-m-d') ?? '—' }}</td>
+                                    <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayDate($machine->installed_on) }}</td>
                                     <td class="px-5 py-4">
                                         <div class="flex flex-wrap gap-2">
                                             <a href="{{ route('machines.show', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View</a>

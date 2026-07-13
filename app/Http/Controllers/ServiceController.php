@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountUser;
+use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\DataDictionaryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -16,33 +20,46 @@ use Illuminate\View\View;
 
 class ServiceController extends Controller
 {
+    public function __construct(protected DataDictionaryService $dataDictionaryService)
+    {
+    }
+
     public function index(Request $request): View
     {
         $accountId = $this->currentAccountId($request);
-        $status = $request->string('status')->toString();
-        $locationId = $request->integer('location_id');
-        $serviceDate = $request->input('service_date');
 
-        $services = Service::query()
+        $pendingServices = Service::query()
             ->where('account_id', $accountId)
-            ->with(['location.route', 'user'])
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->when($locationId, fn ($query) => $query->where('location_id', $locationId))
-            ->when($serviceDate, fn ($query) => $query->whereDate('service_date', $serviceDate))
+            ->with(['location.route', 'user', 'closedBy'])
+            ->whereIn('status', [Service::STATUS_AWAITING_SERVICE, 'awaiting service'])
+            ->orderBy('service_date')
+            ->orderBy('id')
+            ->get();
+
+        $completedServicesAwaitingMoney = Service::query()
+            ->where('account_id', $accountId)
+            ->with(['location.route', 'user', 'closedBy'])
+            ->where('status', Service::STATUS_SERVICE_COMPLETED)
+            ->whereNull('amount_collected')
+            ->orderByDesc('completed_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $allServices = Service::query()
+            ->where('account_id', $accountId)
+            ->with(['location.route', 'user', 'closedBy'])
             ->orderByDesc('service_date')
             ->orderByDesc('id')
-            ->paginate(25)
-            ->withQueryString();
+            ->get();
 
         return view('services.index', [
-            'services' => $services,
-            'locations' => $this->locationsForAccount($accountId),
-            'statuses' => $this->serviceStatuses(),
-            'filters' => [
-                'status' => $status,
-                'location_id' => $locationId,
-                'service_date' => $serviceDate,
-            ],
+            'pendingServicesByLocation' => $this->groupServicesByLocation($pendingServices),
+            'completedServicesByLocation' => $this->groupServicesByLocation($completedServicesAwaitingMoney),
+            'allServicesByLocation' => $this->groupServicesByLocation($allServices),
+            'pendingServicesCount' => $pendingServices->count(),
+            'completedServicesCount' => $completedServicesAwaitingMoney->count(),
+            'allServicesCount' => $allServices->count(),
+            'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
         ]);
     }
 
@@ -54,7 +71,7 @@ class ServiceController extends Controller
             'locations' => $this->locationsForAccount($accountId),
             'users' => $this->assignableUsersForAccount($accountId)->get(),
             'currentUser' => $request->user(),
-            'serviceStatuses' => $this->serviceStatuses(),
+            'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
         ]);
     }
 
@@ -73,10 +90,13 @@ class ServiceController extends Controller
             'account_id' => $accountId,
             'location_id' => (int) $data['location_id'],
             'user_id' => $assignedUserId,
+            'closed_by_user_id' => null,
             'service_type' => $data['service_type'] ?? Service::TYPE_LOCATION_SERVICE,
             'service_date' => $data['service_date'],
             'opened_at' => null,
+            'completed_at' => null,
             'closed_at' => null,
+            'amount_collected' => null,
             'status' => Service::STATUS_AWAITING_SERVICE,
         ]);
 
@@ -92,14 +112,15 @@ class ServiceController extends Controller
             'location.machines' => fn ($query) => $query->orderBy('type')->orderBy('id'),
             'location.machines.bins',
             'user',
-            'transactions' => fn ($query) => $query->latest('id'),
-            'transactions.bin.machine',
-            'transactions.machine',
-            'transactions.product',
+            'closedBy',
         ]);
+
+        $transactionsByDateAndType = $this->groupTransactionsForService($service);
 
         return view('services.show', [
             'service' => $service,
+            'transactionsByDateAndType' => $transactionsByDateAndType,
+            'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
         ]);
     }
 
@@ -117,7 +138,7 @@ class ServiceController extends Controller
             'service' => $service,
             'locations' => $this->locationsForAccount($service->account_id),
             'users' => $this->assignableUsersForAccount($service->account_id)->get(),
-            'serviceStatuses' => $this->serviceStatuses(),
+            'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
         ]);
     }
 
@@ -176,11 +197,63 @@ class ServiceController extends Controller
         $service->update([
             'status' => Service::STATUS_SERVICE_OPEN,
             'opened_at' => now(),
+            'completed_at' => null,
+            'closed_at' => null,
+            'closed_by_user_id' => null,
+            'amount_collected' => null,
         ]);
 
         return redirect()
             ->route('services.show', $service->id)
             ->with('status', 'Service opened.');
+    }
+
+    public function complete(Request $request, int $service): RedirectResponse
+    {
+        $service = $this->resolveService($request, $service);
+        $this->ensureServiceOpen($service);
+
+        $service->update([
+            'status' => Service::STATUS_SERVICE_COMPLETED,
+            'completed_at' => now(),
+            'closed_at' => null,
+            'closed_by_user_id' => null,
+            'amount_collected' => null,
+        ]);
+
+        return redirect()
+            ->route('services.show', $service->id)
+            ->with('status', 'Service completed.');
+    }
+
+    public function editAmountCollected(Request $request, int $service): View
+    {
+        $service = $this->resolveService($request, $service, ['location.route', 'user', 'closedBy']);
+        $this->ensureAwaitingAmountCollected($service);
+
+        return view('services.amount-collected', [
+            'service' => $service,
+        ]);
+    }
+
+    public function updateAmountCollected(Request $request, int $service): RedirectResponse
+    {
+        $service = $this->resolveService($request, $service);
+        $this->ensureAwaitingAmountCollected($service);
+        $data = $request->validate([
+            'amount_collected' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $service->update([
+            'status' => Service::STATUS_SERVICE_CLOSED,
+            'closed_at' => now(),
+            'closed_by_user_id' => (int) $request->user()->id,
+            'amount_collected' => $data['amount_collected'],
+        ]);
+
+        return redirect()
+            ->route('services.show', $service->id)
+            ->with('status', 'Amount collected recorded and service closed.');
     }
 
     public function countMachine(Request $request, int $service, int $machine): View
@@ -285,34 +358,27 @@ class ServiceController extends Controller
             ->with('status', 'Machine fill recorded successfully.');
     }
 
-    public function close(Request $request, int $service): RedirectResponse
-    {
-        $service = $this->resolveService($request, $service);
-        $this->ensureServiceOpen($service);
-
-        $service->update([
-            'status' => Service::STATUS_SERVICE_CLOSED,
-            'closed_at' => now(),
-        ]);
-
-        return redirect()
-            ->route('services.show', $service->id)
-            ->with('status', 'Service closed.');
-    }
-
     protected function validateService(Request $request, int $accountId, bool $creating = true): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'location_id' => [
                 'required',
                 'integer',
                 Rule::exists('tbl_locations', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
-            'service_date' => ['required', 'date'],
+            'service_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
             'service_type' => ['nullable', 'string', 'max:50'],
             'user_id' => ['nullable', 'integer'],
-            'status' => [$creating ? 'nullable' : 'sometimes', 'string'],
+            'status' => [
+                $creating ? 'nullable' : 'sometimes',
+                'string',
+                $this->activeDictionaryValueRule(DataDictionary::GROUP_SERVICE_STATUS, $accountId),
+            ],
         ]);
+
+        $data['service_date'] = $this->normalizeDateInput($data['service_date'] ?? null, 'service_date');
+
+        return $data;
     }
 
     protected function resolveService(Request $request, int $serviceId, array $with = []): Service
@@ -351,8 +417,8 @@ class ServiceController extends Controller
             ->select('tbl_users.*')
             ->join('tbl_account_users', 'tbl_account_users.user_id', '=', 'tbl_users.id')
             ->where('tbl_account_users.account_id', $accountId)
-            ->where('tbl_account_users.status', 'active')
-            ->where('tbl_users.status', 'active')
+            ->where('tbl_account_users.status', AccountUser::STATUS_ACTIVE)
+            ->where('tbl_users.status', User::STATUS_ACTIVE)
             ->distinct()
             ->orderBy('tbl_users.name');
     }
@@ -417,12 +483,55 @@ class ServiceController extends Controller
         return array_map('intval', $validated['quantities']);
     }
 
-    protected function serviceStatuses(): array
+    protected function ensureAwaitingAmountCollected(Service $service): void
     {
-        return [
-            Service::STATUS_AWAITING_SERVICE,
-            Service::STATUS_SERVICE_OPEN,
-            Service::STATUS_SERVICE_CLOSED,
+        // Final collection entry is only valid after the technician has
+        // completed the visit and before the service has been fully closed.
+        if (! $service->isServiceCompleted() || $service->amount_collected !== null) {
+            throw ValidationException::withMessages([
+                'service' => 'Only completed services awaiting money entry can be closed.',
+            ]);
+        }
+    }
+
+    protected function groupTransactionsForService(Service $service): Collection
+    {
+        $typeOrder = [
+            'fill' => 1,
+            'count' => 2,
+            'add' => 3,
+            'waste' => 4,
+            'remove' => 5,
+            'adjustment' => 6,
         ];
+
+        // Transaction history stays inside the selected account and service so
+        // the detail page cannot leak rows from another tenant.
+        $transactions = Transaction::query()
+            ->where('account_id', $service->account_id)
+            ->where('service_id', $service->id)
+            ->with(['machine', 'bin', 'product'])
+            ->orderByDesc('transaction_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return $transactions
+            ->groupBy(fn (Transaction $transaction) => $transaction->transaction_at?->toDateString() ?? 'Unknown Date')
+            ->map(function (Collection $transactionsForDate) use ($typeOrder) {
+                return $transactionsForDate
+                    ->groupBy('transaction_type')
+                    ->sortBy(fn (Collection $transactions, string $type) => $typeOrder[$type] ?? 99);
+            });
+    }
+
+    protected function groupServicesByLocation($services)
+    {
+        return $services
+            ->groupBy(fn (Service $service) => $service->location_id ?? 'unknown')
+            ->sortBy(function ($group) {
+                $locationName = $group->first()?->location?->location_name ?? 'Unknown Location';
+
+                return mb_strtolower($locationName);
+            });
     }
 }

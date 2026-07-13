@@ -9,6 +9,9 @@ class User extends Authenticatable
 {
     use Notifiable;
 
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
     protected $table = 'tbl_users';
 
     public $timestamps = false;

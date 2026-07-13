@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Machine extends Model
 {
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+    public const STATUS_REPAIR = 'repair';
+    public const STATUS_RETIRED = 'retired';
+
     protected $table = 'tbl_machines';
 
     public $timestamps = false;

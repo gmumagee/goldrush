@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class AccountUser extends Model
 {
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
     protected $table = 'tbl_account_users';
 
     public $timestamps = false;

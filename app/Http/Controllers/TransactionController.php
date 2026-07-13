@@ -23,8 +23,12 @@ class TransactionController extends Controller
         $serviceId = $request->integer('service_id');
         $machineId = $request->integer('machine_id');
         $transactionType = $request->string('transaction_type')->toString();
-        $dateFrom = $request->input('date_from');
-        $dateTo = $request->input('date_to');
+        $filters = $request->validate([
+            'date_from' => ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
+            'date_to' => ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
+        ]);
+        $dateFrom = $this->normalizeDateInput($filters['date_from'] ?? null, 'date_from', true);
+        $dateTo = $this->normalizeDateInput($filters['date_to'] ?? null, 'date_to', true);
 
         $transactions = Transaction::query()
             ->where('account_id', $accountId)
@@ -48,8 +52,8 @@ class TransactionController extends Controller
                 'service_id' => $serviceId,
                 'machine_id' => $machineId,
                 'transaction_type' => $transactionType,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
+                'date_from' => $filters['date_from'] ?? null,
+                'date_to' => $filters['date_to'] ?? null,
             ],
         ]);
     }
@@ -118,10 +122,10 @@ class TransactionController extends Controller
             'product',
         ]);
 
-        if ($transaction->service?->isServiceClosed()) {
+        if (! $transaction->service?->isServiceOpen()) {
             return redirect()
                 ->route('transactions.show', $transaction->id)
-                ->withErrors(['transaction' => 'Closed service transactions are read-only.']);
+                ->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
         }
 
         return view('transactions.edit', [
@@ -138,8 +142,8 @@ class TransactionController extends Controller
         $accountId = $this->currentAccountId($request);
         $transaction = $this->transactionForAccount($accountId, $transaction, ['service']);
 
-        if ($transaction->service?->isServiceClosed()) {
-            return back()->withErrors(['transaction' => 'Closed service transactions are read-only.']);
+        if (! $transaction->service?->isServiceOpen()) {
+            return back()->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
         }
 
         [$service, $bin, $payload] = $this->validatedTransactionPayload($request, $accountId);
@@ -165,8 +169,8 @@ class TransactionController extends Controller
     {
         $transaction = $this->transactionForAccount($this->currentAccountId($request), $transaction, ['service']);
 
-        if ($transaction->service?->isServiceClosed()) {
-            return back()->withErrors(['transaction' => 'Closed service transactions cannot be deleted.']);
+        if (! $transaction->service?->isServiceOpen()) {
+            return back()->withErrors(['transaction' => 'Only Service Open transactions can be deleted.']);
         }
 
         $transaction->delete();
@@ -198,8 +202,16 @@ class TransactionController extends Controller
             'quantity' => ['required', 'integer'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'unit_cost' => ['nullable', 'numeric', 'min:0'],
-            'transaction_at' => ['required', 'date'],
+            'transaction_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
+            'transaction_time' => ['required', 'regex:/^\d{2}:\d{2}:\d{2}$/'],
         ]);
+
+        $payload['transaction_at'] = $this->combineDateAndTimeInputs(
+            $payload['transaction_date'] ?? null,
+            $payload['transaction_time'] ?? null,
+            'transaction_date',
+            'transaction_time',
+        );
 
         $service = Service::query()
             ->where('account_id', $accountId)
@@ -207,9 +219,9 @@ class TransactionController extends Controller
 
         $bin = $this->binForAccount($accountId, (int) $payload['bin_id'], ['machine', 'product']);
 
-        if ($service->isServiceClosed()) {
+        if (! $service->isServiceOpen()) {
             throw ValidationException::withMessages([
-                'service_id' => 'Transactions cannot be added to Service Closed services.',
+                'service_id' => 'Transactions can only be added while the service is Service Open.',
             ]);
         }
 

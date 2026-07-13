@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\Account;
+use App\Models\AccountUser;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +28,7 @@ class LoginController extends Controller
 
         $user = User::where('email', $credentials['email'])->first();
 
-        if (! $user || $user->status !== 'active' || ! Hash::check($credentials['password'], $user->password)) {
+        if (! $user || $user->status !== User::STATUS_ACTIVE || ! Hash::check($credentials['password'], $user->password)) {
             return back()
                 ->withErrors(['email' => 'The provided credentials are invalid.'])
                 ->onlyInput('email');
@@ -60,8 +62,8 @@ class LoginController extends Controller
     private function activeAccountsFor(User $user)
     {
         return $user->accounts()
-            ->where('tbl_accounts.status', 'active')
-            ->wherePivot('status', 'active')
+            ->where('tbl_accounts.status', Account::STATUS_ACTIVE)
+            ->wherePivot('status', AccountUser::STATUS_ACTIVE)
             ->orderBy('account_name')
             ->get();
     }

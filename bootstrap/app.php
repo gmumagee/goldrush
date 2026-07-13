@@ -5,7 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use App\Http\Middleware\EnsureAccountSelected;
-use App\Http\Middleware\EnsureUserBelongsToCurrentAccount;
+use App\Support\EnsureActiveCurrentAccountMember;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'account.selected' => EnsureAccountSelected::class,
-            'account.member' => EnsureUserBelongsToCurrentAccount::class,
+            'account.member' => EnsureActiveCurrentAccountMember::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
