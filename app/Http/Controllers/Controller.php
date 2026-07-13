@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Support\AppDateTime;
 use Carbon\CarbonImmutable;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
-abstract class Controller
+abstract class Controller extends BaseController
 {
     protected function currentAccountId(Request $request): int
     {

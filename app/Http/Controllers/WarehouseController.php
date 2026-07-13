@@ -2,13 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DataDictionary;
 use App\Models\Warehouse;
+use App\Services\DataDictionaryService;
+use App\Services\WarehouseInventoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class WarehouseController extends Controller
 {
+    public function __construct(
+        protected WarehouseInventoryService $warehouseInventoryService,
+        protected DataDictionaryService $dataDictionaryService,
+    )
+    {
+    }
+
     public function index(Request $request): View
     {
         $accountId = $this->currentAccountId($request);
@@ -58,9 +68,17 @@ class WarehouseController extends Controller
 
     public function show(Request $request, int $warehouse): View
     {
-        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+        $accountId = $this->currentAccountId($request);
+        $search = trim((string) $request->string('search'));
+        $warehouse = $this->warehouseForAccount($accountId, $warehouse, ['purchases.vendor']);
 
-        return view('warehouses.show', compact('warehouse'));
+        return view('warehouses.show', [
+            'warehouse' => $warehouse,
+            'search' => $search,
+            'inventoryRows' => $this->warehouseInventoryService->inventoryForWarehouse($accountId, $warehouse->id, $search),
+            'recentLedger' => $this->warehouseInventoryService->ledgerForWarehouse($accountId, $warehouse->id),
+            'movementTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_INVENTORY_MOVEMENT_TYPE, $accountId, true),
+        ]);
     }
 
     public function edit(Request $request, int $warehouse): View
@@ -89,16 +107,28 @@ class WarehouseController extends Controller
 
     public function destroy(Request $request, int $warehouse): RedirectResponse
     {
-        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+        $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse, [
+            'purchases',
+            'services',
+            'inventoryLedger',
+        ]);
+
+        if ($warehouse->purchases()->exists() || $warehouse->services()->exists() || $warehouse->inventoryLedger()->exists()) {
+            return back()->withErrors([
+                'warehouse' => 'Warehouse cannot be deleted because it is used by purchases, services, or inventory ledger rows.',
+            ]);
+        }
+
         $warehouse->delete();
 
         return redirect()->route('warehouses.index')->with('status', 'Warehouse deleted successfully.');
     }
 
-    protected function warehouseForAccount(int $accountId, int $warehouseId): Warehouse
+    protected function warehouseForAccount(int $accountId, int $warehouseId, array $with = []): Warehouse
     {
         return Warehouse::query()
             ->where('account_id', $accountId)
+            ->with($with)
             ->findOrFail($warehouseId);
     }
 }

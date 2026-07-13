@@ -26,7 +26,7 @@ class Transaction extends Model
     protected $casts = [
         'transaction_at' => 'datetime',
         'price' => 'decimal:2',
-        'unit_cost' => 'decimal:2',
+        'unit_cost' => 'decimal:4',
     ];
 
     public function account()

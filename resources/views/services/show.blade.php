@@ -70,6 +70,7 @@
                         <thead class="bg-gray-50 dark:bg-gray-800/80">
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Source Warehouse</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Service Date</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Opened At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Completed At</th>
@@ -86,6 +87,7 @@
                                         {{ $statusLabel }}
                                     </span>
                                 </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->warehouse?->warehouse_name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayDate($service->service_date) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->opened_at) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->completed_at) }}</td>
@@ -251,7 +253,7 @@
                                                                     ?: $transaction->machine?->type
                                                                     ?: '—';
                                                                 $price = $transaction->price !== null ? number_format((float) $transaction->price, 2) : '—';
-                                                                $unitCost = $transaction->unit_cost !== null ? number_format((float) $transaction->unit_cost, 2) : '—';
+                                                                $unitCost = $transaction->unit_cost !== null ? number_format((float) $transaction->unit_cost, 4) : '—';
                                                             @endphp
 
                                                             <tr class="bg-white dark:bg-gray-800">

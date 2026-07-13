@@ -27,6 +27,11 @@ class Account extends Model
             ->withPivot(['role', 'status']);
     }
 
+    public function accountUsers()
+    {
+        return $this->hasMany(AccountUser::class, 'account_id');
+    }
+
     public function warehouses()
     {
         return $this->hasMany(Warehouse::class, 'account_id');

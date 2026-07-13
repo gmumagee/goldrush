@@ -33,6 +33,17 @@ class Location extends Model
         return $this->belongsTo(VendingRoute::class, 'route_id');
     }
 
+    public function routeLocations()
+    {
+        return $this->hasMany(RouteLocation::class, 'location_id');
+    }
+
+    public function routes()
+    {
+        return $this->belongsToMany(VendingRoute::class, 'tbl_route_locations', 'location_id', 'route_id')
+            ->withPivot(['id', 'account_id', 'stop_order']);
+    }
+
     public function machines()
     {
         return $this->hasMany(Machine::class, 'location_id');

@@ -23,4 +23,19 @@ class Warehouse extends Model
     {
         return $this->belongsTo(Account::class, 'account_id');
     }
+
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class, 'warehouse_id');
+    }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class, 'warehouse_id');
+    }
+
+    public function inventoryLedger()
+    {
+        return $this->hasMany(InventoryLedger::class, 'warehouse_id');
+    }
 }

@@ -16,6 +16,7 @@ class VendingRoute extends Model
         'account_id',
         'route_name',
         'description',
+        'scheduled_day',
     ];
 
     public function account()
@@ -23,8 +24,18 @@ class VendingRoute extends Model
         return $this->belongsTo(Account::class, 'account_id');
     }
 
+    public function routeLocations()
+    {
+        return $this->hasMany(RouteLocation::class, 'route_id')
+            ->orderBy('stop_order')
+            ->orderBy('id');
+    }
+
     public function locations()
     {
-        return $this->hasMany(Location::class, 'route_id');
+        return $this->belongsToMany(Location::class, 'tbl_route_locations', 'route_id', 'location_id')
+            ->withPivot(['id', 'account_id', 'stop_order'])
+            ->orderBy('tbl_route_locations.stop_order')
+            ->orderBy('tbl_route_locations.id');
     }
 }

@@ -44,4 +44,14 @@ class Product extends Model
     {
         return $this->hasMany(Transaction::class, 'product_id');
     }
+
+    public function purchaseItems()
+    {
+        return $this->hasMany(PurchaseItem::class, 'product_id');
+    }
+
+    public function inventoryLedger()
+    {
+        return $this->hasMany(InventoryLedger::class, 'product_id');
+    }
 }

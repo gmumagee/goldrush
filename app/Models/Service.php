@@ -19,6 +19,7 @@ class Service extends Model
     protected $fillable = [
         'account_id',
         'location_id',
+        'warehouse_id',
         'user_id',
         'closed_by_user_id',
         'service_type',
@@ -46,6 +47,11 @@ class Service extends Model
     public function location()
     {
         return $this->belongsTo(Location::class, 'location_id');
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 
     public function user()

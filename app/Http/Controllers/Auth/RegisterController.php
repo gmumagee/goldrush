@@ -33,7 +33,7 @@ class RegisterController extends Controller
         [$user, $account] = DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'],
-                'email' => $data['email'],
+                'email' => strtolower($data['email']),
                 'password' => Hash::make($data['password']),
                 'status' => User::STATUS_ACTIVE,
             ]);
@@ -48,7 +48,7 @@ class RegisterController extends Controller
             AccountUser::create([
                 'account_id' => $account->id,
                 'user_id' => $user->id,
-                'role' => 'owner',
+                'role' => AccountUser::ROLE_OWNER,
                 'status' => AccountUser::STATUS_ACTIVE,
             ]);
 

@@ -10,6 +10,8 @@ use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\DataDictionaryService;
+use App\Services\InventoryCostService;
+use App\Services\WarehouseInventoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -30,7 +32,7 @@ class ServiceController extends Controller
 
         $pendingServices = Service::query()
             ->where('account_id', $accountId)
-            ->with(['location.route', 'user', 'closedBy'])
+            ->with(['location.route', 'warehouse', 'user', 'closedBy'])
             ->whereIn('status', [Service::STATUS_AWAITING_SERVICE, 'awaiting service'])
             ->orderBy('service_date')
             ->orderBy('id')
@@ -38,7 +40,7 @@ class ServiceController extends Controller
 
         $completedServicesAwaitingMoney = Service::query()
             ->where('account_id', $accountId)
-            ->with(['location.route', 'user', 'closedBy'])
+            ->with(['location.route', 'warehouse', 'user', 'closedBy'])
             ->where('status', Service::STATUS_SERVICE_COMPLETED)
             ->whereNull('amount_collected')
             ->orderByDesc('completed_at')
@@ -47,7 +49,7 @@ class ServiceController extends Controller
 
         $allServices = Service::query()
             ->where('account_id', $accountId)
-            ->with(['location.route', 'user', 'closedBy'])
+            ->with(['location.route', 'warehouse', 'user', 'closedBy'])
             ->orderByDesc('service_date')
             ->orderByDesc('id')
             ->get();
@@ -69,6 +71,7 @@ class ServiceController extends Controller
 
         return view('services.create', [
             'locations' => $this->locationsForAccount($accountId),
+            'warehouses' => $this->warehousesForAccount($accountId),
             'users' => $this->assignableUsersForAccount($accountId)->get(),
             'currentUser' => $request->user(),
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
@@ -89,6 +92,7 @@ class ServiceController extends Controller
         $service = Service::create([
             'account_id' => $accountId,
             'location_id' => (int) $data['location_id'],
+            'warehouse_id' => (int) $data['warehouse_id'],
             'user_id' => $assignedUserId,
             'closed_by_user_id' => null,
             'service_type' => $data['service_type'] ?? Service::TYPE_LOCATION_SERVICE,
@@ -109,6 +113,7 @@ class ServiceController extends Controller
     {
         $service = $this->resolveService($request, $service, [
             'location.route',
+            'warehouse',
             'location.machines' => fn ($query) => $query->orderBy('type')->orderBy('id'),
             'location.machines.bins',
             'user',
@@ -137,6 +142,7 @@ class ServiceController extends Controller
         return view('services.edit', [
             'service' => $service,
             'locations' => $this->locationsForAccount($service->account_id),
+            'warehouses' => $this->warehousesForAccount($service->account_id),
             'users' => $this->assignableUsersForAccount($service->account_id)->get(),
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
         ]);
@@ -162,6 +168,7 @@ class ServiceController extends Controller
 
         $service->update([
             'location_id' => (int) $data['location_id'],
+            'warehouse_id' => (int) $data['warehouse_id'],
             'user_id' => $assignedUserId,
             'service_type' => $data['service_type'] ?? $service->service_type,
             'service_date' => $data['service_date'],
@@ -272,7 +279,7 @@ class ServiceController extends Controller
         ]);
     }
 
-    public function storeCount(Request $request, int $service, int $machine): RedirectResponse
+    public function storeCount(Request $request, int $service, int $machine, InventoryCostService $inventoryCostService): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
         $this->ensureServiceOpen($service);
@@ -283,7 +290,7 @@ class ServiceController extends Controller
 
         $quantities = $this->validateBinQuantities($request, $machine, true);
 
-        DB::transaction(function () use ($service, $machine, $quantities) {
+        DB::transaction(function () use ($service, $machine, $quantities, $inventoryCostService) {
             foreach ($machine->bins as $bin) {
                 Transaction::create([
                     'account_id' => $service->account_id,
@@ -297,7 +304,12 @@ class ServiceController extends Controller
                     'quantity' => (int) $quantities[$bin->id],
                     'transaction_at' => now(),
                     'price' => $bin->price,
-                    'unit_cost' => null,
+                    'unit_cost' => $inventoryCostService->getUnitCostForCount(
+                        $service->account_id,
+                        $service->warehouse_id ? (int) $service->warehouse_id : null,
+                        $bin->id,
+                        $bin->product_id ? (int) $bin->product_id : null,
+                    ),
                 ]);
             }
         });
@@ -323,7 +335,7 @@ class ServiceController extends Controller
         ]);
     }
 
-    public function storeFill(Request $request, int $service, int $machine): RedirectResponse
+    public function storeFill(Request $request, int $service, int $machine, WarehouseInventoryService $warehouseInventoryService): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
         $this->ensureServiceOpen($service);
@@ -334,24 +346,21 @@ class ServiceController extends Controller
 
         $quantities = $this->validateBinQuantities($request, $machine, false);
 
-        DB::transaction(function () use ($service, $machine, $quantities) {
-            foreach ($machine->bins as $bin) {
-                Transaction::create([
-                    'account_id' => $service->account_id,
-                    'service_id' => $service->id,
-                    // Write machine_id from the persisted bin so transaction
-                    // and bin cannot drift based on client input.
+        $warehouseInventoryService->createFillTransaction(
+            $service,
+            $machine->bins->map(function ($bin) use ($quantities) {
+                return [
                     'machine_id' => $bin->machine_id,
                     'bin_id' => $bin->id,
+                    'bin_code' => $bin->bin_code,
                     'product_id' => $bin->product_id,
-                    'transaction_type' => 'fill',
-                    'quantity' => (int) $quantities[$bin->id],
-                    'transaction_at' => now(),
+                    'product_name' => $bin->product?->product_name,
+                    'quantity' => (int) ($quantities[$bin->id] ?? 0),
                     'price' => $bin->price,
-                    'unit_cost' => null,
-                ]);
-            }
-        });
+                    'transaction_at' => now(),
+                ];
+            })->all(),
+        );
 
         return redirect()
             ->route('services.show', $service->id)
@@ -365,6 +374,11 @@ class ServiceController extends Controller
                 'required',
                 'integer',
                 Rule::exists('tbl_locations', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
+            ],
+            'warehouse_id' => [
+                'required',
+                'integer',
+                Rule::exists('tbl_warehouses', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
             'service_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
             'service_type' => ['nullable', 'string', 'max:50'],
@@ -408,6 +422,14 @@ class ServiceController extends Controller
             ->where('account_id', $accountId)
             ->with('route')
             ->orderBy('location_name')
+            ->get();
+    }
+
+    protected function warehousesForAccount(int $accountId)
+    {
+        return \App\Models\Warehouse::query()
+            ->where('account_id', $accountId)
+            ->orderBy('warehouse_name')
             ->get();
     }
 

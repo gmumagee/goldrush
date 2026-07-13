@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Location;
+use App\Models\RouteLocation;
 use App\Models\VendingRoute;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -49,7 +51,7 @@ class LocationController extends Controller
 
         $data = $request->validate([
             'route_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists('tbl_routes', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
@@ -65,7 +67,10 @@ class LocationController extends Controller
 
         $data['account_id'] = $accountId;
 
-        Location::create($data);
+        DB::transaction(function () use ($data, $accountId) {
+            $location = Location::create($data);
+            $this->syncPrimaryRouteMembership($accountId, $location, null, $location->route_id ? (int) $location->route_id : null);
+        });
 
         return redirect()->route('locations.index')->with('status', 'Location created successfully.');
     }
@@ -74,6 +79,7 @@ class LocationController extends Controller
     {
         $location = $this->locationForAccount($this->currentAccountId($request), $location, [
             'route',
+            'routes',
             'machines.bins',
             'services.user',
         ]);
@@ -99,7 +105,7 @@ class LocationController extends Controller
 
         $data = $request->validate([
             'route_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists('tbl_routes', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
@@ -113,18 +119,28 @@ class LocationController extends Controller
             'contact_email' => ['nullable', 'email', 'max:255'],
         ]);
 
-        $location->update($data);
+        DB::transaction(function () use ($location, $data, $accountId) {
+            $previousRouteId = $location->route_id ? (int) $location->route_id : null;
+            $location->update($data);
+            $this->syncPrimaryRouteMembership($accountId, $location, $previousRouteId, $location->route_id ? (int) $location->route_id : null);
+        });
 
         return redirect()->route('locations.show', $location)->with('status', 'Location updated successfully.');
     }
 
     public function destroy(Request $request, int $location): RedirectResponse
     {
-        $location = $this->locationForAccount($this->currentAccountId($request), $location, ['machines', 'services']);
+        $location = $this->locationForAccount($this->currentAccountId($request), $location, ['machines', 'services', 'routeLocations']);
 
         if ($location->machines()->exists() || $location->services()->exists()) {
             return back()->withErrors([
                 'location' => 'Location cannot be deleted because it has machines or services.',
+            ]);
+        }
+
+        if ($location->routeLocations()->exists()) {
+            return back()->withErrors([
+                'location' => 'Location cannot be deleted because it is assigned to a route.',
             ]);
         }
 
@@ -147,5 +163,72 @@ class LocationController extends Controller
             ->where('account_id', $accountId)
             ->orderBy('route_name')
             ->get();
+    }
+
+    protected function syncPrimaryRouteMembership(int $accountId, Location $location, ?int $previousRouteId, ?int $newRouteId): void
+    {
+        if ($previousRouteId !== null && $previousRouteId !== $newRouteId) {
+            RouteLocation::query()
+                ->where('account_id', $accountId)
+                ->where('route_id', $previousRouteId)
+                ->where('location_id', $location->id)
+                ->delete();
+
+            $this->renumberStops($accountId, $previousRouteId);
+        }
+
+        if ($newRouteId === null) {
+            return;
+        }
+
+        $alreadyExists = RouteLocation::query()
+            ->where('account_id', $accountId)
+            ->where('route_id', $newRouteId)
+            ->where('location_id', $location->id)
+            ->exists();
+
+        if ($alreadyExists) {
+            return;
+        }
+
+        $nextStopOrder = (int) RouteLocation::query()
+            ->where('account_id', $accountId)
+            ->where('route_id', $newRouteId)
+            ->max('stop_order') + 1;
+
+        RouteLocation::create([
+            'account_id' => $accountId,
+            'route_id' => $newRouteId,
+            'location_id' => $location->id,
+            'stop_order' => $nextStopOrder,
+        ]);
+    }
+
+    protected function renumberStops(int $accountId, int $routeId): void
+    {
+        $stops = RouteLocation::query()
+            ->where('account_id', $accountId)
+            ->where('route_id', $routeId)
+            ->orderBy('stop_order')
+            ->orderBy('id')
+            ->get();
+
+        if ($stops->isEmpty()) {
+            return;
+        }
+
+        RouteLocation::query()
+            ->whereIn('id', $stops->pluck('id'))
+            ->update([
+                'stop_order' => DB::raw('stop_order + 1000'),
+            ]);
+
+        foreach ($stops->values() as $index => $stop) {
+            RouteLocation::query()
+                ->where('id', $stop->id)
+                ->update([
+                    'stop_order' => $index + 1,
+                ]);
+        }
     }
 }

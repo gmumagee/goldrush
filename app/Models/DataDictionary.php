@@ -9,9 +9,12 @@ class DataDictionary extends Model
 {
     public const GROUP_SERVICE_STATUS = 'service_status';
     public const GROUP_PURCHASE_STATUS = 'purchase_status';
+    public const GROUP_INVENTORY_MOVEMENT_TYPE = 'inventory_movement_type';
     public const GROUP_MACHINE_STATUS = 'machine_status';
     public const GROUP_ACCOUNT_STATUS = 'account_status';
+    public const GROUP_ROUTE_SCHEDULED_DAY = 'route_scheduled_day';
     public const GROUP_USER_STATUS = 'user_status';
+    public const GROUP_ACCOUNT_USER_ROLE = 'account_user_role';
     public const GROUP_ACCOUNT_USER_STATUS = 'account_user_status';
 
     protected $table = 'tbl_data_dictionary';

@@ -7,6 +7,8 @@ use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Service;
 use App\Models\Transaction;
+use App\Services\InventoryCostService;
+use App\Services\WarehouseInventoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -73,25 +75,49 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(
+        Request $request,
+        WarehouseInventoryService $warehouseInventoryService,
+        InventoryCostService $inventoryCostService,
+    ): RedirectResponse
     {
         $accountId = $this->currentAccountId($request);
         [$service, $bin, $payload] = $this->validatedTransactionPayload($request, $accountId);
 
-        Transaction::create([
-            'account_id' => $accountId,
-            'service_id' => $service->id,
-            // Machine isolation: writes always derive the machine from the
-            // persisted bin instead of trusting request input.
-            'machine_id' => $bin->machine_id,
-            'bin_id' => $bin->id,
-            'product_id' => $bin->product_id,
-            'transaction_type' => $payload['transaction_type'],
-            'quantity' => (int) $payload['quantity'],
-            'price' => $payload['price'] ?? $bin->price,
-            'unit_cost' => $payload['unit_cost'] ?? null,
-            'transaction_at' => $payload['transaction_at'],
-        ]);
+        if ($payload['transaction_type'] === 'fill') {
+            $warehouseInventoryService->createFillTransaction($service, [[
+                'machine_id' => $bin->machine_id,
+                'bin_id' => $bin->id,
+                'bin_code' => $bin->bin_code,
+                'product_id' => $bin->product_id,
+                'product_name' => $bin->product?->product_name,
+                'quantity' => (int) $payload['quantity'],
+                'price' => $payload['price'] ?? $bin->price,
+                'transaction_at' => $payload['transaction_at'],
+            ]]);
+        } else {
+            Transaction::create([
+                'account_id' => $accountId,
+                'service_id' => $service->id,
+                // Machine isolation: writes always derive the machine from the
+                // persisted bin instead of trusting request input.
+                'machine_id' => $bin->machine_id,
+                'bin_id' => $bin->id,
+                'product_id' => $bin->product_id,
+                'transaction_type' => $payload['transaction_type'],
+                'quantity' => (int) $payload['quantity'],
+                'price' => $payload['price'] ?? $bin->price,
+                'unit_cost' => $payload['transaction_type'] === 'count'
+                    ? $inventoryCostService->getUnitCostForCount(
+                        $accountId,
+                        $service->warehouse_id ? (int) $service->warehouse_id : null,
+                        $bin->id,
+                        $bin->product_id ? (int) $bin->product_id : null,
+                    )
+                    : null,
+                'transaction_at' => $payload['transaction_at'],
+            ]);
+        }
 
         return redirect()
             ->route('transactions.index')
@@ -128,6 +154,12 @@ class TransactionController extends Controller
                 ->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
         }
 
+        if ($transaction->transaction_type === 'fill') {
+            return redirect()
+                ->route('transactions.show', $transaction->id)
+                ->withErrors(['transaction' => 'Fill transactions cannot be edited because they are tied to warehouse inventory ledger history.']);
+        }
+
         return view('transactions.edit', [
             'transaction' => $transaction,
             'services' => $this->servicesForAccount($accountId),
@@ -137,7 +169,7 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function update(Request $request, int $transaction): RedirectResponse
+    public function update(Request $request, int $transaction, InventoryCostService $inventoryCostService): RedirectResponse
     {
         $accountId = $this->currentAccountId($request);
         $transaction = $this->transactionForAccount($accountId, $transaction, ['service']);
@@ -146,7 +178,15 @@ class TransactionController extends Controller
             return back()->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
         }
 
+        if ($transaction->transaction_type === 'fill') {
+            return back()->withErrors(['transaction' => 'Fill transactions cannot be edited because they are tied to warehouse inventory ledger history.']);
+        }
+
         [$service, $bin, $payload] = $this->validatedTransactionPayload($request, $accountId);
+
+        if ($payload['transaction_type'] === 'fill') {
+            return back()->withErrors(['transaction' => 'Fill transactions cannot be edited or converted because they are tied to warehouse inventory ledger history.']);
+        }
 
         $transaction->update([
             'service_id' => $service->id,
@@ -156,7 +196,14 @@ class TransactionController extends Controller
             'transaction_type' => $payload['transaction_type'],
             'quantity' => (int) $payload['quantity'],
             'price' => $payload['price'] ?? $bin->price,
-            'unit_cost' => $payload['unit_cost'] ?? null,
+            'unit_cost' => $payload['transaction_type'] === 'count'
+                ? $inventoryCostService->getUnitCostForCount(
+                    $accountId,
+                    $service->warehouse_id ? (int) $service->warehouse_id : null,
+                    $bin->id,
+                    $bin->product_id ? (int) $bin->product_id : null,
+                )
+                : null,
             'transaction_at' => $payload['transaction_at'],
         ]);
 
@@ -171,6 +218,10 @@ class TransactionController extends Controller
 
         if (! $transaction->service?->isServiceOpen()) {
             return back()->withErrors(['transaction' => 'Only Service Open transactions can be deleted.']);
+        }
+
+        if ($transaction->transaction_type === 'fill') {
+            return back()->withErrors(['transaction' => 'Fill transactions cannot be deleted because they are tied to warehouse inventory ledger history.']);
         }
 
         $transaction->delete();
@@ -201,7 +252,6 @@ class TransactionController extends Controller
             'transaction_type' => ['required', Rule::in(self::TYPES)],
             'quantity' => ['required', 'integer'],
             'price' => ['nullable', 'numeric', 'min:0'],
-            'unit_cost' => ['nullable', 'numeric', 'min:0'],
             'transaction_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
             'transaction_time' => ['required', 'regex:/^\d{2}:\d{2}:\d{2}$/'],
         ]);
@@ -222,6 +272,12 @@ class TransactionController extends Controller
         if (! $service->isServiceOpen()) {
             throw ValidationException::withMessages([
                 'service_id' => 'Transactions can only be added while the service is Service Open.',
+            ]);
+        }
+
+        if ($payload['transaction_type'] === 'fill' && ! $service->warehouse_id) {
+            throw ValidationException::withMessages([
+                'service_id' => 'The selected service does not have a source warehouse.',
             ]);
         }
 

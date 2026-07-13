@@ -36,6 +36,11 @@ class User extends Authenticatable
             ->withPivot(['role', 'status']);
     }
 
+    public function accountMemberships()
+    {
+        return $this->hasMany(AccountUser::class, 'user_id');
+    }
+
     public function services()
     {
         return $this->hasMany(Service::class, 'user_id');
