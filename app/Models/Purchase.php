@@ -49,6 +49,12 @@ class Purchase extends Model
         return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 
+    public function calendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'source_id')
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_PURCHASE);
+    }
+
     public function isPosted(): bool
     {
         return strcasecmp(trim((string) $this->status), self::STATUS_POSTED) === 0;

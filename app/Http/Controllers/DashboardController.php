@@ -12,6 +12,7 @@ use App\Models\Transaction;
 use App\Models\VendingRoute;
 use App\Models\Vendor;
 use App\Models\Warehouse;
+use App\Services\CalendarService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -19,6 +20,10 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(protected CalendarService $calendarService)
+    {
+    }
+
     public function __invoke(Request $request): View
     {
         $accountId = (int) $request->session()->get('current_account_id');
@@ -27,6 +32,8 @@ class DashboardController extends Controller
         return view('dashboard', [
             'account' => $account,
             'metrics' => $this->metrics($accountId),
+            'dueReminders' => $this->calendarService->getDueDashboardReminders($accountId),
+            'upcomingEvents' => $this->calendarService->getUpcomingEvents($accountId),
             'recentTransactions' => $this->recentTransactions($accountId),
         ]);
     }

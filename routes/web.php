@@ -1,15 +1,22 @@
 <?php
 
 use App\Http\Controllers\AccountSelectionController;
+use App\Http\Controllers\AccountUserPasswordController;
 use App\Http\Controllers\AccountUserController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BinController;
+use App\Http\Controllers\CalendarEventController;
+use App\Http\Controllers\CalendarReminderController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MachineBinController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\LocationContactController;
+use App\Http\Controllers\LocationDocumentController;
+use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\RouteLocationController;
@@ -43,12 +50,21 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', DashboardController::class)
             ->name('dashboard');
 
+        Route::get('/account/password', [PasswordController::class, 'edit'])
+            ->name('password.edit');
+        Route::put('/account/password', [PasswordController::class, 'update'])
+            ->name('password.update');
+
         Route::get('/account/users', [AccountUserController::class, 'index'])
             ->name('account-users.index');
         Route::get('/account/users/create', [AccountUserController::class, 'create'])
             ->name('account-users.create');
         Route::post('/account/users', [AccountUserController::class, 'store'])
             ->name('account-users.store');
+        Route::get('/account/users/{accountUser}/password', [AccountUserPasswordController::class, 'edit'])
+            ->name('account-users.password.edit');
+        Route::put('/account/users/{accountUser}/password', [AccountUserPasswordController::class, 'update'])
+            ->name('account-users.password.update');
         Route::get('/account/users/{accountUser}/edit', [AccountUserController::class, 'edit'])
             ->name('account-users.edit');
         Route::put('/account/users/{accountUser}', [AccountUserController::class, 'update'])
@@ -61,7 +77,15 @@ Route::middleware('auth')->group(function () {
         Route::resource('warehouses', WarehouseController::class);
         Route::resource('vendors', VendorController::class);
         Route::resource('products', ProductController::class);
+        Route::resource('contacts', ContactController::class);
         Route::resource('purchases', PurchaseController::class)->only(['index', 'create', 'store', 'show']);
+        Route::resource('calendar-events', CalendarEventController::class);
+        Route::post('/calendar-events/{calendarEvent}/complete', [CalendarEventController::class, 'complete'])
+            ->name('calendar-events.complete');
+        Route::post('/calendar-events/{calendarEvent}/cancel', [CalendarEventController::class, 'cancel'])
+            ->name('calendar-events.cancel');
+        Route::post('/calendar-reminders/{calendarReminder}/dismiss', [CalendarReminderController::class, 'dismiss'])
+            ->name('calendar-reminders.dismiss');
         Route::resource('routes', VendingRouteController::class);
         Route::post('/routes/{route}/locations', [RouteLocationController::class, 'store'])
             ->name('routes.locations.store');
@@ -72,6 +96,26 @@ Route::middleware('auth')->group(function () {
         Route::post('/routes/{route}/locations/{routeLocation}/move-down', [RouteLocationController::class, 'moveDown'])
             ->name('routes.locations.move-down');
         Route::resource('locations', LocationController::class);
+        Route::get('/locations/{location}/contacts/create', [LocationContactController::class, 'create'])
+            ->name('locations.contacts.create');
+        Route::post('/locations/{location}/contacts', [LocationContactController::class, 'store'])
+            ->name('locations.contacts.store');
+        Route::get('/locations/{location}/contacts/{locationContact}/edit', [LocationContactController::class, 'edit'])
+            ->name('locations.contacts.edit');
+        Route::put('/locations/{location}/contacts/{locationContact}', [LocationContactController::class, 'update'])
+            ->name('locations.contacts.update');
+        Route::delete('/locations/{location}/contacts/{locationContact}', [LocationContactController::class, 'destroy'])
+            ->name('locations.contacts.destroy');
+        Route::get('/locations/{location}/documents/create', [LocationDocumentController::class, 'create'])
+            ->name('locations.documents.create');
+        Route::post('/locations/{location}/documents', [LocationDocumentController::class, 'store'])
+            ->name('locations.documents.store');
+        Route::get('/locations/{location}/documents/{document}', [LocationDocumentController::class, 'show'])
+            ->name('locations.documents.show');
+        Route::get('/locations/{location}/documents/{document}/download', [LocationDocumentController::class, 'download'])
+            ->name('locations.documents.download');
+        Route::delete('/locations/{location}/documents/{document}', [LocationDocumentController::class, 'destroy'])
+            ->name('locations.documents.destroy');
         Route::resource('machines', MachineController::class);
         Route::resource('bins', BinController::class);
         Route::resource('services', ServiceController::class)->except(['show']);

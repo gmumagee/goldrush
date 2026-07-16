@@ -3,10 +3,10 @@
         ? \App\Models\Account::query()->select(['id', 'account_name', 'slug'])->find(session('current_account_id'))
         : null;
 
-    $operationsOpen = request()->routeIs('services.*') || request()->routeIs('transactions.*');
+    $operationsOpen = request()->routeIs('services.*') || request()->routeIs('transactions.*') || request()->routeIs('calendar-events.*');
     $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*');
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
-    $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->is('users*') || request()->is('settings*');
+    $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->is('users*') || request()->is('settings*');
 
     $sectionButtonClasses = 'flex w-full min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition';
     $sectionButtonStateClasses = 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60';
@@ -107,6 +107,7 @@
                 </button>
 
                 <ul id="sidebar-operations" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
+                    <li><a href="{{ route('calendar-events.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('calendar-events.*') ? $activeChildClasses : $inactiveChildClasses }}">Calendar</a></li>
                     <li><a href="{{ route('services.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('services.*') ? $activeChildClasses : $inactiveChildClasses }}">Services</a></li>
                     <li><a href="{{ route('transactions.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('transactions.*') ? $activeChildClasses : $inactiveChildClasses }}">Transactions</a></li>
                 </ul>
@@ -226,7 +227,9 @@
 
                 <ul id="sidebar-account" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
                     <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
+                    <li><a href="{{ route('password.edit') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('password.*') ? $activeChildClasses : $inactiveChildClasses }}">Change Password</a></li>
                     <li><a href="{{ route('account-users.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('account-users.*') ? $activeChildClasses : $inactiveChildClasses }}">Users</a></li>
+                    <li><a href="{{ route('contacts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('contacts.*') ? $activeChildClasses : $inactiveChildClasses }}">Contacts</a></li>
                     <li><span class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500">Settings<span class="ml-auto text-xs">Soon</span></span></li>
                 </ul>
             </div>

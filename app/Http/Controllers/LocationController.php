@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountUser;
+use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\RouteLocation;
 use App\Models\VendingRoute;
+use App\Services\DataDictionaryService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +16,10 @@ use Illuminate\View\View;
 
 class LocationController extends Controller
 {
+    public function __construct(protected DataDictionaryService $dataDictionaryService)
+    {
+    }
+
     public function index(Request $request): View
     {
         $accountId = $this->currentAccountId($request);
@@ -77,14 +84,32 @@ class LocationController extends Controller
 
     public function show(Request $request, int $location): View
     {
-        $location = $this->locationForAccount($this->currentAccountId($request), $location, [
+        $accountId = $this->currentAccountId($request);
+        $location = $this->locationForAccount($accountId, $location, [
             'route',
             'routes',
             'machines.bins',
             'services.user',
+            'locationContacts.contact',
+            'documents.uploadedBy',
         ]);
 
-        return view('locations.show', compact('location'));
+        $membership = AccountUser::query()
+            ->where('account_id', $accountId)
+            ->where('user_id', $request->user()->id)
+            ->where('status', AccountUser::STATUS_ACTIVE)
+            ->first();
+
+        abort_if(! $membership, 403);
+
+        return view('locations.show', [
+            'location' => $location,
+            'locationContactRoleLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_CONTACT_ROLE, $accountId, true),
+            'locationDocumentTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, $accountId, true),
+            'canManageDocuments' => $membership->roleMatches(AccountUser::ROLE_OWNER)
+                || $membership->roleMatches(AccountUser::ROLE_ADMIN)
+                || $membership->roleMatches(AccountUser::ROLE_MANAGER),
+        ]);
     }
 
     public function edit(Request $request, int $location): View
@@ -130,7 +155,7 @@ class LocationController extends Controller
 
     public function destroy(Request $request, int $location): RedirectResponse
     {
-        $location = $this->locationForAccount($this->currentAccountId($request), $location, ['machines', 'services', 'routeLocations']);
+        $location = $this->locationForAccount($this->currentAccountId($request), $location, ['machines', 'services', 'routeLocations', 'documents']);
 
         if ($location->machines()->exists() || $location->services()->exists()) {
             return back()->withErrors([
@@ -144,7 +169,14 @@ class LocationController extends Controller
             ]);
         }
 
-        $location->delete();
+        DB::transaction(function () use ($location) {
+            foreach ($location->documents as $document) {
+                $document->deleteStoredFile();
+                $document->delete();
+            }
+
+            $location->delete();
+        });
 
         return redirect()->route('locations.index')->with('status', 'Location deleted successfully.');
     }

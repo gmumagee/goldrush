@@ -57,6 +57,11 @@ class Account extends Model
         return $this->hasMany(Location::class, 'account_id');
     }
 
+    public function contacts()
+    {
+        return $this->hasMany(Contact::class, 'account_id');
+    }
+
     public function machines()
     {
         return $this->hasMany(Machine::class, 'account_id');

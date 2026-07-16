@@ -25,6 +25,12 @@
                         Back to Services
                     </a>
 
+                    @if ($serviceCalendarEvent)
+                        <a href="{{ route('calendar-events.show', $serviceCalendarEvent) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
+                            View Calendar Event
+                        </a>
+                    @endif
+
                     @if ($service->isAwaitingService())
                         <form method="POST" action="{{ route('services.open', $service->id) }}">
                             @csrf
@@ -72,6 +78,7 @@
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Source Warehouse</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Service Date</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Scheduled At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Opened At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Completed At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Closed At</th>
@@ -89,6 +96,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->warehouse?->warehouse_name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayDate($service->service_date) }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->scheduled_at ? $service->scheduled_at->format('d-m-Y H:i:s') : '—' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->opened_at) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->completed_at) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->closed_at) }}</td>

@@ -38,4 +38,10 @@ class VendingRoute extends Model
             ->orderBy('tbl_route_locations.stop_order')
             ->orderBy('tbl_route_locations.id');
     }
+
+    public function calendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'route_id')
+            ->orderBy('start_at');
+    }
 }

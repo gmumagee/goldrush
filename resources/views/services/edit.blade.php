@@ -1,3 +1,80 @@
 <x-app-layout title="Edit Service">
-    <div class="px-4 py-8 sm:px-6 lg:px-8"><div class="mx-auto w-full max-w-3xl space-y-6"><div class="flex items-center justify-between gap-4"><div><h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Edit Service</h1><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Update this service while it remains open for editing.</p></div><a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Service</a></div><section class="panel"><div class="panel-body"><form method="POST" action="{{ route('services.update', $service) }}" class="space-y-5">@csrf @method('PATCH')<div><x-label for="location_id" value="Location" /><select id="location_id" name="location_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>@foreach ($locations as $location)<option value="{{ $location->id }}" @selected(old('location_id', $service->location_id) == $location->id)>{{ $location->location_name }}{{ $location->route?->route_name ? ' · '.$location->route->route_name : '' }}</option>@endforeach</select></div><div class="grid gap-5 md:grid-cols-2"><div><x-label for="warehouse_id" value="Source Warehouse" /><select id="warehouse_id" name="warehouse_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>@foreach ($warehouses as $warehouse)<option value="{{ $warehouse->id }}" @selected(old('warehouse_id', $service->warehouse_id) == $warehouse->id)>{{ $warehouse->warehouse_name }}</option>@endforeach</select></div><div><x-label for="status" value="Status" /><x-input id="status" name="status" type="text" :value="$serviceStatusLabels[strtolower(trim((string) $service->status))] ?? $service->status" readonly /></div></div><div class="grid gap-5 md:grid-cols-2"><div><x-label for="service_type" value="Service Type" /><x-input id="service_type" name="service_type" type="text" :value="old('service_type', $service->service_type)" required /></div><div><x-label for="service_date" value="Service Date" /><x-input id="service_date" name="service_date" type="text" placeholder="DD-MM-YYYY" :value="old('service_date', \App\Support\AppDateTime::inputDate($service->service_date))" required /></div></div><div><x-label for="user_id" value="Assigned User" /><select id="user_id" name="user_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"><option value="">Unassigned</option>@foreach ($users as $user)<option value="{{ $user->id }}" @selected(old('user_id', $service->user_id) == $user->id)>{{ $user->name }}</option>@endforeach</select></div><div class="flex items-center justify-end gap-3"><a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Cancel</a><x-button>Save Service</x-button></div></form><x-validation-errors class="mt-6" /></div></section></div></div>
+    <div class="px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto w-full max-w-3xl space-y-6">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Edit Service</h1>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Update this service while it remains open for editing.</p>
+                </div>
+                <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Service</a>
+            </div>
+
+            <section class="panel">
+                <div class="panel-body">
+                    <form method="POST" action="{{ route('services.update', $service) }}" class="space-y-5">
+                        @csrf
+                        @method('PATCH')
+
+                        <div>
+                            <x-label for="location_id" value="Location" />
+                            <select id="location_id" name="location_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>
+                                @foreach ($locations as $location)
+                                    <option value="{{ $location->id }}" @selected(old('location_id', $service->location_id) == $location->id)>{{ $location->location_name }}{{ $location->route?->route_name ? ' · '.$location->route->route_name : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <div>
+                                <x-label for="warehouse_id" value="Source Warehouse" />
+                                <select id="warehouse_id" name="warehouse_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>
+                                    @foreach ($warehouses as $warehouse)
+                                        <option value="{{ $warehouse->id }}" @selected(old('warehouse_id', $service->warehouse_id) == $warehouse->id)>{{ $warehouse->warehouse_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <x-label for="status" value="Status" />
+                                <x-input id="status" name="status" type="text" :value="$serviceStatusLabels[strtolower(trim((string) $service->status))] ?? $service->status" readonly />
+                            </div>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <div>
+                                <x-label for="service_type" value="Service Type" />
+                                <x-input id="service_type" name="service_type" type="text" :value="old('service_type', $service->service_type)" required />
+                            </div>
+                            <div>
+                                <x-label for="service_date" value="Service Date" />
+                                <x-input id="service_date" name="service_date" type="text" placeholder="DD-MM-YYYY" :value="old('service_date', \App\Support\AppDateTime::inputDate($service->service_date))" required />
+                            </div>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <div>
+                                <x-label for="scheduled_time" value="Scheduled Time" />
+                                <x-input id="scheduled_time" name="scheduled_time" type="text" placeholder="HH:MM:SS" :value="old('scheduled_time', \App\Support\AppDateTime::inputTime($service->scheduled_at ?: $service->service_date))" required />
+                            </div>
+                            <div>
+                                <x-label for="user_id" value="Assigned User" />
+                                <select id="user_id" name="user_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                                    <option value="">Unassigned</option>
+                                    @foreach ($users as $user)
+                                        <option value="{{ $user->id }}" @selected(old('user_id', $service->user_id) == $user->id)>{{ $user->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3">
+                            <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Cancel</a>
+                            <x-button>Save Service</x-button>
+                        </div>
+                    </form>
+
+                    <x-validation-errors class="mt-6" />
+                </div>
+            </section>
+        </div>
+    </div>
 </x-app-layout>

@@ -24,6 +24,7 @@ class Service extends Model
         'closed_by_user_id',
         'service_type',
         'service_date',
+        'scheduled_at',
         'opened_at',
         'completed_at',
         'closed_at',
@@ -33,6 +34,7 @@ class Service extends Model
 
     protected $casts = [
         'service_date' => 'date',
+        'scheduled_at' => 'datetime',
         'opened_at' => 'datetime',
         'completed_at' => 'datetime',
         'closed_at' => 'datetime',
@@ -67,6 +69,12 @@ class Service extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class, 'service_id');
+    }
+
+    public function calendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'source_id')
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_SERVICE);
     }
 
     public function isAwaitingService(): bool

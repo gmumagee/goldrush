@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\AccountUser;
+use App\Models\CalendarEvent;
 use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\CalendarService;
 use App\Services\DataDictionaryService;
 use App\Services\InventoryCostService;
 use App\Services\WarehouseInventoryService;
@@ -22,7 +24,10 @@ use Illuminate\View\View;
 
 class ServiceController extends Controller
 {
-    public function __construct(protected DataDictionaryService $dataDictionaryService)
+    public function __construct(
+        protected DataDictionaryService $dataDictionaryService,
+        protected CalendarService $calendarService,
+    )
     {
     }
 
@@ -89,24 +94,31 @@ class ServiceController extends Controller
 
         $this->ensureUserBelongsToAccount($accountId, $assignedUserId);
 
-        $service = Service::create([
-            'account_id' => $accountId,
-            'location_id' => (int) $data['location_id'],
-            'warehouse_id' => (int) $data['warehouse_id'],
-            'user_id' => $assignedUserId,
-            'closed_by_user_id' => null,
-            'service_type' => $data['service_type'] ?? Service::TYPE_LOCATION_SERVICE,
-            'service_date' => $data['service_date'],
-            'opened_at' => null,
-            'completed_at' => null,
-            'closed_at' => null,
-            'amount_collected' => null,
-            'status' => Service::STATUS_AWAITING_SERVICE,
-        ]);
+        $service = DB::transaction(function () use ($accountId, $data, $assignedUserId, $request) {
+            $service = Service::create([
+                'account_id' => $accountId,
+                'location_id' => (int) $data['location_id'],
+                'warehouse_id' => (int) $data['warehouse_id'],
+                'user_id' => $assignedUserId,
+                'closed_by_user_id' => null,
+                'service_type' => $data['service_type'] ?? Service::TYPE_LOCATION_SERVICE,
+                'service_date' => $data['service_date'],
+                'scheduled_at' => $data['scheduled_at'],
+                'opened_at' => null,
+                'completed_at' => null,
+                'closed_at' => null,
+                'amount_collected' => null,
+                'status' => Service::STATUS_AWAITING_SERVICE,
+            ]);
+
+            $this->calendarService->createServiceEvent($service, (int) $request->user()->id);
+
+            return $service;
+        });
 
         return redirect()
             ->route('services.show', $service->id)
-            ->with('status', 'Service created successfully.');
+            ->with('status', 'Service created successfully. Service calendar event created.');
     }
 
     public function show(Request $request, int $service): View
@@ -118,6 +130,7 @@ class ServiceController extends Controller
             'location.machines.bins',
             'user',
             'closedBy',
+            'calendarEvents',
         ]);
 
         $transactionsByDateAndType = $this->groupTransactionsForService($service);
@@ -126,6 +139,7 @@ class ServiceController extends Controller
             'service' => $service,
             'transactionsByDateAndType' => $transactionsByDateAndType,
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
+            'serviceCalendarEvent' => $service->calendarEvents->first(),
         ]);
     }
 
@@ -166,13 +180,18 @@ class ServiceController extends Controller
             $this->ensureUserBelongsToAccount($accountId, $assignedUserId);
         }
 
-        $service->update([
-            'location_id' => (int) $data['location_id'],
-            'warehouse_id' => (int) $data['warehouse_id'],
-            'user_id' => $assignedUserId,
-            'service_type' => $data['service_type'] ?? $service->service_type,
-            'service_date' => $data['service_date'],
-        ]);
+        DB::transaction(function () use ($service, $data, $assignedUserId) {
+            $service->update([
+                'location_id' => (int) $data['location_id'],
+                'warehouse_id' => (int) $data['warehouse_id'],
+                'user_id' => $assignedUserId,
+                'service_type' => $data['service_type'] ?? $service->service_type,
+                'service_date' => $data['service_date'],
+                'scheduled_at' => $data['scheduled_at'],
+            ]);
+
+            $this->calendarService->updateServiceEvent($service->refresh());
+        });
 
         return redirect()
             ->route('services.show', $service)
@@ -189,7 +208,10 @@ class ServiceController extends Controller
             ]);
         }
 
-        $service->delete();
+        DB::transaction(function () use ($service) {
+            $this->calendarService->deleteServiceEvent($service);
+            $service->delete();
+        });
 
         return redirect()
             ->route('services.index')
@@ -228,6 +250,8 @@ class ServiceController extends Controller
             'amount_collected' => null,
         ]);
 
+        $this->calendarService->updateServiceEvent($service->refresh());
+
         return redirect()
             ->route('services.show', $service->id)
             ->with('status', 'Service completed.');
@@ -257,6 +281,8 @@ class ServiceController extends Controller
             'closed_by_user_id' => (int) $request->user()->id,
             'amount_collected' => $data['amount_collected'],
         ]);
+
+        $this->calendarService->updateServiceEvent($service->refresh());
 
         return redirect()
             ->route('services.show', $service->id)
@@ -381,6 +407,7 @@ class ServiceController extends Controller
                 Rule::exists('tbl_warehouses', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
             'service_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
+            'scheduled_time' => ['nullable', 'regex:/^\d{2}:\d{2}:\d{2}$/'],
             'service_type' => ['nullable', 'string', 'max:50'],
             'user_id' => ['nullable', 'integer'],
             'status' => [
@@ -391,6 +418,12 @@ class ServiceController extends Controller
         ]);
 
         $data['service_date'] = $this->normalizeDateInput($data['service_date'] ?? null, 'service_date');
+        $data['scheduled_at'] = $this->combineDateAndTimeInputs(
+            $request->input('service_date'),
+            $request->input('scheduled_time', '09:00:00') ?: '09:00:00',
+            'service_date',
+            'scheduled_time',
+        );
 
         return $data;
     }

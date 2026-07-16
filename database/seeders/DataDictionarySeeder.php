@@ -2,85 +2,145 @@
 
 namespace Database\Seeders;
 
+use App\Models\DataDictionary;
+use App\Models\Service;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class DataDictionarySeeder extends Seeder
 {
     public function run(): void
     {
-        // Re-seed the shared lookup values so forms and workflow validation
-        // read their canonical status options from one database source.
-        $this->seedStatuses();
-        $this->seedSupportingValues();
+        foreach ($this->dictionaryGroups() as $group => $values) {
+            $this->seedGroup($group, $values);
+        }
     }
 
-    protected function seedStatuses(): void
+    protected function dictionaryGroups(): array
     {
-        $statusGroups = [
-            'service_status',
-            'purchase_status',
-            'machine_status',
-            'account_status',
-            'user_status',
-            'account_user_status',
-            'inventory_movement_type',
+        return [
+            DataDictionary::GROUP_SERVICE_STATUS => [
+                'Awaiting Service',
+                'Service Open',
+                'Service Completed',
+                'Service Closed',
+            ],
+            DataDictionary::GROUP_PURCHASE_STATUS => [
+                'Posted',
+                'Voided',
+            ],
+            DataDictionary::GROUP_MACHINE_STATUS => [
+                ['value' => 'active', 'label' => 'Active'],
+                ['value' => 'inactive', 'label' => 'Inactive'],
+                ['value' => 'repair', 'label' => 'Repair'],
+                ['value' => 'retired', 'label' => 'Retired'],
+            ],
+            DataDictionary::GROUP_ACCOUNT_STATUS => [
+                ['value' => 'active', 'label' => 'Active'],
+                ['value' => 'inactive', 'label' => 'Inactive'],
+            ],
+            DataDictionary::GROUP_USER_STATUS => [
+                ['value' => 'active', 'label' => 'Active'],
+                ['value' => 'inactive', 'label' => 'Inactive'],
+            ],
+            DataDictionary::GROUP_ACCOUNT_USER_STATUS => [
+                ['value' => 'active', 'label' => 'Active'],
+                ['value' => 'inactive', 'label' => 'Inactive'],
+            ],
+            DataDictionary::GROUP_ACCOUNT_USER_ROLE => [
+                'Owner',
+                'Admin',
+                'Manager',
+                'Technician',
+                'Viewer',
+            ],
+            DataDictionary::GROUP_INVENTORY_MOVEMENT_TYPE => [
+                ['value' => 'purchase', 'label' => 'Purchase'],
+                ['value' => 'purchase_void', 'label' => 'Purchase Void'],
+                ['value' => 'service_fill', 'label' => 'Service Fill'],
+                ['value' => 'adjustment', 'label' => 'Adjustment'],
+            ],
+            DataDictionary::GROUP_ROUTE_SCHEDULED_DAY => [
+                'Monday',
+                'Tuesday',
+                'Wednesday',
+                'Thursday',
+                'Friday',
+                'Saturday',
+                'Sunday',
+            ],
+            DataDictionary::GROUP_LOCATION_CONTACT_ROLE => [
+                'Site Contact',
+                'Manager',
+                'Maintenance',
+                'Billing',
+                'Security',
+                'Emergency Contact',
+                'Other',
+            ],
+            DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE => [
+                'Contract',
+                'Insurance',
+                'Access Instructions',
+                'Agreement',
+                'Photo',
+                'Other',
+            ],
+            DataDictionary::GROUP_CALENDAR_EVENT_TYPE => [
+                'Service',
+                'Purchase',
+                'Route',
+                'Maintenance',
+                'Contract Renewal',
+                'Insurance Renewal',
+                'General',
+            ],
+            DataDictionary::GROUP_CALENDAR_EVENT_STATUS => [
+                'Scheduled',
+                'Completed',
+                'Cancelled',
+            ],
+            DataDictionary::GROUP_CALENDAR_EVENT_PRIORITY => [
+                'Low',
+                'Normal',
+                'High',
+                'Urgent',
+            ],
+            DataDictionary::GROUP_CALENDAR_REMINDER_TYPE => [
+                ['value' => 'dashboard', 'label' => 'dashboard'],
+            ],
+            DataDictionary::GROUP_CALENDAR_REMINDER_STATUS => [
+                'Pending',
+                'Dismissed',
+            ],
+            'machine_type' => [
+                'Soda',
+                'Snack',
+                'Combo',
+            ],
+            'service_type' => [
+                ['value' => Service::TYPE_LOCATION_SERVICE, 'label' => 'Location Service'],
+            ],
         ];
-
-        DB::table('tbl_data_dictionary')
-            ->whereIn('name', $statusGroups)
-            ->delete();
-
-        $timestamp = now();
-
-        DB::table('tbl_data_dictionary')->insert([
-            ['account_id' => null, 'name' => 'service_status', 'value' => 'Awaiting Service', 'label' => 'Awaiting Service', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'service_status', 'value' => 'Service Open', 'label' => 'Service Open', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'service_status', 'value' => 'Service Completed', 'label' => 'Service Completed', 'sort_order' => 30, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'service_status', 'value' => 'Service Closed', 'label' => 'Service Closed', 'sort_order' => 40, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'purchase_status', 'value' => 'Posted', 'label' => 'Posted', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'purchase_status', 'value' => 'Voided', 'label' => 'Voided', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'machine_status', 'value' => 'active', 'label' => 'Active', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'machine_status', 'value' => 'inactive', 'label' => 'Inactive', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'machine_status', 'value' => 'repair', 'label' => 'Repair', 'sort_order' => 30, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'machine_status', 'value' => 'retired', 'label' => 'Retired', 'sort_order' => 40, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_status', 'value' => 'active', 'label' => 'Active', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_status', 'value' => 'inactive', 'label' => 'Inactive', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'user_status', 'value' => 'active', 'label' => 'Active', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'user_status', 'value' => 'inactive', 'label' => 'Inactive', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_status', 'value' => 'active', 'label' => 'Active', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_status', 'value' => 'inactive', 'label' => 'Inactive', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'inventory_movement_type', 'value' => 'purchase', 'label' => 'Purchase', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'inventory_movement_type', 'value' => 'purchase_void', 'label' => 'Purchase Void', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'inventory_movement_type', 'value' => 'service_fill', 'label' => 'Service Fill', 'sort_order' => 30, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'inventory_movement_type', 'value' => 'adjustment', 'label' => 'Adjustment', 'sort_order' => 40, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-        ]);
     }
 
-    protected function seedSupportingValues(): void
+    protected function seedGroup(string $group, array $values): void
     {
-        $timestamp = now();
+        foreach (array_values($values) as $index => $entry) {
+            $value = is_array($entry) ? $entry['value'] : $entry;
+            $label = is_array($entry) ? ($entry['label'] ?? $value) : $entry;
 
-        DB::table('tbl_data_dictionary')
-            ->whereIn('name', ['machine_type', 'service_type', 'account_user_role', 'route_scheduled_day'])
-            ->delete();
-
-        DB::table('tbl_data_dictionary')->insert([
-            ['account_id' => null, 'name' => 'machine_type', 'value' => 'Soda', 'label' => 'Soda', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'machine_type', 'value' => 'Snack', 'label' => 'Snack', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'service_type', 'value' => 'location_service', 'label' => 'Location Service', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_role', 'value' => 'Owner', 'label' => 'Owner', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_role', 'value' => 'Admin', 'label' => 'Admin', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_role', 'value' => 'Manager', 'label' => 'Manager', 'sort_order' => 30, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_role', 'value' => 'Technician', 'label' => 'Technician', 'sort_order' => 40, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'account_user_role', 'value' => 'Viewer', 'label' => 'Viewer', 'sort_order' => 50, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Monday', 'label' => 'Monday', 'sort_order' => 10, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Tuesday', 'label' => 'Tuesday', 'sort_order' => 20, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Wednesday', 'label' => 'Wednesday', 'sort_order' => 30, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Thursday', 'label' => 'Thursday', 'sort_order' => 40, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Friday', 'label' => 'Friday', 'sort_order' => 50, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Saturday', 'label' => 'Saturday', 'sort_order' => 60, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['account_id' => null, 'name' => 'route_scheduled_day', 'value' => 'Sunday', 'label' => 'Sunday', 'sort_order' => 70, 'is_active' => true, 'created_at' => $timestamp, 'updated_at' => $timestamp],
-        ]);
+            DataDictionary::query()->updateOrCreate(
+                [
+                    'account_id' => null,
+                    'name' => $group,
+                    'value' => $value,
+                ],
+                [
+                    'label' => $label,
+                    'sort_order' => ($index + 1) * 10,
+                    'is_active' => true,
+                ],
+            );
+        }
     }
 }

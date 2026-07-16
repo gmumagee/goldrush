@@ -54,6 +54,32 @@ class Location extends Model
         return $this->hasMany(Service::class, 'location_id');
     }
 
+    public function calendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'location_id')
+            ->orderBy('start_at');
+    }
+
+    public function locationContacts()
+    {
+        return $this->hasMany(LocationContact::class, 'location_id')
+            ->orderByDesc('is_primary')
+            ->orderBy('id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(LocationDocument::class, 'location_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
+    public function contacts()
+    {
+        return $this->belongsToMany(Contact::class, 'tbl_location_contacts', 'location_id', 'contact_id')
+            ->withPivot(['id', 'account_id', 'contact_role', 'is_primary', 'notes']);
+    }
+
     public function transactions()
     {
         return $this->hasManyThrough(

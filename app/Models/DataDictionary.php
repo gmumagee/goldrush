@@ -16,6 +16,13 @@ class DataDictionary extends Model
     public const GROUP_USER_STATUS = 'user_status';
     public const GROUP_ACCOUNT_USER_ROLE = 'account_user_role';
     public const GROUP_ACCOUNT_USER_STATUS = 'account_user_status';
+    public const GROUP_LOCATION_CONTACT_ROLE = 'location_contact_role';
+    public const GROUP_LOCATION_DOCUMENT_TYPE = 'location_document_type';
+    public const GROUP_CALENDAR_EVENT_TYPE = 'calendar_event_type';
+    public const GROUP_CALENDAR_EVENT_STATUS = 'calendar_event_status';
+    public const GROUP_CALENDAR_EVENT_PRIORITY = 'calendar_event_priority';
+    public const GROUP_CALENDAR_REMINDER_TYPE = 'calendar_reminder_type';
+    public const GROUP_CALENDAR_REMINDER_STATUS = 'calendar_reminder_status';
 
     protected $table = 'tbl_data_dictionary';
 

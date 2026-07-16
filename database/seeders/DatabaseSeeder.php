@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -12,15 +11,19 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // Seed shared lookup values before creating example records that may
-        // depend on those terms elsewhere in the application.
-        $this->call(DataDictionarySeeder::class);
-
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            DataDictionarySeeder::class,
+            DemoAccountSeeder::class,
+            DemoUsersSeeder::class,
+            DemoWarehouseSeeder::class,
+            DemoVendorSeeder::class,
+            DemoProductSeeder::class,
+            DemoRouteSeeder::class,
+            DemoLocationSeeder::class,
+            DemoContactSeeder::class,
+            DemoMachineSeeder::class,
+            DemoPurchaseSeeder::class,
+            DemoServiceSeeder::class,
         ]);
     }
 }

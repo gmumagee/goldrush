@@ -17,6 +17,7 @@
                 </div>
                 <div class="flex gap-3">
                     <a href="{{ route('purchases.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Purchases</a>
+                    <a href="{{ route('calendar-events.create', ['source_type' => 'purchase', 'source_id' => $purchase->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
                     @if ($purchase->isPosted())
                         <form method="POST" action="{{ route('purchases.void', $purchase) }}">
                             @csrf

@@ -34,6 +34,12 @@ class Warehouse extends Model
         return $this->hasMany(Service::class, 'warehouse_id');
     }
 
+    public function calendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'warehouse_id')
+            ->orderBy('start_at');
+    }
+
     public function inventoryLedger()
     {
         return $this->hasMany(InventoryLedger::class, 'warehouse_id');

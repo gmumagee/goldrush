@@ -45,4 +45,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(Service::class, 'user_id');
     }
+
+    public function assignedCalendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'assigned_user_id');
+    }
+
+    public function createdCalendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class, 'created_by_user_id');
+    }
+
+    public function assignedCalendarReminders()
+    {
+        return $this->hasMany(CalendarReminder::class, 'assigned_user_id');
+    }
 }
