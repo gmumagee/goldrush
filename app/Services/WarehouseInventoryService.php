@@ -108,6 +108,12 @@ class WarehouseInventoryService
 
     public function createFillTransaction(Service $service, array $binPayloads): void
     {
+        if (! $service->isLocationService()) {
+            throw ValidationException::withMessages([
+                'service' => 'Inventory transactions are only available for location services.',
+            ]);
+        }
+
         if (! $service->isServiceOpen()) {
             throw ValidationException::withMessages([
                 'service' => 'Warehouse inventory can only be consumed while the service is Service Open.',

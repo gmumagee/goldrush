@@ -74,10 +74,14 @@ class MachineController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $locations = $this->locationsForAccount($accountId);
+        $requestedLocationId = $request->integer('location_id');
+        $defaultLocationId = $locations->contains('id', $requestedLocationId)
+            ? $requestedLocationId
+            : $locations->first()?->id;
 
         return view('machines.create', [
             'locations' => $locations,
-            'defaultLocationId' => $locations->first()?->id,
+            'defaultLocationId' => $defaultLocationId,
             'machineTypes' => self::TYPES,
             'machineStatuses' => $this->dataDictionaryService->options(DataDictionary::GROUP_MACHINE_STATUS, $accountId),
         ]);

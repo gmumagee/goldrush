@@ -7,6 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class DataDictionary extends Model
 {
+    public const PROTECTED_GLOBAL_GROUPS = [
+        self::GROUP_SERVICE_STATUS,
+        self::GROUP_PURCHASE_STATUS,
+        self::GROUP_CALENDAR_EVENT_STATUS,
+        self::GROUP_CALENDAR_REMINDER_STATUS,
+        self::GROUP_INVENTORY_MOVEMENT_TYPE,
+        self::GROUP_ACCOUNT_USER_ROLE,
+        self::GROUP_ACCOUNT_USER_STATUS,
+        self::GROUP_ACCOUNT_STATUS,
+        self::GROUP_USER_STATUS,
+        self::GROUP_MACHINE_STATUS,
+    ];
+
     public const GROUP_SERVICE_STATUS = 'service_status';
     public const GROUP_PURCHASE_STATUS = 'purchase_status';
     public const GROUP_INVENTORY_MOVEMENT_TYPE = 'inventory_movement_type';
@@ -23,6 +36,7 @@ class DataDictionary extends Model
     public const GROUP_CALENDAR_EVENT_PRIORITY = 'calendar_event_priority';
     public const GROUP_CALENDAR_REMINDER_TYPE = 'calendar_reminder_type';
     public const GROUP_CALENDAR_REMINDER_STATUS = 'calendar_reminder_status';
+    public const GROUP_SERVICE_TYPE = 'service_type';
 
     protected $table = 'tbl_data_dictionary';
 
@@ -36,11 +50,7 @@ class DataDictionary extends Model
     ];
 
     protected $casts = [
-        'account_id' => 'integer',
-        'sort_order' => 'integer',
         'is_active' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
     ];
 
     public function scopeForGroup(Builder $query, string $group): Builder
@@ -70,7 +80,16 @@ class DataDictionary extends Model
 
     public function displayLabel(): string
     {
-        // Fall back to the stored value so older rows still display cleanly.
         return $this->label ?: $this->value;
+    }
+
+    public function isGlobal(): bool
+    {
+        return $this->account_id === null;
+    }
+
+    public function isProtectedGlobal(): bool
+    {
+        return $this->isGlobal() && in_array($this->name, self::PROTECTED_GLOBAL_GROUPS, true);
     }
 }

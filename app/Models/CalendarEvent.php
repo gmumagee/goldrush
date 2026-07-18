@@ -162,6 +162,16 @@ class CalendarEvent extends Model
         };
     }
 
+    public function getCalendarColorClassAttribute(): string
+    {
+        return match (strtolower(trim((string) $this->event_type))) {
+            'service' => 'calendar-event--service',
+            'maintenance' => 'calendar-event--maintenance',
+            'purchase' => 'calendar-event--purchase',
+            default => 'calendar-event--default',
+        };
+    }
+
     public static function supportedSourceTypes(): array
     {
         return [

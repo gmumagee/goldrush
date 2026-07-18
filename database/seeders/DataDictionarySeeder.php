@@ -117,8 +117,9 @@ class DataDictionarySeeder extends Seeder
                 'Snack',
                 'Combo',
             ],
-            'service_type' => [
-                ['value' => Service::TYPE_LOCATION_SERVICE, 'label' => 'Location Service'],
+            DataDictionary::GROUP_SERVICE_TYPE => [
+                ['value' => Service::TYPE_LOCATION, 'label' => 'Location Service'],
+                ['value' => Service::TYPE_MAINTENANCE, 'label' => 'Maintenance Service'],
             ],
         ];
     }

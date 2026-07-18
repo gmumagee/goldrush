@@ -7,6 +7,16 @@ use Illuminate\Support\Collection;
 
 class DataDictionaryService
 {
+    public function groups(?int $accountId = null): Collection
+    {
+        return DataDictionary::query()
+            ->forAccountScope($accountId)
+            ->select('name')
+            ->distinct()
+            ->orderBy('name')
+            ->pluck('name');
+    }
+
     public function options(string $group, ?int $accountId = null): Collection
     {
         // Prefer account-specific overrides before global rows, then dedupe by

@@ -10,6 +10,7 @@ use App\Http\Controllers\BinController;
 use App\Http\Controllers\CalendarEventController;
 use App\Http\Controllers\CalendarReminderController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\DataDictionaryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MachineBinController;
 use App\Http\Controllers\MachineController;
@@ -74,6 +75,21 @@ Route::middleware('auth')->group(function () {
         Route::delete('/account/users/{accountUser}', [AccountUserController::class, 'destroy'])
             ->name('account-users.destroy');
 
+        Route::get('/data-dictionary', [DataDictionaryController::class, 'index'])
+            ->name('data-dictionary.index');
+        Route::get('/data-dictionary/create', [DataDictionaryController::class, 'create'])
+            ->name('data-dictionary.create');
+        Route::post('/data-dictionary', [DataDictionaryController::class, 'store'])
+            ->name('data-dictionary.store');
+        Route::get('/data-dictionary/{dataDictionary}/edit', [DataDictionaryController::class, 'edit'])
+            ->name('data-dictionary.edit');
+        Route::put('/data-dictionary/{dataDictionary}', [DataDictionaryController::class, 'update'])
+            ->name('data-dictionary.update');
+        Route::post('/data-dictionary/{dataDictionary}/deactivate', [DataDictionaryController::class, 'deactivate'])
+            ->name('data-dictionary.deactivate');
+        Route::post('/data-dictionary/{dataDictionary}/activate', [DataDictionaryController::class, 'activate'])
+            ->name('data-dictionary.activate');
+
         Route::resource('warehouses', WarehouseController::class);
         Route::resource('vendors', VendorController::class);
         Route::resource('products', ProductController::class);
@@ -134,10 +150,14 @@ Route::middleware('auth')->group(function () {
             ->name('services.show');
         Route::post('/services/{service}/open', [ServiceController::class, 'open'])
             ->name('services.open');
+        Route::post('/services/{service}/maintenance/open', [ServiceController::class, 'openMaintenance'])
+            ->name('services.maintenance.open');
         Route::post('/purchases/{purchase}/void', [PurchaseController::class, 'void'])
             ->name('purchases.void');
         Route::post('/services/{service}/complete', [ServiceController::class, 'complete'])
             ->name('services.complete');
+        Route::put('/services/{service}/maintenance/close', [ServiceController::class, 'closeMaintenance'])
+            ->name('services.maintenance.close');
         Route::get('/services/{service}/amount-collected/edit', [ServiceController::class, 'editAmountCollected'])
             ->name('services.amount-collected.edit');
         Route::post('/services/{service}/amount-collected', [ServiceController::class, 'updateAmountCollected'])

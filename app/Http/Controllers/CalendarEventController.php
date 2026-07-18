@@ -16,6 +16,7 @@ use App\Services\CalendarService;
 use App\Services\DataDictionaryService;
 use App\Support\AppDateTime;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,24 +36,49 @@ class CalendarEventController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $filters = $this->validateIndexFilters($request, $accountId);
+        $selectedDate = $filters['date'] ?? CarbonImmutable::now();
+        $weekStart = $selectedDate->startOfWeek(CarbonInterface::SUNDAY)->startOfDay();
+        $weekEnd = $selectedDate->endOfWeek(CarbonInterface::SATURDAY)->endOfDay();
 
         $events = CalendarEvent::query()
             ->forAccount($accountId)
             ->with(['assignedUser', 'location', 'warehouse', 'route'])
-            ->when($filters['start_date_from'] ?? null, fn ($query, $value) => $query->where('start_at', '>=', $value->startOfDay()))
-            ->when($filters['start_date_to'] ?? null, fn ($query, $value) => $query->where('start_at', '<=', $value->endOfDay()))
+            ->whereBetween('start_at', [$weekStart, $weekEnd])
             ->when($filters['event_type'] ?? null, fn ($query, $value) => $query->where('event_type', $value))
-            ->when($filters['status'] ?? null, fn ($query, $value) => $query->where('status', $value))
+            ->when(($filters['status'] ?? CalendarEvent::STATUS_SCHEDULED) !== 'all', fn ($query) => $query->where('status', $filters['status']))
             ->when($filters['assigned_user_id'] ?? null, fn ($query, $value) => $query->where('assigned_user_id', $value))
             ->when($filters['location_id'] ?? null, fn ($query, $value) => $query->where('location_id', $value))
+            ->when($filters['search'] ?? null, function ($query, $value) {
+                $search = trim((string) $value);
+
+                $query->where(function ($eventQuery) use ($search) {
+                    $eventQuery
+                        ->where('title', 'like', '%'.$search.'%')
+                        ->orWhere('description', 'like', '%'.$search.'%')
+                        ->orWhereHas('assignedUser', fn ($userQuery) => $userQuery->where('name', 'like', '%'.$search.'%'))
+                        ->orWhereHas('location', fn ($locationQuery) => $locationQuery->where('location_name', 'like', '%'.$search.'%'))
+                        ->orWhereHas('warehouse', fn ($warehouseQuery) => $warehouseQuery->where('warehouse_name', 'like', '%'.$search.'%'))
+                        ->orWhereHas('route', fn ($routeQuery) => $routeQuery->where('route_name', 'like', '%'.$search.'%'));
+                });
+            })
             ->orderBy('start_at')
             ->orderBy('id')
-            ->paginate(25)
-            ->withQueryString();
+            ->get();
+
+        $eventsByDate = $events->groupBy(fn (CalendarEvent $event) => $event->start_at?->toDateString());
+        $weekDays = collect();
+
+        for ($date = $weekStart; $date->lte($weekEnd); $date = $date->addDay()) {
+            $weekDays->push($date);
+        }
 
         return view('calendar-events.index', [
             'events' => $events,
+            'eventsByDate' => $eventsByDate,
             'filters' => $filters,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'weekDays' => $weekDays,
             'eventTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_CALENDAR_EVENT_TYPE, $accountId, true),
             'eventStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_CALENDAR_EVENT_STATUS, $accountId, true),
             'eventPriorityLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_CALENDAR_EVENT_PRIORITY, $accountId, true),
@@ -319,34 +345,54 @@ class CalendarEventController extends Controller
 
     protected function validateIndexFilters(Request $request, int $accountId): array
     {
+        $allowedEventTypes = $this->dataDictionaryService->values(DataDictionary::GROUP_CALENDAR_EVENT_TYPE, $accountId);
+        $allowedStatuses = $this->dataDictionaryService->values(DataDictionary::GROUP_CALENDAR_EVENT_STATUS, $accountId);
         $validated = validator($request->query(), [
-            'start_date_from' => ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
-            'start_date_to' => ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
-            'event_type' => ['nullable', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_CALENDAR_EVENT_TYPE, $accountId)],
-            'status' => ['nullable', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_CALENDAR_EVENT_STATUS, $accountId)],
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'event_type' => ['nullable', 'string'],
+            'status' => ['nullable', 'string'],
             'assigned_user_id' => ['nullable', 'integer'],
             'location_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('tbl_locations', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
+            'search' => ['nullable', 'string', 'max:255'],
         ])->validate();
 
         if (($validated['assigned_user_id'] ?? null) !== null) {
             $this->ensureUserBelongsToAccount($accountId, (int) $validated['assigned_user_id']);
         }
 
+        $eventType = isset($validated['event_type']) ? trim((string) $validated['event_type']) : '';
+
+        if ($eventType !== '' && ! in_array($eventType, $allowedEventTypes, true)) {
+            throw ValidationException::withMessages([
+                'event_type' => 'The selected event type is invalid.',
+            ]);
+        }
+
+        $status = isset($validated['status']) ? trim((string) $validated['status']) : '';
+
+        if ($status !== '' && $status !== 'all' && ! in_array($status, $allowedStatuses, true)) {
+            throw ValidationException::withMessages([
+                'status' => 'The selected status is invalid.',
+            ]);
+        }
+
         return [
-            'start_date_from' => ! empty($validated['start_date_from'])
-                ? CarbonImmutable::createFromFormat('Y-m-d', $this->normalizeDateInput($validated['start_date_from'], 'start_date_from'))
+            'date' => ! empty($validated['date'])
+                ? CarbonImmutable::createFromFormat('Y-m-d', $validated['date'])
+                : CarbonImmutable::now(),
+            'event_type' => $eventType !== ''
+                ? $eventType
                 : null,
-            'start_date_to' => ! empty($validated['start_date_to'])
-                ? CarbonImmutable::createFromFormat('Y-m-d', $this->normalizeDateInput($validated['start_date_to'], 'start_date_to'))
-                : null,
-            'event_type' => $validated['event_type'] ?? null,
-            'status' => $validated['status'] ?? null,
+            'status' => $status !== ''
+                ? $status
+                : CalendarEvent::STATUS_SCHEDULED,
             'assigned_user_id' => $validated['assigned_user_id'] ?? null,
             'location_id' => $validated['location_id'] ?? null,
+            'search' => isset($validated['search']) ? trim((string) $validated['search']) : null,
         ];
     }
 
@@ -503,7 +549,9 @@ class CalendarEventController extends Controller
                 'location_id' => $sourceRecord->location_id,
                 'warehouse_id' => $sourceRecord->warehouse_id,
                 'route_id' => $sourceRecord->location?->route_id,
-                'start_at' => $sourceRecord->scheduled_at ?? $sourceRecord->service_date,
+                'start_at' => CarbonImmutable::instance($sourceRecord->service_date)->startOfDay(),
+                'end_at' => CarbonImmutable::instance($sourceRecord->service_date)->endOfDay(),
+                'all_day' => true,
                 'source_type' => $sourceType,
                 'source_id' => $sourceRecord->id,
             ],

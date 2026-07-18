@@ -21,9 +21,12 @@
 
             <section class="panel">
                 <div class="panel-body">
-                    <dl class="grid gap-4 text-sm md:grid-cols-3">
+                    <dl class="grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-3">
                         <div><dt class="text-gray-500 dark:text-gray-400">Scheduled Day</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $scheduledDayLabels[$route->scheduled_day] ?? ($route->scheduled_day ?: '—') }}</dd></div>
                         <div><dt class="text-gray-500 dark:text-gray-400">Number of Stops</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $route->routeLocations->count() }}</dd></div>
+                        <div><dt class="text-gray-500 dark:text-gray-400">Default Warehouse</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $route->warehouse?->warehouse_name ?: '—' }}</dd></div>
+                        <div><dt class="text-gray-500 dark:text-gray-400">Assigned Technician</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $route->assignedUser?->name ?: 'Unassigned' }}</dd></div>
+                        <div><dt class="text-gray-500 dark:text-gray-400">Auto Schedule Services</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $route->auto_schedule_enabled ? 'Enabled' : 'Disabled' }}</dd></div>
                         <div><dt class="text-gray-500 dark:text-gray-400">Description</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $route->description ?: '—' }}</dd></div>
                     </dl>
                 </div>

@@ -88,11 +88,50 @@ class LocationController extends Controller
         $location = $this->locationForAccount($accountId, $location, [
             'route',
             'routes',
-            'machines.bins',
-            'services.user',
-            'locationContacts.contact',
-            'documents.uploadedBy',
+            'locationContacts' => fn ($query) => $query
+                ->where('account_id', $accountId)
+                ->with([
+                    'contact' => fn ($contactQuery) => $contactQuery->where('account_id', $accountId),
+                ])
+                ->orderByDesc('is_primary')
+                ->orderBy('id'),
+            'primaryLocationContact' => fn ($query) => $query
+                ->where('account_id', $accountId)
+                ->with([
+                    'contact' => fn ($contactQuery) => $contactQuery->where('account_id', $accountId),
+                ]),
+            'documents' => fn ($query) => $query
+                ->where('account_id', $accountId)
+                ->with('uploadedBy')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id'),
+            'machines' => fn ($query) => $query
+                ->where('account_id', $accountId)
+                ->withCount('bins')
+                ->orderBy('serial_number')
+                ->orderBy('id'),
+            'services' => fn ($query) => $query
+                ->where('account_id', $accountId)
+                ->with(['user', 'closedBy'])
+                ->withCount('transactions')
+                ->orderByDesc('service_date')
+                ->orderByDesc('id'),
         ]);
+
+        $primaryContact = $location->primaryLocationContact?->contact;
+        $cityStateZip = trim(collect([
+            $location->city,
+            trim(($location->state ?? '').' '.($location->zip_code ?? '')),
+        ])->filter()->implode(', '));
+        $addressLine = collect([
+            $location->address,
+            $cityStateZip,
+        ])->filter()->implode(', ');
+        $primaryContactName = $primaryContact?->display_name ?: ($location->contact_name ?: null);
+        $primaryContactPhone = $primaryContact
+            ? ($primaryContact->phone ?: $primaryContact->mobile_phone)
+            : ($location->contact_phone ?: null);
+        $primaryContactEmail = $primaryContact?->email ?: ($primaryContact ? null : ($location->contact_email ?: null));
 
         $membership = AccountUser::query()
             ->where('account_id', $accountId)
@@ -104,11 +143,18 @@ class LocationController extends Controller
 
         return view('locations.show', [
             'location' => $location,
+            'addressLine' => $addressLine,
+            'primaryContactName' => $primaryContactName,
+            'primaryContactPhone' => $primaryContactPhone,
+            'primaryContactEmail' => $primaryContactEmail,
             'locationContactRoleLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_CONTACT_ROLE, $accountId, true),
             'locationDocumentTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, $accountId, true),
+            'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
+            'serviceTypeLabels' => $this->dataDictionaryService->labels('service_type', $accountId, true),
             'canManageDocuments' => $membership->roleMatches(AccountUser::ROLE_OWNER)
                 || $membership->roleMatches(AccountUser::ROLE_ADMIN)
                 || $membership->roleMatches(AccountUser::ROLE_MANAGER),
+            'canDeleteLocation' => $this->canDeleteLocation($membership),
         ]);
     }
 
@@ -155,7 +201,16 @@ class LocationController extends Controller
 
     public function destroy(Request $request, int $location): RedirectResponse
     {
-        $location = $this->locationForAccount($this->currentAccountId($request), $location, ['machines', 'services', 'routeLocations', 'documents']);
+        $accountId = $this->currentAccountId($request);
+        $membership = AccountUser::query()
+            ->where('account_id', $accountId)
+            ->where('user_id', $request->user()->id)
+            ->where('status', AccountUser::STATUS_ACTIVE)
+            ->first();
+
+        abort_if(! $membership || ! $this->canDeleteLocation($membership), 403);
+
+        $location = $this->locationForAccount($accountId, $location, ['machines', 'services', 'routeLocations', 'documents']);
 
         if ($location->machines()->exists() || $location->services()->exists()) {
             return back()->withErrors([
@@ -262,5 +317,11 @@ class LocationController extends Controller
                     'stop_order' => $index + 1,
                 ]);
         }
+    }
+
+    protected function canDeleteLocation(AccountUser $membership): bool
+    {
+        return $membership->roleMatches(AccountUser::ROLE_OWNER)
+            || $membership->roleMatches(AccountUser::ROLE_ADMIN);
     }
 }

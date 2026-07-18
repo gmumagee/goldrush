@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\AccountUser;
 use App\Models\Bin;
+use App\Models\CalendarEvent;
+use App\Models\CalendarReminder;
+use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Product;
@@ -12,6 +15,7 @@ use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\VendingRoute;
+use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -24,9 +28,11 @@ class ServiceWorkflowTest extends TestCase
         $user = User::factory()->create(['status' => 'active']);
         $account = $this->createAccount('Alpha Vending');
         $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
 
         $route = $this->createRoute($account, 'North Route');
         $location = $this->createLocation($account, $route, 'Campus Center');
+        $warehouse = $this->createWarehouse($account, 'Main Warehouse');
 
         $machineOne = $this->createMachine($account, $location, 'Snack');
         $machineTwo = $this->createMachine($account, $location, 'Soda');
@@ -41,6 +47,8 @@ class ServiceWorkflowTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->post(route('services.store'), [
                 'location_id' => $location->id,
+                'warehouse_id' => $warehouse->id,
+                'service_type' => Service::TYPE_LOCATION_SERVICE,
                 'service_date' => '2026-07-10',
                 'user_id' => $user->id,
             ]);
@@ -129,7 +137,17 @@ class ServiceWorkflowTest extends TestCase
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
-            ->post(route('services.close', $service->id))
+            ->post(route('services.complete', $service->id))
+            ->assertRedirect(route('services.show', $service->id));
+
+        $service->refresh();
+        $this->assertSame(Service::STATUS_SERVICE_COMPLETED, $service->status);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.amount-collected.update', $service->id), [
+                'amount_collected' => 123.45,
+            ])
             ->assertRedirect(route('services.show', $service->id));
 
         $service->refresh();
@@ -148,6 +166,162 @@ class ServiceWorkflowTest extends TestCase
             ->assertSessionHasErrors('service');
 
         $this->assertSame(4, Transaction::query()->count());
+    }
+
+    public function test_maintenance_service_can_be_created_opened_closed_and_cannot_use_inventory_or_amount_collected(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Maintenance Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Maintenance Route');
+        $location = $this->createLocation($account, $route, 'Main Office');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Trail Mix');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 2.50);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.store'), [
+                'location_id' => $location->id,
+                'service_type' => Service::TYPE_MAINTENANCE,
+                'service_date' => '2026-07-18',
+                'user_id' => $user->id,
+                'notes' => 'Inspect cooling fan.',
+            ])
+            ->assertRedirect();
+
+        $service = Service::query()->firstOrFail();
+        $calendarEvent = CalendarEvent::query()
+            ->where('account_id', $account->id)
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_SERVICE)
+            ->where('source_id', $service->id)
+            ->firstOrFail();
+
+        $this->assertTrue($service->isMaintenanceService());
+        $this->assertNull($service->warehouse_id);
+        $this->assertSame(Service::STATUS_AWAITING_SERVICE, $service->status);
+        $this->assertSame('Inspect cooling fan.', $service->notes);
+        $this->assertSame('Maintenance', $calendarEvent->event_type);
+        $this->assertSame('Maintenance: Main Office', $calendarEvent->title);
+
+        CalendarReminder::create([
+            'account_id' => $account->id,
+            'calendar_event_id' => $calendarEvent->id,
+            'remind_at' => '2026-07-18 07:30:00',
+            'reminder_type' => CalendarReminder::TYPE_DASHBOARD,
+            'status' => CalendarReminder::STATUS_PENDING,
+            'assigned_user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.maintenance.open', $service->id))
+            ->assertRedirect(route('services.show', $service->id));
+
+        $service->refresh();
+        $this->assertSame(Service::STATUS_SERVICE_OPEN, $service->status);
+        $this->assertNotNull($service->opened_at);
+        $this->assertNull($service->completed_at);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.show', $service->id))
+            ->assertOk()
+            ->assertSeeText('Maintenance Service')
+            ->assertSeeText('Maintenance Notes')
+            ->assertSeeText('Close Maintenance Service')
+            ->assertDontSeeText('Complete Service')
+            ->assertDontSeeText('Enter Amount Collected')
+            ->assertDontSeeText('Count Machine')
+            ->assertDontSeeText('Fill Machine');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->from(route('services.show', $service->id))
+            ->post(route('services.complete', $service->id))
+            ->assertRedirect(route('services.show', $service->id))
+            ->assertSessionHasErrors('service');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->from(route('services.show', $service->id))
+            ->get(route('services.amount-collected.edit', $service->id))
+            ->assertRedirect(route('services.show', $service->id))
+            ->assertSessionHasErrors('service');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->from(route('services.show', $service->id))
+            ->post(route('services.machines.count.store', [$service->id, $machine->id]), [
+                'quantities' => [
+                    $bin->id => 4,
+                ],
+            ])
+            ->assertRedirect(route('services.show', $service->id))
+            ->assertSessionHasErrors('service');
+
+        $this->assertSame(0, Transaction::query()->count());
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->put(route('services.maintenance.close', $service->id), [
+                'notes' => 'Replaced fan and tested airflow.',
+            ])
+            ->assertRedirect(route('services.show', $service->id));
+
+        $service->refresh();
+        $calendarEvent->refresh();
+        $reminder = CalendarReminder::query()->where('calendar_event_id', $calendarEvent->id)->firstOrFail();
+
+        $this->assertSame(Service::STATUS_SERVICE_CLOSED, $service->status);
+        $this->assertSame('Replaced fan and tested airflow.', $service->notes);
+        $this->assertNull($service->completed_at);
+        $this->assertNull($service->amount_collected);
+        $this->assertNotNull($service->closed_at);
+        $this->assertSame(CalendarEvent::STATUS_COMPLETED, $calendarEvent->status);
+        $this->assertSame('Maintenance', $calendarEvent->event_type);
+        $this->assertNotNull($calendarEvent->completed_at);
+        $this->assertSame(CalendarReminder::STATUS_DISMISSED, $reminder->status);
+        $this->assertSame($user->id, $reminder->dismissed_by_user_id);
+    }
+
+    public function test_submitted_status_is_ignored_when_creating_a_service(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Tamper Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Tamper Route');
+        $location = $this->createLocation($account, $route, 'Main Office');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.store'), [
+                'location_id' => $location->id,
+                'service_type' => Service::TYPE_MAINTENANCE,
+                'service_date' => '2026-07-18',
+                'status' => Service::STATUS_CLOSED,
+            ])
+            ->assertRedirect();
+
+        $service = Service::query()->firstOrFail();
+        $calendarEvent = CalendarEvent::query()
+            ->where('account_id', $account->id)
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_SERVICE)
+            ->where('source_id', $service->id)
+            ->firstOrFail();
+
+        $this->assertSame(Service::TYPE_MAINTENANCE, $service->service_type);
+        $this->assertSame(Service::STATUS_AWAITING, $service->status);
+        $this->assertNull($service->opened_at);
+        $this->assertNull($service->completed_at);
+        $this->assertNull($service->closed_at);
+        $this->assertNull($service->closed_by_user_id);
+        $this->assertNull($service->amount_collected);
+        $this->assertSame(CalendarEvent::STATUS_SCHEDULED, $calendarEvent->status);
     }
 
     public function test_service_routes_are_isolated_to_the_current_account(): void
@@ -238,6 +412,18 @@ class ServiceWorkflowTest extends TestCase
         ]);
     }
 
+    protected function createWarehouse(Account $account, string $name): Warehouse
+    {
+        return Warehouse::create([
+            'account_id' => $account->id,
+            'warehouse_name' => $name,
+            'address' => '10 Storage Way',
+            'city' => 'Toronto',
+            'state' => 'ON',
+            'zip_code' => 'M1M1M1',
+        ]);
+    }
+
     protected function createProduct(Account $account, string $name): Product
     {
         return Product::create([
@@ -259,5 +445,34 @@ class ServiceWorkflowTest extends TestCase
             'capacity' => $capacity,
             'price' => $price,
         ]);
+    }
+
+    protected function seedServiceTypes(): void
+    {
+        DataDictionary::updateOrCreate(
+            [
+                'account_id' => null,
+                'name' => DataDictionary::GROUP_SERVICE_TYPE,
+                'value' => Service::TYPE_LOCATION,
+            ],
+            [
+                'label' => 'Location Service',
+                'sort_order' => 10,
+                'is_active' => true,
+            ],
+        );
+
+        DataDictionary::updateOrCreate(
+            [
+                'account_id' => null,
+                'name' => DataDictionary::GROUP_SERVICE_TYPE,
+                'value' => Service::TYPE_MAINTENANCE,
+            ],
+            [
+                'label' => 'Maintenance Service',
+                'sort_order' => 20,
+                'is_active' => true,
+            ],
+        );
     }
 }

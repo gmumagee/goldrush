@@ -67,6 +67,13 @@ class Location extends Model
             ->orderBy('id');
     }
 
+    public function primaryLocationContact()
+    {
+        return $this->hasOne(LocationContact::class, 'location_id')
+            ->where('is_primary', true)
+            ->latest('id');
+    }
+
     public function documents()
     {
         return $this->hasMany(LocationDocument::class, 'location_id')

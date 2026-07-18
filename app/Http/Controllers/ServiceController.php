@@ -14,6 +14,7 @@ use App\Services\CalendarService;
 use App\Services\DataDictionaryService;
 use App\Services\InventoryCostService;
 use App\Services\WarehouseInventoryService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -38,15 +39,16 @@ class ServiceController extends Controller
         $pendingServices = Service::query()
             ->where('account_id', $accountId)
             ->with(['location.route', 'warehouse', 'user', 'closedBy'])
-            ->whereIn('status', [Service::STATUS_AWAITING_SERVICE, 'awaiting service'])
+            ->whereIn('status', [Service::STATUS_AWAITING, 'awaiting service'])
             ->orderBy('service_date')
             ->orderBy('id')
             ->get();
 
         $completedServicesAwaitingMoney = Service::query()
             ->where('account_id', $accountId)
+            ->where('service_type', Service::TYPE_LOCATION)
             ->with(['location.route', 'warehouse', 'user', 'closedBy'])
-            ->where('status', Service::STATUS_SERVICE_COMPLETED)
+            ->where('status', Service::STATUS_COMPLETED)
             ->whereNull('amount_collected')
             ->orderByDesc('completed_at')
             ->orderByDesc('id')
@@ -67,19 +69,24 @@ class ServiceController extends Controller
             'completedServicesCount' => $completedServicesAwaitingMoney->count(),
             'allServicesCount' => $allServices->count(),
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
+            'serviceTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_TYPE, $accountId, true),
         ]);
     }
 
     public function create(Request $request): View
     {
         $accountId = $this->currentAccountId($request);
+        $locations = $this->locationsForAccount($accountId);
+        $requestedLocationId = $request->integer('location_id');
+        $selectedLocationId = $locations->contains('id', $requestedLocationId) ? $requestedLocationId : null;
 
         return view('services.create', [
-            'locations' => $this->locationsForAccount($accountId),
+            'locations' => $locations,
+            'serviceTypes' => $this->serviceTypesForAccount($accountId),
             'warehouses' => $this->warehousesForAccount($accountId),
             'users' => $this->assignableUsersForAccount($accountId)->get(),
             'currentUser' => $request->user(),
-            'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
+            'selectedLocationId' => $selectedLocationId,
         ]);
     }
 
@@ -95,20 +102,23 @@ class ServiceController extends Controller
         $this->ensureUserBelongsToAccount($accountId, $assignedUserId);
 
         $service = DB::transaction(function () use ($accountId, $data, $assignedUserId, $request) {
+            $isLocationService = strcasecmp((string) $data['service_type'], Service::TYPE_LOCATION) === 0;
+
             $service = Service::create([
                 'account_id' => $accountId,
                 'location_id' => (int) $data['location_id'],
-                'warehouse_id' => (int) $data['warehouse_id'],
+                'warehouse_id' => $isLocationService ? (int) $data['warehouse_id'] : null,
                 'user_id' => $assignedUserId,
                 'closed_by_user_id' => null,
-                'service_type' => $data['service_type'] ?? Service::TYPE_LOCATION_SERVICE,
+                'service_type' => $data['service_type'],
+                'notes' => $data['notes'] ?? null,
                 'service_date' => $data['service_date'],
-                'scheduled_at' => $data['scheduled_at'],
+                'scheduled_at' => null,
                 'opened_at' => null,
                 'completed_at' => null,
                 'closed_at' => null,
                 'amount_collected' => null,
-                'status' => Service::STATUS_AWAITING_SERVICE,
+                'status' => Service::STATUS_AWAITING,
             ]);
 
             $this->calendarService->createServiceEvent($service, (int) $request->user()->id);
@@ -139,6 +149,7 @@ class ServiceController extends Controller
             'service' => $service,
             'transactionsByDateAndType' => $transactionsByDateAndType,
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
+            'serviceTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_TYPE, $service->account_id, true),
             'serviceCalendarEvent' => $service->calendarEvents->first(),
         ]);
     }
@@ -156,6 +167,7 @@ class ServiceController extends Controller
         return view('services.edit', [
             'service' => $service,
             'locations' => $this->locationsForAccount($service->account_id),
+            'serviceTypes' => $this->serviceTypesForAccount($service->account_id),
             'warehouses' => $this->warehousesForAccount($service->account_id),
             'users' => $this->assignableUsersForAccount($service->account_id)->get(),
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
@@ -180,14 +192,37 @@ class ServiceController extends Controller
             $this->ensureUserBelongsToAccount($accountId, $assignedUserId);
         }
 
+        if (
+            strcasecmp((string) $data['service_type'], Service::TYPE_MAINTENANCE) === 0
+            && $service->transactions()->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'service_type' => 'Services with inventory transactions cannot be changed to Maintenance Service.',
+            ]);
+        }
+
+        if (
+            strcasecmp((string) $data['service_type'], Service::TYPE_MAINTENANCE) === 0
+            && $service->isServiceCompleted()
+        ) {
+            throw ValidationException::withMessages([
+                'service_type' => 'A completed location service cannot be changed to Maintenance Service.',
+            ]);
+        }
+
         DB::transaction(function () use ($service, $data, $assignedUserId) {
+            $isLocationService = strcasecmp((string) $data['service_type'], Service::TYPE_LOCATION) === 0;
+
             $service->update([
                 'location_id' => (int) $data['location_id'],
-                'warehouse_id' => (int) $data['warehouse_id'],
+                'warehouse_id' => $isLocationService ? (int) $data['warehouse_id'] : null,
                 'user_id' => $assignedUserId,
-                'service_type' => $data['service_type'] ?? $service->service_type,
+                'service_type' => $data['service_type'],
+                'notes' => $data['notes'] ?? null,
                 'service_date' => $data['service_date'],
-                'scheduled_at' => $data['scheduled_at'],
+                'scheduled_at' => null,
+                'completed_at' => $isLocationService ? $service->completed_at : null,
+                'amount_collected' => $isLocationService ? $service->amount_collected : null,
             ]);
 
             $this->calendarService->updateServiceEvent($service->refresh());
@@ -221,10 +256,11 @@ class ServiceController extends Controller
     public function open(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->ensureLocationService($service, 'This action is only valid for location services.');
         $this->ensureAwaitingService($service);
 
         $service->update([
-            'status' => Service::STATUS_SERVICE_OPEN,
+            'status' => Service::STATUS_OPEN,
             'opened_at' => now(),
             'completed_at' => null,
             'closed_at' => null,
@@ -237,29 +273,78 @@ class ServiceController extends Controller
             ->with('status', 'Service opened.');
     }
 
+    public function openMaintenance(Request $request, int $service): RedirectResponse
+    {
+        $service = $this->resolveService($request, $service);
+        $this->ensureMaintenanceService($service, 'This action is only valid for maintenance services.');
+        $this->ensureAwaitingService($service);
+
+        $service->update([
+            'status' => Service::STATUS_OPEN,
+            'opened_at' => now(),
+            'completed_at' => null,
+            'closed_at' => null,
+            'closed_by_user_id' => null,
+            'amount_collected' => null,
+        ]);
+
+        return redirect()
+            ->route('services.show', $service->id)
+            ->with('status', 'Maintenance service opened.');
+    }
+
     public function complete(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->ensureLocationService($service, 'This action is only valid for location services.');
         $this->ensureServiceOpen($service);
 
         $service->update([
-            'status' => Service::STATUS_SERVICE_COMPLETED,
+            'status' => Service::STATUS_COMPLETED,
             'completed_at' => now(),
             'closed_at' => null,
             'closed_by_user_id' => null,
             'amount_collected' => null,
         ]);
 
-        $this->calendarService->updateServiceEvent($service->refresh());
+        $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
 
         return redirect()
             ->route('services.show', $service->id)
             ->with('status', 'Service completed.');
     }
 
+    public function closeMaintenance(Request $request, int $service): RedirectResponse
+    {
+        $service = $this->resolveService($request, $service);
+        $this->ensureMaintenanceService($service, 'This action is only valid for maintenance services.');
+        $this->ensureServiceOpen($service);
+        $data = $request->validate([
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        DB::transaction(function () use ($service, $data, $request) {
+            $service->update([
+                'status' => Service::STATUS_CLOSED,
+                'notes' => $data['notes'] ?? null,
+                'closed_at' => now(),
+                'closed_by_user_id' => (int) $request->user()->id,
+                'completed_at' => null,
+                'amount_collected' => null,
+            ]);
+
+            $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
+        });
+
+        return redirect()
+            ->route('services.show', $service->id)
+            ->with('status', 'Maintenance service closed.');
+    }
+
     public function editAmountCollected(Request $request, int $service): View
     {
         $service = $this->resolveService($request, $service, ['location.route', 'user', 'closedBy']);
+        $this->ensureLocationService($service, 'Amount collected is only available for location services.');
         $this->ensureAwaitingAmountCollected($service);
 
         return view('services.amount-collected', [
@@ -270,19 +355,20 @@ class ServiceController extends Controller
     public function updateAmountCollected(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->ensureLocationService($service, 'Amount collected is only available for location services.');
         $this->ensureAwaitingAmountCollected($service);
         $data = $request->validate([
             'amount_collected' => ['required', 'numeric', 'min:0'],
         ]);
 
         $service->update([
-            'status' => Service::STATUS_SERVICE_CLOSED,
+            'status' => Service::STATUS_CLOSED,
             'closed_at' => now(),
             'closed_by_user_id' => (int) $request->user()->id,
             'amount_collected' => $data['amount_collected'],
         ]);
 
-        $this->calendarService->updateServiceEvent($service->refresh());
+        $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
 
         return redirect()
             ->route('services.show', $service->id)
@@ -292,6 +378,7 @@ class ServiceController extends Controller
     public function countMachine(Request $request, int $service, int $machine): View
     {
         $service = $this->resolveService($request, $service, ['location', 'user']);
+        $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
         $machine = $this->resolveMachineForService($service, $machine, [
@@ -308,6 +395,7 @@ class ServiceController extends Controller
     public function storeCount(Request $request, int $service, int $machine, InventoryCostService $inventoryCostService): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
         $machine = $this->resolveMachineForService($service, $machine, [
@@ -348,6 +436,7 @@ class ServiceController extends Controller
     public function fillMachine(Request $request, int $service, int $machine): View
     {
         $service = $this->resolveService($request, $service, ['location', 'user']);
+        $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
         $machine = $this->resolveMachineForService($service, $machine, [
@@ -364,6 +453,7 @@ class ServiceController extends Controller
     public function storeFill(Request $request, int $service, int $machine, WarehouseInventoryService $warehouseInventoryService): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
         $machine = $this->resolveMachineForService($service, $machine, [
@@ -395,6 +485,8 @@ class ServiceController extends Controller
 
     protected function validateService(Request $request, int $accountId, bool $creating = true): array
     {
+        $isLocationService = strcasecmp(trim((string) $request->input('service_type')), Service::TYPE_LOCATION) === 0;
+
         $data = $request->validate([
             'location_id' => [
                 'required',
@@ -402,28 +494,24 @@ class ServiceController extends Controller
                 Rule::exists('tbl_locations', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
             'warehouse_id' => [
-                'required',
+                Rule::requiredIf($isLocationService),
+                'nullable',
                 'integer',
                 Rule::exists('tbl_warehouses', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
             ],
-            'service_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
-            'scheduled_time' => ['nullable', 'regex:/^\d{2}:\d{2}:\d{2}$/'],
-            'service_type' => ['nullable', 'string', 'max:50'],
-            'user_id' => ['nullable', 'integer'],
-            'status' => [
-                $creating ? 'nullable' : 'sometimes',
+            'service_date' => ['required', 'date'],
+            'service_type' => [
+                'required',
                 'string',
-                $this->activeDictionaryValueRule(DataDictionary::GROUP_SERVICE_STATUS, $accountId),
+                'max:50',
+                $this->activeDictionaryValueRule(DataDictionary::GROUP_SERVICE_TYPE, $accountId),
             ],
+            'user_id' => ['nullable', 'integer'],
+            'notes' => ['nullable', 'string'],
         ]);
 
-        $data['service_date'] = $this->normalizeDateInput($data['service_date'] ?? null, 'service_date');
-        $data['scheduled_at'] = $this->combineDateAndTimeInputs(
-            $request->input('service_date'),
-            $request->input('scheduled_time', '09:00:00') ?: '09:00:00',
-            'service_date',
-            'scheduled_time',
-        );
+        $data['service_date'] = CarbonImmutable::parse($data['service_date'])->toDateString();
+        $data['warehouse_id'] = $isLocationService ? (int) ($data['warehouse_id'] ?? 0) : null;
 
         return $data;
     }
@@ -508,6 +596,33 @@ class ServiceController extends Controller
         }
     }
 
+    protected function ensureLocationService(Service $service, string $message): void
+    {
+        if (! $service->isLocationService()) {
+            throw ValidationException::withMessages([
+                'service' => $message,
+            ]);
+        }
+    }
+
+    protected function ensureMaintenanceService(Service $service, string $message): void
+    {
+        if (! $service->isMaintenanceService()) {
+            throw ValidationException::withMessages([
+                'service' => $message,
+            ]);
+        }
+    }
+
+    protected function ensureSupportsInventoryTransactions(Service $service): void
+    {
+        if (! $service->supportsInventoryTransactions()) {
+            throw ValidationException::withMessages([
+                'service' => 'Inventory transactions are only available for location services.',
+            ]);
+        }
+    }
+
     protected function validateBinQuantities(Request $request, Machine $machine, bool $enforceCapacity): array
     {
         if ($machine->bins->isEmpty()) {
@@ -588,5 +703,13 @@ class ServiceController extends Controller
 
                 return mb_strtolower($locationName);
             });
+    }
+
+    protected function serviceTypesForAccount(int $accountId): array
+    {
+        return $this->dataDictionaryService
+            ->options(DataDictionary::GROUP_SERVICE_TYPE, $accountId)
+            ->mapWithKeys(fn (DataDictionary $entry) => [$entry->value => $entry->displayLabel()])
+            ->all();
     }
 }

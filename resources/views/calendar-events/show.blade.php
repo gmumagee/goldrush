@@ -5,6 +5,12 @@
                 $statusKey = strtolower(trim((string) $event->status));
                 $typeKey = strtolower(trim((string) $event->event_type));
                 $priorityKey = strtolower(trim((string) $event->priority));
+                $eventStartLabel = $event->all_day
+                    ? (\App\Support\AppDateTime::displayDate($event->start_at).' · All day')
+                    : ($event->start_at?->format('d-m-Y H:i:s') ?: '—');
+                $eventEndLabel = $event->all_day
+                    ? (\App\Support\AppDateTime::displayDate($event->end_at ?: $event->start_at).' · All day')
+                    : ($event->end_at?->format('d-m-Y H:i:s') ?: '—');
                 $statusClasses = match ($statusKey) {
                     strtolower(\App\Models\CalendarEvent::STATUS_SCHEDULED) => 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
                     strtolower(\App\Models\CalendarEvent::STATUS_COMPLETED) => 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
@@ -45,8 +51,8 @@
                     <dl class="grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
                         <div><dt class="text-gray-500 dark:text-gray-400">Status</dt><dd class="mt-1"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClasses }}">{{ $eventStatusLabels[$statusKey] ?? ($event->status ?: 'Unknown') }}</span></dd></div>
                         <div><dt class="text-gray-500 dark:text-gray-400">Priority</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $eventPriorityLabels[$priorityKey] ?? ($event->priority ?: '—') }}</dd></div>
-                        <div><dt class="text-gray-500 dark:text-gray-400">Start</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $event->start_at ? $event->start_at->format('d-m-Y H:i:s') : '—' }}</dd></div>
-                        <div><dt class="text-gray-500 dark:text-gray-400">End</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $event->end_at ? $event->end_at->format('d-m-Y H:i:s') : '—' }}</dd></div>
+                        <div><dt class="text-gray-500 dark:text-gray-400">Start</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $eventStartLabel }}</dd></div>
+                        <div><dt class="text-gray-500 dark:text-gray-400">End</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $eventEndLabel }}</dd></div>
                         <div><dt class="text-gray-500 dark:text-gray-400">Assigned User</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $event->assignedUser?->name ?? '—' }}</dd></div>
                         <div><dt class="text-gray-500 dark:text-gray-400">Location</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $event->location?->location_name ?? '—' }}</dd></div>
                         <div><dt class="text-gray-500 dark:text-gray-400">Warehouse</dt><dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $event->warehouse?->warehouse_name ?? '—' }}</dd></div>

@@ -154,6 +154,12 @@ class TransactionController extends Controller
                 ->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
         }
 
+        if (! $transaction->service?->isLocationService()) {
+            return redirect()
+                ->route('transactions.show', $transaction->id)
+                ->withErrors(['transaction' => 'Inventory transactions are only available for location services.']);
+        }
+
         if ($transaction->transaction_type === 'fill') {
             return redirect()
                 ->route('transactions.show', $transaction->id)
@@ -176,6 +182,10 @@ class TransactionController extends Controller
 
         if (! $transaction->service?->isServiceOpen()) {
             return back()->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
+        }
+
+        if (! $transaction->service?->isLocationService()) {
+            return back()->withErrors(['transaction' => 'Inventory transactions are only available for location services.']);
         }
 
         if ($transaction->transaction_type === 'fill') {
@@ -218,6 +228,10 @@ class TransactionController extends Controller
 
         if (! $transaction->service?->isServiceOpen()) {
             return back()->withErrors(['transaction' => 'Only Service Open transactions can be deleted.']);
+        }
+
+        if (! $transaction->service?->isLocationService()) {
+            return back()->withErrors(['transaction' => 'Inventory transactions are only available for location services.']);
         }
 
         if ($transaction->transaction_type === 'fill') {
@@ -272,6 +286,12 @@ class TransactionController extends Controller
         if (! $service->isServiceOpen()) {
             throw ValidationException::withMessages([
                 'service_id' => 'Transactions can only be added while the service is Service Open.',
+            ]);
+        }
+
+        if (! $service->isLocationService()) {
+            throw ValidationException::withMessages([
+                'service_id' => 'Inventory transactions are only available for location services.',
             ]);
         }
 

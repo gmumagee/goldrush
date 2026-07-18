@@ -10,6 +10,7 @@
                     default => 'bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-200',
                 };
                 $statusLabel = $serviceStatusLabels[strtolower(trim((string) $service->status))] ?? ($service->status ?: 'Unknown');
+                $serviceTypeLabel = $serviceTypeLabels[strtolower(trim((string) $service->service_type))] ?? ($service->service_type ?: 'Unknown');
             @endphp
 
             <div class="flex items-center justify-between gap-4">
@@ -31,7 +32,7 @@
                         </a>
                     @endif
 
-                    @if ($service->isAwaitingService())
+                    @if ($service->isAwaitingService() && $service->isLocationService())
                         <form method="POST" action="{{ route('services.open', $service->id) }}">
                             @csrf
                             <button type="submit" class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500">
@@ -40,7 +41,16 @@
                         </form>
                     @endif
 
-                    @if ($service->isServiceOpen())
+                    @if ($service->isAwaitingService() && $service->isMaintenanceService())
+                        <form method="POST" action="{{ route('services.maintenance.open', $service->id) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center rounded-xl bg-yellow-500 px-4 py-2.5 text-sm font-medium text-yellow-950 transition hover:bg-yellow-400">
+                                Open Maintenance Service
+                            </button>
+                        </form>
+                    @endif
+
+                    @if ($service->isServiceOpen() && $service->isLocationService())
                         <form method="POST" action="{{ route('services.complete', $service->id) }}">
                             @csrf
                             <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">
@@ -49,7 +59,7 @@
                         </form>
                     @endif
 
-                    @if ($service->isServiceCompleted() && $service->amount_collected === null)
+                    @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
                         <a href="{{ route('services.amount-collected.edit', $service->id) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
                             Enter Amount Collected
                         </a>
@@ -75,10 +85,10 @@
                     <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
                         <thead class="bg-gray-50 dark:bg-gray-800/80">
                             <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Service Type</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Source Warehouse</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Service Date</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Scheduled At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Opened At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Completed At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Closed At</th>
@@ -89,20 +99,22 @@
                         </thead>
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
                             <tr class="bg-white dark:bg-gray-800">
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $serviceTypeLabel }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClasses }}">
                                         {{ $statusLabel }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->warehouse?->warehouse_name ?? '—' }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->isLocationService() ? ($service->warehouse?->warehouse_name ?? '—') : 'N/A' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayDate($service->service_date) }}</td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->scheduled_at ? $service->scheduled_at->format('d-m-Y H:i:s') : '—' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->opened_at) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->completed_at) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->closed_at) }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->closedBy?->name ?? 'Not closed yet' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                    @if ($service->amount_collected !== null)
+                                    @if ($service->isMaintenanceService())
+                                        N/A
+                                    @elseif ($service->amount_collected !== null)
                                         {{ number_format((float) $service->amount_collected, 2) }}
                                     @elseif ($service->isServiceCompleted())
                                         Pending
@@ -117,6 +129,36 @@
                 </div>
             </section>
 
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ $service->isMaintenanceService() ? 'Maintenance Notes' : 'Service Notes' }}</h2>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    @if ($service->isMaintenanceService() && $service->isServiceOpen())
+                        <form method="POST" action="{{ route('services.maintenance.close', $service) }}" class="space-y-4">
+                            @csrf
+                            @method('PUT')
+
+                            <div>
+                                <x-label for="notes" value="Maintenance Notes" />
+                                <textarea id="notes" name="notes" rows="5" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">{{ old('notes', $service->notes) }}</textarea>
+                            </div>
+
+                            <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">
+                                Close Maintenance Service
+                            </button>
+                        </form>
+                    @else
+                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 dark:border-gray-700/60 dark:text-gray-300">
+                            {{ $service->notes ?: 'No notes have been recorded for this service.' }}
+                        </div>
+                    @endif
+                </div>
+            </section>
+
+            @if ($service->isLocationService())
             <section class="panel">
                 <div class="panel-header">
                     <div>
@@ -310,6 +352,7 @@
                     @endforelse
                 </div>
             </section>
+            @endif
         </div>
     </div>
 </x-app-layout>

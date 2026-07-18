@@ -17,6 +17,13 @@ class VendingRoute extends Model
         'route_name',
         'description',
         'scheduled_day',
+        'warehouse_id',
+        'assigned_user_id',
+        'auto_schedule_enabled',
+    ];
+
+    protected $casts = [
+        'auto_schedule_enabled' => 'boolean',
     ];
 
     public function account()
@@ -29,6 +36,16 @@ class VendingRoute extends Model
         return $this->hasMany(RouteLocation::class, 'route_id')
             ->orderBy('stop_order')
             ->orderBy('id');
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+    }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
     public function locations()

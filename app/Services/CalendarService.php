@@ -89,9 +89,9 @@ class CalendarService
         return $this->persistServiceEvent($service, $createdByUserId);
     }
 
-    public function updateServiceEvent(Service $service): void
+    public function updateServiceEvent(Service $service, ?int $dismissedByUserId = null): void
     {
-        $this->persistServiceEvent($service, null);
+        $this->persistServiceEvent($service, null, $dismissedByUserId);
     }
 
     public function deleteServiceEvent(Service $service): void
@@ -227,7 +227,11 @@ class CalendarService
         };
     }
 
-    protected function persistServiceEvent(Service $service, ?int $createdByUserId = null): CalendarEvent
+    protected function persistServiceEvent(
+        Service $service,
+        ?int $createdByUserId = null,
+        ?int $dismissedByUserId = null
+    ): CalendarEvent
     {
         $service->loadMissing(['location.route']);
 
@@ -237,14 +241,18 @@ class CalendarService
             ->where('source_id', $service->id)
             ->first();
 
+        $isMaintenanceService = $service->isMaintenanceService();
+        $eventType = $isMaintenanceService ? 'Maintenance' : 'Service';
+        $titlePrefix = $isMaintenanceService ? 'Maintenance' : 'Service';
+
         $data = [
             'account_id' => $service->account_id,
-            'event_type' => 'Service',
-            'title' => 'Service: '.($service->location?->location_name ?? 'Unknown Location'),
-            'description' => null,
-            'start_at' => $service->scheduled_at ?? $service->service_date,
-            'end_at' => null,
-            'all_day' => false,
+            'event_type' => $eventType,
+            'title' => $titlePrefix.': '.($service->location?->location_name ?? 'Unknown Location'),
+            'description' => $service->notes,
+            'start_at' => CarbonImmutable::instance($service->service_date)->startOfDay(),
+            'end_at' => CarbonImmutable::instance($service->service_date)->endOfDay(),
+            'all_day' => true,
             'status' => $service->isServiceCompleted() || $service->isServiceClosed()
                 ? CalendarEvent::STATUS_COMPLETED
                 : CalendarEvent::STATUS_SCHEDULED,
@@ -259,6 +267,7 @@ class CalendarService
             'completed_at' => $service->isServiceCompleted() || $service->isServiceClosed()
                 ? ($service->completed_at ?? $service->closed_at ?? now())
                 : null,
+            'dismissed_by_user_id' => $dismissedByUserId,
         ];
 
         if ($event) {

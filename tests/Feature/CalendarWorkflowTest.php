@@ -206,8 +206,8 @@ class CalendarWorkflowTest extends TestCase
             ->post(route('services.store'), [
                 'location_id' => $location->id,
                 'warehouse_id' => $warehouse->id,
-                'service_date' => '18-07-2026',
-                'scheduled_time' => '09:30:00',
+                'service_type' => Service::TYPE_LOCATION_SERVICE,
+                'service_date' => '2026-07-18',
                 'user_id' => $user->id,
             ])
             ->assertRedirect();
@@ -224,12 +224,16 @@ class CalendarWorkflowTest extends TestCase
         $this->assertSame(CalendarEvent::STATUS_SCHEDULED, $calendarEvent->status);
         $this->assertSame($location->id, $calendarEvent->location_id);
         $this->assertSame($warehouse->id, $calendarEvent->warehouse_id);
+        $this->assertTrue($calendarEvent->all_day);
+        $this->assertSame('2026-07-18 00:00:00', $calendarEvent->start_at?->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-07-18 23:59:59', $calendarEvent->end_at?->format('Y-m-d H:i:s'));
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
             ->get(route('calendar-events.show', $calendarEvent))
             ->assertOk()
-            ->assertSee('View Service');
+            ->assertSee('View Service')
+            ->assertSee('All day');
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -247,6 +251,88 @@ class CalendarWorkflowTest extends TestCase
         ]);
 
         $this->assertNotNull($calendarEvent->fresh()->completed_at);
+    }
+
+    public function test_calendar_index_defaults_to_the_current_sunday_through_saturday_week_and_scheduled_events(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Weekly Calendar Account');
+        $otherAccount = $this->createAccount('Other Calendar Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+
+        $route = $this->createRoute($account, 'North Route');
+        $location = $this->createLocation($account, $route, 'Main Office');
+
+        CalendarEvent::create([
+            'account_id' => $account->id,
+            'event_type' => 'General',
+            'title' => 'Scheduled Monday Visit',
+            'start_at' => '2026-07-13 09:00:00',
+            'end_at' => '2026-07-13 10:00:00',
+            'all_day' => false,
+            'status' => CalendarEvent::STATUS_SCHEDULED,
+            'assigned_user_id' => $user->id,
+            'location_id' => $location->id,
+        ]);
+
+        CalendarEvent::create([
+            'account_id' => $account->id,
+            'event_type' => 'Service',
+            'title' => 'All Day Service',
+            'start_at' => '2026-07-16 00:00:00',
+            'end_at' => '2026-07-16 23:59:59',
+            'all_day' => true,
+            'status' => CalendarEvent::STATUS_SCHEDULED,
+            'assigned_user_id' => $user->id,
+            'location_id' => $location->id,
+        ]);
+
+        CalendarEvent::create([
+            'account_id' => $account->id,
+            'event_type' => 'General',
+            'title' => 'Completed This Week',
+            'start_at' => '2026-07-14 11:00:00',
+            'all_day' => false,
+            'status' => CalendarEvent::STATUS_COMPLETED,
+        ]);
+
+        CalendarEvent::create([
+            'account_id' => $account->id,
+            'event_type' => 'General',
+            'title' => 'Next Week Scheduled',
+            'start_at' => '2026-07-20 09:00:00',
+            'all_day' => false,
+            'status' => CalendarEvent::STATUS_SCHEDULED,
+        ]);
+
+        CalendarEvent::create([
+            'account_id' => $otherAccount->id,
+            'event_type' => 'General',
+            'title' => 'Other Account Scheduled',
+            'start_at' => '2026-07-13 09:00:00',
+            'all_day' => false,
+            'status' => CalendarEvent::STATUS_SCHEDULED,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('calendar-events.index'))
+            ->assertOk()
+            ->assertSee('Calendar')
+            ->assertSee('July 12, 2026 - July 18, 2026')
+            ->assertSee('Previous Week')
+            ->assertSee('Current Week')
+            ->assertSee('Next Week')
+            ->assertSee('Sunday')
+            ->assertSee('Saturday')
+            ->assertSee('Scheduled Monday Visit')
+            ->assertSee('All Day Service')
+            ->assertSee('All day')
+            ->assertSee('Main Office')
+            ->assertSee('Assigned: '.$user->name)
+            ->assertDontSee('Completed This Week')
+            ->assertDontSee('Next Week Scheduled')
+            ->assertDontSee('Other Account Scheduled');
     }
 
     protected function createAccount(string $name): Account
