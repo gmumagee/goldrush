@@ -32,6 +32,7 @@ class DashboardController extends Controller
 
         $events = CalendarEvent::query()
             ->forAccount($accountId)
+            ->with('assignedUser')
             ->where('status', CalendarEvent::STATUS_SCHEDULED)
             ->whereBetween('start_at', [$weekStart, $weekEnd])
             ->orderBy('start_at')

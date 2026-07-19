@@ -98,4 +98,9 @@ class Location extends Model
             'id'
         );
     }
+
+    public function serviceSales()
+    {
+        return $this->hasMany(ServiceSale::class, 'location_id');
+    }
 }

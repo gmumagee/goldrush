@@ -113,6 +113,8 @@ class LocationController extends Controller
             'services' => fn ($query) => $query
                 ->where('account_id', $accountId)
                 ->with(['user', 'closedBy'])
+                ->withSum('calculatedSales as sales_total', 'sales_amount')
+                ->withCount(['calculatedSales', 'baselineSales'])
                 ->withCount('transactions')
                 ->orderByDesc('service_date')
                 ->orderByDesc('id'),

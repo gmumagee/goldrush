@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
+    public const TYPE_CURRENT_INVENTORY = 'current_inventory';
+    public const TYPE_COUNT = 'count';
+    public const TYPE_FILL = 'fill';
+    public const TYPE_ADD = 'add';
+    public const TYPE_WASTE = 'waste';
+    public const TYPE_REMOVE = 'remove';
+    public const TYPE_ADJUSTMENT = 'adjustment';
+
     protected $table = 'tbl_transactions';
 
     public $timestamps = false;
@@ -52,5 +60,18 @@ class Transaction extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public static function movementTypesForSales(): array
+    {
+        return [
+            self::TYPE_CURRENT_INVENTORY,
+            self::TYPE_COUNT,
+            self::TYPE_FILL,
+            self::TYPE_ADD,
+            self::TYPE_WASTE,
+            self::TYPE_REMOVE,
+            self::TYPE_ADJUSTMENT,
+        ];
     }
 }

@@ -12,6 +12,7 @@ use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Product;
 use App\Models\Service;
+use App\Models\ServiceSale;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\VendingRoute;
@@ -42,6 +43,23 @@ class ServiceWorkflowTest extends TestCase
 
         $binOne = $this->createBin($account, $machineOne, $productOne, 'A1', 10, 1.50);
         $binTwo = $this->createBin($account, $machineTwo, $productTwo, 'B1', 12, 2.25);
+
+        $previousService = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-09',
+            'opened_at' => '2026-07-09 08:00:00',
+            'completed_at' => '2026-07-09 10:00:00',
+            'closed_at' => '2026-07-09 10:30:00',
+            'amount_collected' => 0,
+            'status' => Service::STATUS_SERVICE_CLOSED,
+        ]);
+
+        $this->createTransaction($account, $previousService, $binOne, Transaction::TYPE_CURRENT_INVENTORY, 20, '2026-07-09 09:00:00');
+        $this->createTransaction($account, $previousService, $binTwo, Transaction::TYPE_CURRENT_INVENTORY, 12, '2026-07-09 09:15:00');
 
         $response = $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -118,7 +136,7 @@ class ServiceWorkflowTest extends TestCase
             'service_id' => $service->id,
             'machine_id' => $machineOne->id,
             'bin_id' => $binOne->id,
-            'transaction_type' => 'count',
+            'transaction_type' => Transaction::TYPE_COUNT,
             'quantity' => 4,
             'product_id' => $productOne->id,
         ]);
@@ -127,13 +145,13 @@ class ServiceWorkflowTest extends TestCase
             'service_id' => $service->id,
             'machine_id' => $machineTwo->id,
             'bin_id' => $binTwo->id,
-            'transaction_type' => 'fill',
+            'transaction_type' => Transaction::TYPE_FILL,
             'quantity' => 2,
             'product_id' => $productTwo->id,
         ]);
 
-        $this->assertSame(4, Transaction::query()->count());
-        $this->assertSame(4, Transaction::query()->whereNotNull('transaction_at')->count());
+        $this->assertSame(6, Transaction::query()->count());
+        $this->assertSame(6, Transaction::query()->whereNotNull('transaction_at')->count());
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -142,6 +160,47 @@ class ServiceWorkflowTest extends TestCase
 
         $service->refresh();
         $this->assertSame(Service::STATUS_SERVICE_COMPLETED, $service->status);
+        $this->assertDatabaseCount('tbl_service_sales', 2);
+        $this->assertDatabaseHas('tbl_service_sales', [
+            'service_id' => $service->id,
+            'bin_id' => $binOne->id,
+            'product_id' => $productOne->id,
+            'calculation_status' => ServiceSale::CALCULATION_CALCULATED,
+            'opening_quantity' => 20,
+            'counted_quantity' => 4,
+            'units_sold' => 16,
+            'unit_price' => 1.50,
+            'sales_amount' => 24.00,
+        ]);
+        $this->assertDatabaseHas('tbl_service_sales', [
+            'service_id' => $service->id,
+            'bin_id' => $binTwo->id,
+            'product_id' => $productTwo->id,
+            'calculation_status' => ServiceSale::CALCULATION_CALCULATED,
+            'opening_quantity' => 12,
+            'counted_quantity' => 6,
+            'units_sold' => 6,
+            'unit_price' => 2.25,
+            'sales_amount' => 13.50,
+        ]);
+        $this->assertDatabaseHas('tbl_transactions', [
+            'service_id' => $service->id,
+            'bin_id' => $binOne->id,
+            'product_id' => $productOne->id,
+            'transaction_type' => Transaction::TYPE_CURRENT_INVENTORY,
+            'quantity' => 7,
+        ]);
+        $this->assertDatabaseHas('tbl_transactions', [
+            'service_id' => $service->id,
+            'bin_id' => $binTwo->id,
+            'product_id' => $productTwo->id,
+            'transaction_type' => Transaction::TYPE_CURRENT_INVENTORY,
+            'quantity' => 8,
+        ]);
+        $this->assertDatabaseMissing('tbl_transactions', [
+            'service_id' => $service->id,
+            'transaction_type' => 'sale',
+        ]);
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -165,7 +224,7 @@ class ServiceWorkflowTest extends TestCase
             ->assertRedirect(route('services.show', $service->id))
             ->assertSessionHasErrors('service');
 
-        $this->assertSame(4, Transaction::query()->count());
+        $this->assertSame(8, Transaction::query()->count());
     }
 
     public function test_maintenance_service_can_be_created_opened_closed_and_cannot_use_inventory_or_amount_collected(): void
@@ -280,11 +339,97 @@ class ServiceWorkflowTest extends TestCase
         $this->assertNull($service->completed_at);
         $this->assertNull($service->amount_collected);
         $this->assertNotNull($service->closed_at);
+        $this->assertDatabaseCount('tbl_service_sales', 0);
         $this->assertSame(CalendarEvent::STATUS_COMPLETED, $calendarEvent->status);
         $this->assertSame('Maintenance', $calendarEvent->event_type);
         $this->assertNotNull($calendarEvent->completed_at);
         $this->assertSame(CalendarReminder::STATUS_DISMISSED, $reminder->status);
         $this->assertSame($user->id, $reminder->dismissed_by_user_id);
+    }
+
+    public function test_first_service_completes_with_a_baseline_line_and_creates_a_current_inventory_snapshot(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Reconciliation Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'North Route');
+        $location = $this->createLocation($account, $route, 'Campus Center');
+        $warehouse = $this->createWarehouse($account, 'Main Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Chips');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 1.50);
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-18',
+            'opened_at' => '2026-07-18 08:00:00',
+            'closed_at' => null,
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 4, '2026-07-18 09:00:00');
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_FILL, 3, '2026-07-18 09:15:00');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.complete', $service->id))
+            ->assertRedirect(route('services.show', $service->id));
+
+        $service->refresh();
+        $this->assertSame(Service::STATUS_SERVICE_COMPLETED, $service->status);
+        $this->assertDatabaseHas('tbl_service_sales', [
+            'service_id' => $service->id,
+            'bin_id' => $bin->id,
+            'product_id' => $product->id,
+            'calculation_status' => ServiceSale::CALCULATION_BASELINE,
+            'opening_quantity' => null,
+            'counted_quantity' => 4,
+            'units_sold' => null,
+            'sales_amount' => null,
+        ]);
+        $this->assertDatabaseHas('tbl_transactions', [
+            'service_id' => $service->id,
+            'bin_id' => $bin->id,
+            'product_id' => $product->id,
+            'transaction_type' => Transaction::TYPE_CURRENT_INVENTORY,
+            'quantity' => 7,
+        ]);
+
+        $nextService = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-19',
+            'opened_at' => '2026-07-19 08:00:00',
+            'closed_at' => null,
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->createTransaction($account, $nextService, $bin, Transaction::TYPE_COUNT, 2, '2026-07-19 09:00:00');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.complete', $nextService->id))
+            ->assertRedirect(route('services.show', $nextService->id));
+
+        $this->assertDatabaseHas('tbl_service_sales', [
+            'service_id' => $nextService->id,
+            'bin_id' => $bin->id,
+            'product_id' => $product->id,
+            'calculation_status' => ServiceSale::CALCULATION_CALCULATED,
+            'opening_quantity' => 7,
+            'counted_quantity' => 2,
+            'units_sold' => 5,
+            'sales_amount' => 7.50,
+        ]);
     }
 
     public function test_submitted_status_is_ignored_when_creating_a_service(): void

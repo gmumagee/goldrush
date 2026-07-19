@@ -12,6 +12,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\CalendarService;
 use App\Services\DataDictionaryService;
+use App\Services\FinalizeServiceSales;
 use App\Services\InventoryCostService;
 use App\Services\WarehouseInventoryService;
 use Carbon\CarbonImmutable;
@@ -28,6 +29,7 @@ class ServiceController extends Controller
     public function __construct(
         protected DataDictionaryService $dataDictionaryService,
         protected CalendarService $calendarService,
+        protected FinalizeServiceSales $finalizeServiceSales,
     )
     {
     }
@@ -141,7 +143,14 @@ class ServiceController extends Controller
             'user',
             'closedBy',
             'calendarEvents',
+            'sales' => fn ($query) => $query
+                ->with(['product', 'machine', 'bin'])
+                ->orderBy('machine_id')
+                ->orderBy('bin_id')
+                ->orderBy('id'),
         ]);
+        $service->loadSum('calculatedSales as sales_total', 'sales_amount');
+        $service->loadCount(['calculatedSales', 'baselineSales']);
 
         $transactionsByDateAndType = $this->groupTransactionsForService($service);
 
@@ -299,15 +308,33 @@ class ServiceController extends Controller
         $this->ensureLocationService($service, 'This action is only valid for location services.');
         $this->ensureServiceOpen($service);
 
-        $service->update([
-            'status' => Service::STATUS_COMPLETED,
-            'completed_at' => now(),
-            'closed_at' => null,
-            'closed_by_user_id' => null,
-            'amount_collected' => null,
-        ]);
+        DB::transaction(function () use ($service, $request) {
+            $service = Service::query()
+                ->where('account_id', $service->account_id)
+                ->lockForUpdate()
+                ->findOrFail($service->id);
 
-        $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
+            $this->ensureLocationService($service, 'This action is only valid for location services.');
+            $this->ensureServiceOpen($service);
+            $completedAt = now();
+            $result = $this->finalizeServiceSales->finalize($service, $completedAt);
+
+            if ($result['errors'] !== []) {
+                throw ValidationException::withMessages([
+                    'service' => $result['errors'],
+                ]);
+            }
+
+            $service->update([
+                'status' => Service::STATUS_COMPLETED,
+                'completed_at' => $completedAt,
+                'closed_at' => null,
+                'closed_by_user_id' => null,
+                'amount_collected' => null,
+            ]);
+
+            $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
+        });
 
         return redirect()
             ->route('services.show', $service->id)
@@ -344,6 +371,8 @@ class ServiceController extends Controller
     public function editAmountCollected(Request $request, int $service): View
     {
         $service = $this->resolveService($request, $service, ['location.route', 'user', 'closedBy']);
+        $service->loadSum('calculatedSales as sales_total', 'sales_amount');
+        $service->loadCount(['calculatedSales', 'baselineSales']);
         $this->ensureLocationService($service, 'Amount collected is only available for location services.');
         $this->ensureAwaitingAmountCollected($service);
 
@@ -354,21 +383,33 @@ class ServiceController extends Controller
 
     public function updateAmountCollected(Request $request, int $service): RedirectResponse
     {
-        $service = $this->resolveService($request, $service);
+        $service = $this->resolveService($request, $service, ['location.machines.bins']);
         $this->ensureLocationService($service, 'Amount collected is only available for location services.');
         $this->ensureAwaitingAmountCollected($service);
         $data = $request->validate([
             'amount_collected' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $service->update([
-            'status' => Service::STATUS_CLOSED,
-            'closed_at' => now(),
-            'closed_by_user_id' => (int) $request->user()->id,
-            'amount_collected' => $data['amount_collected'],
-        ]);
+        $salesCount = $service->sales()->where('account_id', $service->account_id)->count();
+        $locationHasBins = $service->location !== null
+            && $service->location->machines->contains(fn ($machine) => $machine->bins->isNotEmpty());
 
-        $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
+        if ($salesCount === 0 && $locationHasBins) {
+            return back()->withErrors([
+                'service' => 'Finalized sales records are required before closing this service.',
+            ]);
+        }
+
+        DB::transaction(function () use ($service, $data, $request) {
+            $service->update([
+                'status' => Service::STATUS_CLOSED,
+                'closed_at' => now(),
+                'closed_by_user_id' => (int) $request->user()->id,
+                'amount_collected' => $data['amount_collected'],
+            ]);
+
+            $this->calendarService->updateServiceEvent($service->refresh(), (int) $request->user()->id);
+        });
 
         return redirect()
             ->route('services.show', $service->id)
@@ -414,7 +455,7 @@ class ServiceController extends Controller
                     'machine_id' => $bin->machine_id,
                     'bin_id' => $bin->id,
                     'product_id' => $bin->product_id,
-                    'transaction_type' => 'count',
+                    'transaction_type' => Transaction::TYPE_COUNT,
                     'quantity' => (int) $quantities[$bin->id],
                     'transaction_at' => now(),
                     'price' => $bin->price,
@@ -667,12 +708,13 @@ class ServiceController extends Controller
     protected function groupTransactionsForService(Service $service): Collection
     {
         $typeOrder = [
-            'fill' => 1,
-            'count' => 2,
-            'add' => 3,
-            'waste' => 4,
-            'remove' => 5,
-            'adjustment' => 6,
+            Transaction::TYPE_CURRENT_INVENTORY => 1,
+            Transaction::TYPE_FILL => 1,
+            Transaction::TYPE_COUNT => 2,
+            Transaction::TYPE_ADD => 3,
+            Transaction::TYPE_WASTE => 4,
+            Transaction::TYPE_REMOVE => 5,
+            Transaction::TYPE_ADJUSTMENT => 6,
         ];
 
         // Transaction history stays inside the selected account and service so

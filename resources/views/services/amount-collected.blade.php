@@ -1,6 +1,24 @@
 <x-app-layout title="Enter Amount Collected">
-    <div class="px-4 py-8 sm:px-6 lg:px-8">
-        <div class="mx-auto w-full max-w-3xl space-y-6">
+        <div class="px-4 py-8 sm:px-6 lg:px-8">
+            <div class="mx-auto w-full max-w-3xl space-y-6">
+                @php
+                    // Reuse the stored reconciliation counts so close-out messaging matches the completed service.
+                    $calculatedSalesCount = (int) ($service->calculated_sales_count ?? 0);
+                    $baselineSalesCount = (int) ($service->baseline_sales_count ?? 0);
+                    $reconciliationStatus = match (true) {
+                    $calculatedSalesCount > 0 && $baselineSalesCount === 0 => 'complete',
+                    $calculatedSalesCount > 0 && $baselineSalesCount > 0 => 'partial',
+                    $calculatedSalesCount === 0 && $baselineSalesCount > 0 => 'baseline_only',
+                    default => 'none',
+                };
+                $salesSummary = match ($reconciliationStatus) {
+                    'complete' => 'Finalized Sales: '.\App\Support\Money::format((string) $service->sales_total),
+                    'partial' => 'Calculated Sales Subtotal: '.\App\Support\Money::format((string) $service->sales_total).' (Partial)',
+                    'baseline_only' => 'Finalized Sales: Not available — baseline service',
+                    default => null,
+                };
+            @endphp
+
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Enter Amount Collected</h1>
@@ -26,6 +44,18 @@
                 <div class="panel-body">
                     <form method="POST" action="{{ route('services.amount-collected.update', $service) }}" class="space-y-5">
                         @csrf
+
+                        @if ($salesSummary)
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 dark:border-gray-700/60 dark:bg-gray-800/70 dark:text-gray-200">
+                                {{ $salesSummary }}
+                            </div>
+                        @endif
+
+                        @if (in_array($reconciliationStatus, ['partial', 'baseline_only'], true))
+                            <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
+                                Financial difference is unavailable because one or more bins were initialized as inventory baselines during this service.
+                            </div>
+                        @endif
 
                         <div>
                             <x-label for="amount_collected" value="Amount Collected" />

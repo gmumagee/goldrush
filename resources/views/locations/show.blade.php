@@ -56,6 +56,7 @@
                     </div>
                 </div>
                 <div class="panel-body">
+                    {{-- Keep the summary fields locked into the requested two-row desktop grid. --}}
                     <div
                         class="forced-location-summary-grid"
                         style="
@@ -273,6 +274,7 @@
                                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
                                     @forelse ($location->documents as $document)
                                         @php
+                                            // Normalize document type labels once per row before rendering actions.
                                             $documentTypeKey = strtolower(trim((string) $document->document_type));
                                         @endphp
                                         <tr class="bg-white dark:bg-gray-800">
@@ -283,7 +285,10 @@
                                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $document->original_filename }}</td>
                                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $document->file_size ? \Illuminate\Support\Number::fileSize((int) $document->file_size) : '—' }}</td>
                                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $document->uploadedBy?->name ?: '—' }}</td>
-                                            <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $document->created_at?->format('d-m-Y H:i') ?: '—' }}</td>
+                                            <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                                <div>{{ \App\Support\AppDateTime::displayDate($document->created_at) }}</div>
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\AppDateTime::displayTime($document->created_at) }}</div>
+                                            </td>
                                             <td class="px-5 py-4">
                                                 <div class="flex flex-wrap gap-2">
                                                     <a href="{{ route('locations.documents.download', [$location, $document]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Download</a>
@@ -387,7 +392,8 @@
                         <div x-data="{ openServiceId: null }" class="space-y-3">
                             @foreach ($location->services as $service)
                                 @php
-                                    $serviceHeaderDate = $service->service_date?->format('F j, Y') ?? 'No service date';
+                                    // Build the service header once so the accordion stays compact and consistent.
+                                    $serviceHeaderDate = \App\Support\AppDateTime::displayDate($service->service_date) ?: 'No service date';
                                     $serviceStatusLabel = $displayServiceStatus($service->status);
                                     $serviceTypeLabel = $serviceTypeLabels[strtolower(trim((string) $service->service_type))] ?? ($service->service_type ?: '—');
                                 @endphp
@@ -434,27 +440,85 @@
                                                         <th class="px-4 py-3 text-left">Completed At</th>
                                                         <th class="px-4 py-3 text-left">Closed At</th>
                                                         <th class="px-4 py-3 text-left">Closed By</th>
+                                                        <th class="px-4 py-3 text-right">Sales</th>
                                                         <th class="px-4 py-3 text-right">Amount Collected</th>
+                                                        <th class="px-4 py-3 text-right">Difference</th>
                                                         <th class="px-4 py-3 text-left">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
                                                     <tr class="bg-white dark:bg-gray-800">
+                                                        @php
+                                                            // Derive one reconciliation state so sales and differences match the stored facts.
+                                                            $serviceSalesTotal = isset($service->sales_total) ? (string) $service->sales_total : null;
+                                                            $calculatedSalesCount = (int) ($service->calculated_sales_count ?? 0);
+                                                            $baselineSalesCount = (int) ($service->baseline_sales_count ?? 0);
+                                                            $reconciliationStatus = match (true) {
+                                                                $calculatedSalesCount > 0 && $baselineSalesCount === 0 => 'complete',
+                                                                $calculatedSalesCount > 0 && $baselineSalesCount > 0 => 'partial',
+                                                                $calculatedSalesCount === 0 && $baselineSalesCount > 0 => 'baseline_only',
+                                                                default => 'none',
+                                                            };
+                                                            $serviceDifference = null;
+
+                                                            if ($reconciliationStatus === 'complete' && $serviceSalesTotal !== null && $service->amount_collected !== null) {
+                                                                $serviceDifference = \App\Support\Money::fromCents(
+                                                                    \App\Support\Money::toCents($service->amount_collected)
+                                                                    - \App\Support\Money::toCents($serviceSalesTotal)
+                                                                );
+                                                            }
+
+                                                            $serviceSalesDisplay = match ($reconciliationStatus) {
+                                                                'complete' => \App\Support\Money::format($serviceSalesTotal),
+                                                                'partial' => trim(\App\Support\Money::format($serviceSalesTotal).' Partial'),
+                                                                'baseline_only' => 'Baseline',
+                                                                default => '—',
+                                                            };
+                                                        @endphp
                                                         <td class="px-4 py-3">{{ $serviceTypeLabel }}</td>
-                                                        <td class="px-4 py-3 text-nowrap">{{ $service->service_date?->format('M j, Y') ?? '—' }}</td>
+                                                        <td class="px-4 py-3 text-nowrap">{{ \App\Support\AppDateTime::displayDate($service->service_date) }}</td>
                                                         <td class="px-4 py-3 text-nowrap">
                                                             <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $serviceStatusClasses($service->status) }}">{{ $serviceStatusLabel }}</span>
                                                         </td>
                                                         <td class="px-4 py-3">{{ $service->user?->name ?: 'Unassigned' }}</td>
-                                                        <td class="px-4 py-3 text-nowrap">{{ $service->opened_at?->format('M j, Y g:i A') ?? '—' }}</td>
-                                                        <td class="px-4 py-3 text-nowrap">{{ $service->completed_at?->format('M j, Y g:i A') ?? '—' }}</td>
-                                                        <td class="px-4 py-3 text-nowrap">{{ $service->closed_at?->format('M j, Y g:i A') ?? '—' }}</td>
+                                                        <td class="px-4 py-3 text-nowrap">
+                                                            <div>{{ \App\Support\AppDateTime::displayDate($service->opened_at) }}</div>
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\AppDateTime::displayTime($service->opened_at) }}</div>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-nowrap">
+                                                            <div>{{ \App\Support\AppDateTime::displayDate($service->completed_at) }}</div>
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\AppDateTime::displayTime($service->completed_at) }}</div>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-nowrap">
+                                                            <div>{{ \App\Support\AppDateTime::displayDate($service->closed_at) }}</div>
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\AppDateTime::displayTime($service->closed_at) }}</div>
+                                                        </td>
                                                         <td class="px-4 py-3">{{ $service->closedBy?->name ?: '—' }}</td>
                                                         <td class="px-4 py-3 text-right text-nowrap">
                                                             @if ($service->isMaintenanceService())
                                                                 N/A
+                                                            @elseif ($service->isServiceCompleted() || $service->isServiceClosed())
+                                                                {{ $serviceSalesDisplay }}
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-4 py-3 text-right text-nowrap">
+                                                            @if ($service->isMaintenanceService())
+                                                                N/A
                                                             @elseif (! is_null($service->amount_collected))
-                                                                ${{ number_format((float) $service->amount_collected, 2) }}
+                                                                {{ \App\Support\Money::format($service->amount_collected) }}
+                                                            @elseif ($service->isServiceCompleted())
+                                                                Pending
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-4 py-3 text-right text-nowrap">
+                                                            @if ($service->isMaintenanceService())
+                                                                N/A
+                                                            @elseif ($serviceDifference !== null)
+                                                                {{ \App\Support\Money::format($serviceDifference) }}
                                                             @else
                                                                 —
                                                             @endif

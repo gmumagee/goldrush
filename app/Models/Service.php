@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
@@ -79,6 +80,23 @@ class Service extends Model
         return $this->hasMany(Transaction::class, 'service_id');
     }
 
+    public function sales(): HasMany
+    {
+        return $this->hasMany(ServiceSale::class, 'service_id');
+    }
+
+    public function calculatedSales(): HasMany
+    {
+        return $this->hasMany(ServiceSale::class, 'service_id')
+            ->where('calculation_status', ServiceSale::CALCULATION_CALCULATED);
+    }
+
+    public function baselineSales(): HasMany
+    {
+        return $this->hasMany(ServiceSale::class, 'service_id')
+            ->where('calculation_status', ServiceSale::CALCULATION_BASELINE);
+    }
+
     public function calendarEvents()
     {
         return $this->hasMany(CalendarEvent::class, 'source_id')
@@ -152,5 +170,10 @@ class Service extends Model
     protected function serviceTypeMatches(string $expectedType): bool
     {
         return strcasecmp(trim((string) $this->service_type), $expectedType) === 0;
+    }
+
+    public function salesTotal(): string
+    {
+        return (string) $this->calculatedSales()->sum('sales_amount');
     }
 }

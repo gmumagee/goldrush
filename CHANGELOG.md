@@ -1,27 +1,84 @@
+
+
+2026-07-19, Align recent service-sales and location-detail updates with AGENT standards, Added short why-comments to the new service-sales calculation persistence and reporting code, updated the location detail services and document timestamps to use the shared DD-MM-YYYY and HH:MM:SS display helpers, and kept the baseline-sales reconciliation workflow unchanged.
+
+
 2026-07-13, Add reusable location contact management, Added account-scoped tbl_contacts and tbl_location_contacts tables for reusable shared contacts, seeded location contact roles into the shared data dictionary, created contact CRUD plus location contact attach and relationship edit workflows, enforced duplicate-role and single-primary-contact rules per location, updated the location detail page with a Contacts card and relationship actions, added a top-level Contacts section in the Account navigation, and kept the legacy tbl_locations contact fields in place for backward compatibility.
+
+
 2026-07-13, Add route scheduling and ordered route stops, Added scheduled_day on routes plus a new tbl_route_locations pivot table for account-scoped stop ordering, backfilled legacy location route assignments into ordered route stops, seeded route scheduled days into the shared data dictionary, updated route create edit index and detail screens to manage scheduled days and ordered stops, added add remove move-up and move-down route-stop actions with sequential renumbering, and kept legacy location route_id in sync as a nullable primary-route field for backward compatibility.
+
+
 2026-07-13, Add account-user management for the current account, Added an Owner/Admin-only Account Users workflow for listing adding editing deactivating and removing account memberships, reused tbl_account_users for membership scoping instead of adding account_id to tbl_users, loaded account-user roles and statuses from the shared data dictionary, protected against duplicate memberships and deleting or deactivating the last active owner, added account-user screens and sidebar navigation, normalized legacy owner and viewer membership roles to canonical display values, and kept all membership reads and writes scoped to the selected account.
+
+
 2026-07-13, Correct unit-cost handling for service count and fill transactions, Added a shared InventoryCostService for account-scoped warehouse average-cost and last-fill lookups, updated fill transactions to persist the current warehouse average unit cost on both tbl_transactions and matching negative service_fill ledger rows in one database transaction, updated count transactions to inherit unit cost from the latest prior fill for the same bin and product with warehouse-average and zero-cost fallbacks, and kept machine and product assignment derived from the persisted bin instead of request input.
+
+
 2026-07-12, Add inbound purchasing and warehouse inventory ledger tracking, Added posted-only purchase entry with void-by-reversal workflow, created tbl_purchases tbl_purchase_items and append-only tbl_inventory_ledger, seeded purchase statuses and inventory movement types into the shared data dictionary, required services to select a source warehouse, made machine fill transactions consume warehouse inventory at stored average cost, added purchase screens plus warehouse inventory and recent-ledger reporting, and kept all purchase warehouse product service transaction and ledger lookups scoped to the current account.
+
+
 2026-07-12, Centralize system statuses in the data dictionary, Expanded tbl_data_dictionary with account scope, labels, sort order, active flags, and timestamps, reseeded canonical service, purchase, machine, account, user, and account-user statuses with no Draft purchase state, added a shared DataDictionaryService plus dictionary-backed validation rules, switched machine and service status UI and display labels to load from the dictionary, replaced live auth/account checks with shared status constants, and redirected the active account-membership middleware alias to a writable replacement that uses the centralized status constant path.
+
+
 2026-07-12, Track which user finalized service closure, Added a nullable closed_by_user_id foreign key on services, updated the Service model with a closedBy relationship and fillable support, stored the authenticated user when amount collected is entered and the service becomes Service Closed, surfaced Closed By on the service detail page and all-services listing, and applied the migration to the database.
+
+
 2026-07-11, Split service completion from final closure, Expanded the service lifecycle to Awaiting Service, Service Open, Service Completed, and Service Closed, added completed_at tracking and guarded schema support for amount_collected, changed the technician close action to Complete Service, added a dedicated amount-collected entry screen to fully close completed services, updated service detail and services index screens to surface completed services awaiting money entry, and restricted transaction edits and writes to Service Open services only.
+
+
 2026-07-11, Require the collected amount when closing a service, Added a nullable amount_collected field to the service schema and model, converted service closing into a form that requires a non-negative collected amount, stored that value directly on the service when status changes to Service Closed, and exposed Amount Collected on the service detail page and services index.
+
+
 2026-07-11, Standardize application date and time formatting, Updated AGENT.md to require DD-MM-YYYY dates and HH:MM:SS times, added a shared AppDateTime formatter and parser, changed service, machine, and transaction views to display dates and times separately in the new format, converted service and machine date inputs to text fields with DD-MM-YYYY parsing, split transaction datetime entry into separate date and time inputs, and kept the database on native date and datetime storage while normalizing values at the controller boundary.
+
+
 2026-07-11, Simplify the service summary table, Removed the Route, Address, City, and Contact columns from the service detail page Service Summary table so it shows only the core service status and timing fields plus the assigned user.
+
+
 2026-07-11, Update the service detail subtitle line, Changed the service detail page subtitle to show the location name, city, and route name in the format "Location Name, City - Route Name" beneath the service title.
+
+
 2026-07-11, Replace the service summary boxes with a table, Updated the service detail page so the Service Summary card uses a compact table with one data row instead of responsive summary boxes, making the layout stable and aligned regardless of viewport width.
+
+
 2026-07-11, Force the service summary into five columns sooner, Updated the service detail summary card to use a five-column layout from the small breakpoint upward and reduced box padding again so the summary no longer falls back to a two-column layout on the service page width.
+
+
 2026-07-11, Tighten the service summary breakpoint, Updated the service detail summary card to switch to a five-column layout at the medium breakpoint and slightly reduced spacing again so the summary stays in two rows at narrower desktop widths.
+
+
 2026-07-11, Compress the service summary card layout, Updated the service detail page so the Service Summary card uses a tighter five-column grid on desktop to keep the summary boxes to two rows and reduced the box padding and corner size for a more compact layout.
+
+
 2026-07-11, Close service transaction accordions by default, Updated the service detail transactions card so both the date accordion groups and nested transaction type groups start collapsed by default to match the system accordion behavior rule.
+
+
 2026-07-11, Clarify accordion default behavior in agent instructions, Updated AGENT.md to require all accordions and collapsible sections across the system to default to the closed state unless a user explicitly requests otherwise.
+
+
 2026-07-11, Reorganize service detail transactions by date and type, Updated the service detail page to load account-scoped transactions in descending transaction time order, grouped them by transaction date and transaction type with nested collapsible sections, added transaction action links within each grouped table, and preserved closed-service edit and delete restrictions.
+
+
 2026-07-11, Rework the service detail page layout, Moved the Service Summary card into a full-width horizontal summary section across the top of the service detail page and positioned the Machines At This Location panel underneath it to improve scanability and match the rest of the admin layout.
+
+
 2026-07-11, Redesign the Services index page, Replaced the flat filtered Services table with grouped Pending Services and All Services cards, removed the index filter UI, grouped service rows by location with collapsible sections, standardized pending-service display for legacy lowercase statuses, and preserved account-scoped service workflow actions.
+
+
 2026-07-10, Update the machine detail page summary and bins layout, Changed the machine detail page to use horizontal summary cards, renamed the bins card to Bins, grouped bins into collapsible row sections labeled by row letter, sized row bin cards to fit on a single line, and updated row labels to display as "Row: X".
+
+
 2026-07-10, Update README to reflect the application's intent, Replaced the default Laravel README with project-specific documentation describing GoldRush as a multi-account vending machine management application, documented the current operational scope, summarized the domain model, and added practical local run instructions.
+
+
 2026-07-10, Create a data dictionary for system terminology, Added DATA_DICTIONARY.md to define the main account, vending, inventory, service, transaction, and workflow terms used by the application and summarized the key data relationships between them.
+
+
 2026-07-10, Replace the documentation-only data dictionary with a database lookup table, Added a global tbl_data_dictionary table with name and value pairs, created a DataDictionary model and seeder with initial machine and status terms, wired the seeder into DatabaseSeeder, and removed the markdown-only data dictionary file.
+
+
 2026-07-10, Build the location-based service workflow, Converted services from machine-based handling to location-based handling, added service screens and routes for create/open/count/fill/close actions, enforced account and location ownership rules, recorded count and fill transactions at the bin level, added service workflow feature tests, and updated shared dictionary values for the new service statuses and type.
+
+
 2026-07-10, Add service lifecycle and transaction timestamps, Added opened_at and closed_at to services plus transaction_at to transactions, updated service open and close actions to stamp lifecycle times, updated count and fill transactions to record transaction time, and expanded the service detail view to show those lifecycle and transaction timestamps.

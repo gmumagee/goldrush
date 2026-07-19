@@ -54,4 +54,9 @@ class Product extends Model
     {
         return $this->hasMany(InventoryLedger::class, 'product_id');
     }
+
+    public function serviceSales()
+    {
+        return $this->hasMany(ServiceSale::class, 'product_id');
+    }
 }

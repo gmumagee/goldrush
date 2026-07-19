@@ -76,6 +76,7 @@ class InventoryService
             $quantity = (int) $transaction->quantity;
 
             switch ($transaction->transaction_type) {
+                case Transaction::TYPE_CURRENT_INVENTORY:
                 case 'count':
                     $currentInventory = $quantity;
                     break;

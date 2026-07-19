@@ -42,4 +42,9 @@ class Bin extends Model
     {
         return $this->hasMany(Transaction::class, 'bin_id');
     }
+
+    public function serviceSales()
+    {
+        return $this->hasMany(ServiceSale::class, 'bin_id');
+    }
 }
