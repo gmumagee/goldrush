@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
+    // Keep workflow and type checks on stable internal values instead of labels.
     public const STATUS_AWAITING = 'Awaiting Service';
     public const STATUS_OPEN = 'Service Open';
     public const STATUS_COMPLETED = 'Service Completed';
@@ -87,12 +88,14 @@ class Service extends Model
 
     public function calculatedSales(): HasMany
     {
+        // Separate calculated rows so revenue totals exclude baseline setup lines.
         return $this->hasMany(ServiceSale::class, 'service_id')
             ->where('calculation_status', ServiceSale::CALCULATION_CALCULATED);
     }
 
     public function baselineSales(): HasMany
     {
+        // Track baseline rows separately so the UI can warn about incomplete reconciliation.
         return $this->hasMany(ServiceSale::class, 'service_id')
             ->where('calculation_status', ServiceSale::CALCULATION_BASELINE);
     }
@@ -169,11 +172,13 @@ class Service extends Model
 
     protected function serviceTypeMatches(string $expectedType): bool
     {
+        // Normalize service types so dictionary-backed values stay comparable across old rows.
         return strcasecmp(trim((string) $this->service_type), $expectedType) === 0;
     }
 
     public function salesTotal(): string
     {
+        // Sum only calculated sales because baseline rows do not represent measured revenue.
         return (string) $this->calculatedSales()->sum('sales_amount');
     }
 }

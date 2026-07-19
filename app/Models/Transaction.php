@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
+    // Reuse canonical transaction types so reconciliation does not depend on literal strings.
     public const TYPE_CURRENT_INVENTORY = 'current_inventory';
     public const TYPE_COUNT = 'count';
     public const TYPE_FILL = 'fill';
@@ -26,12 +27,15 @@ class Transaction extends Model
         'product_id',
         'transaction_type',
         'quantity',
+        'spoilage',
         'transaction_at',
         'price',
         'unit_cost',
     ];
 
     protected $casts = [
+        'quantity' => 'integer',
+        'spoilage' => 'integer',
         'transaction_at' => 'datetime',
         'price' => 'decimal:2',
         'unit_cost' => 'decimal:4',
@@ -64,6 +68,7 @@ class Transaction extends Model
 
     public static function movementTypesForSales(): array
     {
+        // Centralize the movement set so calculators and reports reconcile the same evidence rows.
         return [
             self::TYPE_CURRENT_INVENTORY,
             self::TYPE_COUNT,

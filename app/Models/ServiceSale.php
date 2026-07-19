@@ -10,6 +10,7 @@ class ServiceSale extends Model
 {
     use BelongsToAccount;
 
+    // Distinguish reportable sales rows from first-service baseline rows.
     public const CALCULATION_CALCULATED = 'calculated';
     public const CALCULATION_BASELINE = 'baseline';
 
@@ -28,8 +29,7 @@ class ServiceSale extends Model
         'calculation_note',
         'sales_date',
         'opening_quantity',
-        'inventory_additions',
-        'non_sale_removals',
+        'spoilage',
         'counted_quantity',
         'units_sold',
         'unit_price',
@@ -41,8 +41,7 @@ class ServiceSale extends Model
     protected $casts = [
         'sales_date' => 'date',
         'opening_quantity' => 'integer',
-        'inventory_additions' => 'integer',
-        'non_sale_removals' => 'integer',
+        'spoilage' => 'integer',
         'counted_quantity' => 'integer',
         'units_sold' => 'integer',
         'unit_price' => 'decimal:2',
@@ -52,11 +51,13 @@ class ServiceSale extends Model
 
     public function isCalculated(): bool
     {
+        // Compare case-insensitively so historical rows do not break revenue filtering.
         return strcasecmp(trim((string) $this->calculation_status), self::CALCULATION_CALCULATED) === 0;
     }
 
     public function isBaseline(): bool
     {
+        // Baseline rows establish inventory history but should not count as revenue.
         return strcasecmp(trim((string) $this->calculation_status), self::CALCULATION_BASELINE) === 0;
     }
 
@@ -87,11 +88,13 @@ class ServiceSale extends Model
 
     public function previousInventoryTransaction(): BelongsTo
     {
+        // Keep the opening inventory snapshot attached for auditability.
         return $this->belongsTo(Transaction::class, 'previous_inventory_transaction_id');
     }
 
     public function countTransaction(): BelongsTo
     {
+        // Keep the final count attached so each sales line can be explained later.
         return $this->belongsTo(Transaction::class, 'count_transaction_id');
     }
 }

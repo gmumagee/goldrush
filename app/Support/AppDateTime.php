@@ -18,16 +18,28 @@ class AppDateTime
 
     public static function displayDate(mixed $value, string $fallback = '—'): string
     {
-        $date = self::toCarbon($value);
+        $date = self::toDisplayCarbon($value);
 
         return $date?->format(self::DISPLAY_DATE_FORMAT) ?? $fallback;
     }
 
     public static function displayTime(mixed $value, string $fallback = '—'): string
     {
-        $time = self::toCarbon($value);
+        $time = self::toDisplayCarbon($value);
 
         return $time?->format(self::DISPLAY_TIME_FORMAT) ?? $fallback;
+    }
+
+    public static function isoDate(mixed $value): ?string
+    {
+        // Preserve a machine-readable date when the visible text uses the app display format.
+        return self::toDisplayCarbon($value)?->format(self::STORAGE_DATE_FORMAT);
+    }
+
+    public static function isoDateTime(mixed $value): ?string
+    {
+        // Preserve a machine-readable datetime for <time> elements and audit-friendly markup.
+        return self::toDisplayCarbon($value)?->toIso8601String();
     }
 
     public static function inputDate(mixed $value): string
@@ -105,6 +117,14 @@ class AppDateTime
         }
 
         return null;
+    }
+
+    protected static function toDisplayCarbon(mixed $value): ?CarbonInterface
+    {
+        // Normalize display values to the configured application timezone before formatting them.
+        $date = self::toCarbon($value);
+
+        return $date?->setTimezone((string) config('app.timezone', 'UTC'));
     }
 
     protected static function clean(?string $value): ?string

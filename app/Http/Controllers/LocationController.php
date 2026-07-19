@@ -85,6 +85,8 @@ class LocationController extends Controller
     public function show(Request $request, int $location): View
     {
         $accountId = $this->currentAccountId($request);
+
+        // Load every location detail relationship inside the current account to avoid cross-tenant leaks.
         $location = $this->locationForAccount($accountId, $location, [
             'route',
             'routes',
@@ -120,6 +122,7 @@ class LocationController extends Controller
                 ->orderByDesc('id'),
         ]);
 
+        // Build one summary payload so the view does not have to reconstruct contact fallbacks.
         $primaryContact = $location->primaryLocationContact?->contact;
         $cityStateZip = trim(collect([
             $location->city,

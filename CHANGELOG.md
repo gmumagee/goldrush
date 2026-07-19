@@ -1,5 +1,20 @@
 
 
+2026-07-19, Add spoilage to the Location Service count workflow, Added a persisted spoilage field to count transactions and finalized service-sales rows, changed the Location Service count form to capture Count and Spoilage per bin with idempotent updates, updated sales reconciliation so units sold equals opening quantity minus final count minus spoilage while closing inventory still uses only final count plus post-count fill, replaced the Sales Breakdown Removals column with Spoilage, and extended transaction and service workflow coverage so count edits preserve spoilage and invalid spoilage blocks completion.
+
+
+2026-07-19, Reorder the Location Service count inputs and replace repeated helper copy with header tooltips, Moved Spoilage ahead of Count in the machine count table, removed the repeated inline guidance under each field and the machine-level instruction sentence, added accessible header tooltip buttons while preserving the existing quantity and spoilage field names and saved values, and extended feature coverage for the revised layout.
+
+
+2026-07-19, Remove inventory additions from persistent service sales, Removed the inventory_additions field from the service-sales schema and model contract, changed reconciliation tests and views so units sold no longer treats additions as part of the sales interval, kept post-count fill tied only to closing Current Inventory, removed the Additions column from the Service Detail machine sales tables, and added count-before-fill regression coverage.
+
+
+2026-07-19, Standardize Service Detail dates to the AGENT display rules, Audited the Service Detail page against AGENT.md, extended the shared AppDateTime helper with ISO-safe output helpers and explicit display-timezone normalization, updated the service summary and transaction sections to render visible dates as DD-MM-YYYY and visible times as HH:MM:SS with separate date and time lines where both are shown, and added formatter and Service Detail coverage for the rendered output.
+
+
+2026-07-19, Group service sales breakdown by machine on the service detail page, Updated the Service Detail Sales Breakdown to prepare account-scoped machine sales groups in the controller, render one collapsed machine accordion per machine with baseline and partial totals preserved, remove the redundant Machine column from the inner sales table, and extend feature coverage for grouped machine sales rendering.
+
+
 2026-07-19, Align recent service-sales and location-detail updates with AGENT standards, Added short why-comments to the new service-sales calculation persistence and reporting code, updated the location detail services and document timestamps to use the shared DD-MM-YYYY and HH:MM:SS display helpers, and kept the baseline-sales reconciliation workflow unchanged.
 
 

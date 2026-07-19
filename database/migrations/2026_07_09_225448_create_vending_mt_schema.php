@@ -247,6 +247,8 @@ return new class extends Migration
 
             $table->string('transaction_type', 50);
             $table->integer('quantity');
+            // Persist per-count spoilage so unusable units are tracked separately from saleable inventory.
+            $table->unsignedInteger('spoilage')->default(0);
             $table->decimal('price', 8, 2)->nullable();
             $table->decimal('unit_cost', 8, 2)->nullable();
 

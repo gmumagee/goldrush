@@ -98,9 +98,33 @@ class ServiceWorkflowTest extends TestCase
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.machines.count', [$service->id, $machineOne->id]))
+            ->assertOk()
+            ->assertSeeInOrder(['Price', 'Spoilage', 'Count'])
+            ->assertSee('data-bs-toggle="tooltip"', false)
+            ->assertSee('aria-label="About Spoilage"', false)
+            ->assertSee('aria-label="About Count"', false)
+            ->assertSee('type="button"', false)
+            ->assertSee('title="Enter expired, damaged, or otherwise unsellable products removed from the bin."', false)
+            ->assertSee('title="Enter only usable, saleable products remaining after spoilage has been removed."', false)
+            ->assertSeeInOrder([
+                'name="counts['.$binOne->id.'][spoilage]"',
+                'name="counts['.$binOne->id.'][quantity]"',
+            ], false)
+            ->assertSee('name="counts['.$binOne->id.'][quantity]"', false)
+            ->assertSee('name="counts['.$binOne->id.'][spoilage]"', false)
+            ->assertDontSeeText('Count only usable, saleable products remaining in the bin. Enter expired or damaged products separately under Spoilage.')
+            ->assertDontSeeText('Usable products remaining after spoilage is removed.')
+            ->assertDontSeeText('Expired, damaged, or unsellable products removed from this bin.');
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
             ->post(route('services.machines.count.store', [$service->id, $machineOne->id]), [
-                'quantities' => [
-                    $binOne->id => 4,
+                'counts' => [
+                    $binOne->id => [
+                        'quantity' => 4,
+                        'spoilage' => 1,
+                    ],
                 ],
             ])
             ->assertRedirect(route('services.show', $service->id));
@@ -117,8 +141,11 @@ class ServiceWorkflowTest extends TestCase
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
             ->post(route('services.machines.count.store', [$service->id, $machineTwo->id]), [
-                'quantities' => [
-                    $binTwo->id => 6,
+                'counts' => [
+                    $binTwo->id => [
+                        'quantity' => 6,
+                        'spoilage' => 2,
+                    ],
                 ],
             ])
             ->assertRedirect(route('services.show', $service->id));
@@ -138,6 +165,7 @@ class ServiceWorkflowTest extends TestCase
             'bin_id' => $binOne->id,
             'transaction_type' => Transaction::TYPE_COUNT,
             'quantity' => 4,
+            'spoilage' => 1,
             'product_id' => $productOne->id,
         ]);
 
@@ -167,10 +195,11 @@ class ServiceWorkflowTest extends TestCase
             'product_id' => $productOne->id,
             'calculation_status' => ServiceSale::CALCULATION_CALCULATED,
             'opening_quantity' => 20,
+            'spoilage' => 1,
             'counted_quantity' => 4,
-            'units_sold' => 16,
+            'units_sold' => 15,
             'unit_price' => 1.50,
-            'sales_amount' => 24.00,
+            'sales_amount' => 22.50,
         ]);
         $this->assertDatabaseHas('tbl_service_sales', [
             'service_id' => $service->id,
@@ -178,10 +207,11 @@ class ServiceWorkflowTest extends TestCase
             'product_id' => $productTwo->id,
             'calculation_status' => ServiceSale::CALCULATION_CALCULATED,
             'opening_quantity' => 12,
+            'spoilage' => 2,
             'counted_quantity' => 6,
-            'units_sold' => 6,
+            'units_sold' => 4,
             'unit_price' => 2.25,
-            'sales_amount' => 13.50,
+            'sales_amount' => 9.00,
         ]);
         $this->assertDatabaseHas('tbl_transactions', [
             'service_id' => $service->id,
@@ -201,6 +231,34 @@ class ServiceWorkflowTest extends TestCase
             'service_id' => $service->id,
             'transaction_type' => 'sale',
         ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.show', $service->id))
+            ->assertOk()
+            ->assertSeeText('Sales Breakdown')
+            ->assertSeeText('Machine Total')
+            ->assertSeeText('15 units sold')
+            ->assertSeeText('4 units sold')
+            ->assertSeeText('$22.50')
+            ->assertSeeText('$9.00')
+            ->assertSeeText('Spoilage')
+            ->assertDontSeeText('Additions')
+            ->assertDontSeeText('Removals')
+            ->assertSeeText('Spoilage: 1')
+            ->assertViewHas('machineSalesGroups', function ($groups) use ($machineOne, $machineTwo, $binOne, $binTwo) {
+                $machineGroups = $groups->keyBy(fn (array $group) => (int) ($group['machine']?->id ?? 0));
+
+                return $machineGroups->count() === 2
+                    && $machineGroups->has($machineOne->id)
+                    && $machineGroups->has($machineTwo->id)
+                    && $machineGroups[$machineOne->id]['sales']->pluck('bin_id')->all() === [$binOne->id]
+                    && $machineGroups[$machineTwo->id]['sales']->pluck('bin_id')->all() === [$binTwo->id]
+                    && $machineGroups[$machineOne->id]['total_units_sold'] === 15
+                    && $machineGroups[$machineTwo->id]['total_units_sold'] === 4
+                    && $machineGroups[$machineOne->id]['total_sales'] === '22.50'
+                    && $machineGroups[$machineTwo->id]['total_sales'] === '9.00';
+            });
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -289,6 +347,7 @@ class ServiceWorkflowTest extends TestCase
             ->get(route('services.show', $service->id))
             ->assertOk()
             ->assertSeeText('Maintenance Service')
+            ->assertDontSeeText('Sales Breakdown')
             ->assertSeeText('Maintenance Notes')
             ->assertSeeText('Close Maintenance Service')
             ->assertDontSeeText('Complete Service')
@@ -314,8 +373,11 @@ class ServiceWorkflowTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->from(route('services.show', $service->id))
             ->post(route('services.machines.count.store', [$service->id, $machine->id]), [
-                'quantities' => [
-                    $bin->id => 4,
+                'counts' => [
+                    $bin->id => [
+                        'quantity' => 4,
+                        'spoilage' => 1,
+                    ],
                 ],
             ])
             ->assertRedirect(route('services.show', $service->id))
@@ -373,7 +435,7 @@ class ServiceWorkflowTest extends TestCase
             'status' => Service::STATUS_SERVICE_OPEN,
         ]);
 
-        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 4, '2026-07-18 09:00:00');
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 4, '2026-07-18 09:00:00', 2);
         $this->createTransaction($account, $service, $bin, Transaction::TYPE_FILL, 3, '2026-07-18 09:15:00');
 
         $this->actingAs($user)
@@ -389,6 +451,7 @@ class ServiceWorkflowTest extends TestCase
             'product_id' => $product->id,
             'calculation_status' => ServiceSale::CALCULATION_BASELINE,
             'opening_quantity' => null,
+            'spoilage' => 2,
             'counted_quantity' => 4,
             'units_sold' => null,
             'sales_amount' => null,
@@ -400,6 +463,24 @@ class ServiceWorkflowTest extends TestCase
             'transaction_type' => Transaction::TYPE_CURRENT_INVENTORY,
             'quantity' => 7,
         ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.show', $service->id))
+            ->assertOk()
+            ->assertSeeText('Sales Breakdown')
+            ->assertSeeText('Sales unavailable — initial baseline')
+            ->assertSeeText('Baseline')
+            ->assertViewHas('machineSalesGroups', function ($groups) use ($machine, $bin) {
+                $machineGroup = $groups->firstWhere('machine.id', $machine->id);
+
+                return $machineGroup !== null
+                    && $machineGroup['sales']->pluck('bin_id')->all() === [$bin->id]
+                    && $machineGroup['calculated_count'] === 0
+                    && $machineGroup['baseline_count'] === 1
+                    && $machineGroup['total_units_sold'] === 0
+                    && $machineGroup['total_sales'] === null;
+            });
 
         $nextService = Service::create([
             'account_id' => $account->id,
@@ -413,7 +494,7 @@ class ServiceWorkflowTest extends TestCase
             'status' => Service::STATUS_SERVICE_OPEN,
         ]);
 
-        $this->createTransaction($account, $nextService, $bin, Transaction::TYPE_COUNT, 2, '2026-07-19 09:00:00');
+        $this->createTransaction($account, $nextService, $bin, Transaction::TYPE_COUNT, 2, '2026-07-19 09:00:00', 1);
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -426,10 +507,283 @@ class ServiceWorkflowTest extends TestCase
             'product_id' => $product->id,
             'calculation_status' => ServiceSale::CALCULATION_CALCULATED,
             'opening_quantity' => 7,
+            'spoilage' => 1,
             'counted_quantity' => 2,
-            'units_sold' => 5,
-            'sales_amount' => 7.50,
+            'units_sold' => 4,
+            'sales_amount' => 6.00,
         ]);
+    }
+
+    public function test_count_updates_existing_spoilage_value_instead_of_creating_duplicate_count_rows(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Spoilage Update Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Spoilage Route');
+        $location = $this->createLocation($account, $route, 'Spoilage Stop');
+        $warehouse = $this->createWarehouse($account, 'Spoilage Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Cookies');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 1.25);
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-19',
+            'opened_at' => '2026-07-19 08:00:00',
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.machines.count.store', [$service->id, $machine->id]), [
+                'counts' => [
+                    $bin->id => [
+                        'quantity' => 5,
+                        'spoilage' => 1,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('services.show', $service->id));
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.machines.count.store', [$service->id, $machine->id]), [
+                'counts' => [
+                    $bin->id => [
+                        'quantity' => 4,
+                        'spoilage' => 2,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('services.show', $service->id));
+
+        $this->assertSame(1, Transaction::query()->where('service_id', $service->id)->where('transaction_type', Transaction::TYPE_COUNT)->count());
+        $this->assertDatabaseHas('tbl_transactions', [
+            'service_id' => $service->id,
+            'bin_id' => $bin->id,
+            'transaction_type' => Transaction::TYPE_COUNT,
+            'quantity' => 4,
+            'spoilage' => 2,
+        ]);
+    }
+
+    public function test_count_rejects_negative_spoilage(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Spoilage Validation Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Validation Route');
+        $location = $this->createLocation($account, $route, 'Validation Stop');
+        $warehouse = $this->createWarehouse($account, 'Validation Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Candy');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 1.00);
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-19',
+            'opened_at' => '2026-07-19 08:00:00',
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->from(route('services.machines.count', [$service->id, $machine->id]))
+            ->post(route('services.machines.count.store', [$service->id, $machine->id]), [
+                'counts' => [
+                    $bin->id => [
+                        'quantity' => 4,
+                        'spoilage' => -1,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('services.machines.count', [$service->id, $machine->id]))
+            ->assertSessionHasErrors('counts.'.$bin->id.'.spoilage');
+    }
+
+    public function test_count_plus_spoilage_greater_than_opening_inventory_blocks_service_completion(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Spoilage Blocking Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Blocking Route');
+        $location = $this->createLocation($account, $route, 'Blocking Stop');
+        $warehouse = $this->createWarehouse($account, 'Blocking Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Juice');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 2.00);
+
+        $previousService = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-18',
+            'opened_at' => '2026-07-18 08:00:00',
+            'completed_at' => '2026-07-18 10:00:00',
+            'closed_at' => '2026-07-18 10:30:00',
+            'amount_collected' => 0,
+            'status' => Service::STATUS_SERVICE_CLOSED,
+        ]);
+
+        $this->createTransaction($account, $previousService, $bin, Transaction::TYPE_CURRENT_INVENTORY, 5, '2026-07-18 09:00:00');
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-19',
+            'opened_at' => '2026-07-19 08:00:00',
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 4, '2026-07-19 09:00:00', 2);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->from(route('services.show', $service->id))
+            ->post(route('services.complete', $service->id))
+            ->assertRedirect(route('services.show', $service->id))
+            ->assertSessionHasErrors('service');
+
+        $service->refresh();
+        $this->assertSame(Service::STATUS_SERVICE_OPEN, $service->status);
+        $this->assertDatabaseCount('tbl_service_sales', 0);
+    }
+
+    public function test_fill_requires_a_count_before_inventory_can_be_added_to_a_bin(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Count First Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Count Route');
+        $location = $this->createLocation($account, $route, 'Count Stop');
+        $warehouse = $this->createWarehouse($account, 'Count Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Granola Bar');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 1.75);
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-19',
+            'opened_at' => '2026-07-19 08:00:00',
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        // Enforce the count-first workflow so fill inventory never changes the sales interval retroactively.
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->from(route('services.show', $service->id))
+            ->post(route('services.machines.fill.store', [$service->id, $machine->id]), [
+                'quantities' => [
+                    $bin->id => 2,
+                ],
+            ])
+            ->assertRedirect(route('services.show', $service->id))
+            ->assertSessionHasErrors('quantity');
+
+        $this->assertDatabaseMissing('tbl_transactions', [
+            'service_id' => $service->id,
+            'bin_id' => $bin->id,
+            'transaction_type' => Transaction::TYPE_FILL,
+        ]);
+    }
+
+    public function test_service_detail_groups_partial_machine_sales_without_counting_baselines_in_totals(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Grouped Sales Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Grouped Route');
+        $location = $this->createLocation($account, $route, 'Grouped Stop');
+        $warehouse = $this->createWarehouse($account, 'Grouped Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $productOne = $this->createProduct($account, 'Chips');
+        $productTwo = $this->createProduct($account, 'Cookies');
+        $binOne = $this->createBin($account, $machine, $productOne, 'A1', 10, 2.00);
+        $binTwo = $this->createBin($account, $machine, $productTwo, 'A2', 10, 1.25);
+
+        $previousService = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-18',
+            'opened_at' => '2026-07-18 08:00:00',
+            'completed_at' => '2026-07-18 10:00:00',
+            'closed_at' => '2026-07-18 10:30:00',
+            'amount_collected' => 0,
+            'status' => Service::STATUS_SERVICE_CLOSED,
+        ]);
+
+        $this->createTransaction($account, $previousService, $binOne, Transaction::TYPE_CURRENT_INVENTORY, 20, '2026-07-18 09:00:00');
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-19',
+            'opened_at' => '2026-07-19 08:00:00',
+            'closed_at' => null,
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->createTransaction($account, $service, $binOne, Transaction::TYPE_COUNT, 8, '2026-07-19 09:00:00', 2);
+        $this->createTransaction($account, $service, $binTwo, Transaction::TYPE_COUNT, 4, '2026-07-19 09:05:00', 1);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.complete', $service->id))
+            ->assertRedirect(route('services.show', $service->id));
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.show', $service->id))
+            ->assertOk()
+            ->assertSeeText('Sales Breakdown')
+            ->assertSeeText('Partial')
+            ->assertSeeText('$20.00')
+            ->assertSeeText('Spoilage')
+            ->assertDontSeeText('Additions')
+            ->assertDontSeeText('Removals')
+            ->assertViewHas('machineSalesGroups', function ($groups) use ($machine, $binOne, $binTwo) {
+                $machineGroup = $groups->firstWhere('machine.id', $machine->id);
+
+                return $machineGroup !== null
+                    && $machineGroup['sales']->pluck('bin_id')->all() === [$binOne->id, $binTwo->id]
+                    && $machineGroup['calculated_count'] === 1
+                    && $machineGroup['baseline_count'] === 1
+                    && $machineGroup['total_units_sold'] === 10
+                    && $machineGroup['total_sales'] === '20.00';
+            });
     }
 
     public function test_submitted_status_is_ignored_when_creating_a_service(): void
@@ -499,6 +853,55 @@ class ServiceWorkflowTest extends TestCase
             ->withSession(['current_account_id' => $accountA->id])
             ->get(route('services.machines.count', [$service->id, $machine->id]))
             ->assertNotFound();
+    }
+
+    public function test_service_detail_uses_agent_date_and_time_formats_for_visible_values(): void
+    {
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Display Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+        $this->seedServiceTypes();
+
+        $route = $this->createRoute($account, 'Display Route');
+        $location = $this->createLocation($account, $route, 'Display Stop');
+        $warehouse = $this->createWarehouse($account, 'Display Warehouse');
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Cola');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 10, 2.00);
+
+        $service = Service::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'service_type' => Service::TYPE_LOCATION_SERVICE,
+            'service_date' => '2026-07-18',
+            'opened_at' => '2026-07-18 08:15:30',
+            'completed_at' => '2026-07-18 09:45:15',
+            'closed_at' => '2026-07-18 10:30:45',
+            'amount_collected' => 0,
+            'status' => Service::STATUS_SERVICE_CLOSED,
+        ]);
+
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 6, '2026-07-17 11:22:33', 2);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.show', $service->id))
+            ->assertOk()
+            ->assertSeeText('18-07-2026')
+            ->assertSeeText('08:15:30')
+            ->assertSeeText('09:45:15')
+            ->assertSeeText('10:30:45')
+            ->assertSeeText('17-07-2026')
+            ->assertSeeText('11:22:33')
+            ->assertSeeText('Spoilage: 2')
+            ->assertDontSeeText('Jul')
+            ->assertDontSeeText('AM')
+            ->assertSee('datetime="2026-07-18"', false)
+            ->assertSee('datetime="2026-07-18T08:15:30+00:00"', false)
+            ->assertSee('datetime="2026-07-17"', false)
+            ->assertSee('datetime="2026-07-17T11:22:33+00:00"', false);
     }
 
     protected function createAccount(string $name): Account
@@ -589,6 +992,31 @@ class ServiceWorkflowTest extends TestCase
             'bin_code' => $code,
             'capacity' => $capacity,
             'price' => $price,
+        ]);
+    }
+
+    protected function createTransaction(
+        Account $account,
+        Service $service,
+        Bin $bin,
+        string $type,
+        int $quantity,
+        string $transactionAt,
+        int $spoilage = 0,
+    ): Transaction {
+        // Keep test transaction setup explicit so count spoilage can be asserted alongside quantity.
+        return Transaction::create([
+            'account_id' => $account->id,
+            'service_id' => $service->id,
+            'machine_id' => $bin->machine_id,
+            'bin_id' => $bin->id,
+            'product_id' => $bin->product_id,
+            'transaction_type' => $type,
+            'quantity' => $quantity,
+            'spoilage' => $spoilage,
+            'transaction_at' => $transactionAt,
+            'price' => $bin->price,
+            'unit_cost' => null,
         ]);
     }
 

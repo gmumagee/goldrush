@@ -20,7 +20,7 @@ class ServiceSalesCalculatorTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_calculates_units_and_sales_for_a_single_bin(): void
+    public function test_calculates_units_and_sales_by_subtracting_count_and_spoilage(): void
     {
         [$account, $location, $warehouse] = $this->createLocationFixture();
         $machine = $this->createMachine($account, $location, 'Snack');
@@ -30,18 +30,19 @@ class ServiceSalesCalculatorTest extends TestCase
         $service = $this->createService($account, $location, $warehouse, '2026-07-18', Service::STATUS_SERVICE_OPEN);
 
         $this->createTransaction($account, $previousService, $bin, Transaction::TYPE_CURRENT_INVENTORY, 20, '2026-07-17 09:00:00');
-        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00');
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00', 2);
 
         $result = app(ServiceSalesCalculator::class)->calculate($service);
 
         $this->assertSame([], $result['errors']);
-        $this->assertSame(2400, $result['sales_total_cents']);
+        $this->assertSame(2000, $result['sales_total_cents']);
         $this->assertCount(1, $result['lines']);
-        $this->assertSame(12, $result['lines'][0]['units_sold']);
-        $this->assertSame(2400, $result['lines'][0]['sales_amount_cents']);
+        $this->assertSame(2, $result['lines'][0]['spoilage']);
+        $this->assertSame(10, $result['lines'][0]['units_sold']);
+        $this->assertSame(2000, $result['lines'][0]['sales_amount_cents']);
     }
 
-    public function test_calculates_multiple_bins_and_inventory_movements_separately(): void
+    public function test_calculates_multiple_bins_and_spoilage_separately(): void
     {
         [$account, $location, $warehouse] = $this->createLocationFixture();
         $machine = $this->createMachine($account, $location, 'Snack');
@@ -56,23 +57,23 @@ class ServiceSalesCalculatorTest extends TestCase
         $this->createTransaction($account, $previousService, $binB, Transaction::TYPE_CURRENT_INVENTORY, 10, '2026-07-17 09:05:00');
 
         $this->createTransaction($account, $service, $binA, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00');
-        $this->createTransaction($account, $service, $binB, Transaction::TYPE_ADD, 2, '2026-07-18 09:10:00');
-        $this->createTransaction($account, $service, $binB, Transaction::TYPE_REMOVE, 1, '2026-07-18 09:20:00');
-        $this->createTransaction($account, $service, $binB, Transaction::TYPE_COUNT, 7, '2026-07-18 09:30:00');
+        $this->createTransaction($account, $service, $binB, Transaction::TYPE_COUNT, 7, '2026-07-18 09:30:00', 1);
 
         $result = app(ServiceSalesCalculator::class)->calculate($service);
 
         $this->assertSame([], $result['errors']);
         $this->assertCount(2, $result['lines']);
-        $this->assertSame(3000, $result['sales_total_cents']);
+        $this->assertSame(2700, $result['sales_total_cents']);
 
         $linesByBin = collect($result['lines'])->keyBy('bin_id');
         $this->assertSame(12, $linesByBin[$binA->id]['units_sold']);
-        $this->assertSame(4, $linesByBin[$binB->id]['units_sold']);
-        $this->assertSame(600, $linesByBin[$binB->id]['sales_amount_cents']);
+        $this->assertSame(0, $linesByBin[$binA->id]['spoilage']);
+        $this->assertSame(2, $linesByBin[$binB->id]['units_sold']);
+        $this->assertSame(1, $linesByBin[$binB->id]['spoilage']);
+        $this->assertSame(300, $linesByBin[$binB->id]['sales_amount_cents']);
     }
 
-    public function test_uses_latest_prior_count_and_ignores_fill_after_the_final_count(): void
+    public function test_post_count_fill_does_not_increase_units_sold_and_spoilage_does_not_enter_closing_inventory(): void
     {
         [$account, $location, $warehouse] = $this->createLocationFixture();
         $machine = $this->createMachine($account, $location, 'Snack');
@@ -81,16 +82,17 @@ class ServiceSalesCalculatorTest extends TestCase
         $previousService = $this->createService($account, $location, $warehouse, '2026-07-17', Service::STATUS_SERVICE_CLOSED);
         $service = $this->createService($account, $location, $warehouse, '2026-07-18', Service::STATUS_SERVICE_OPEN);
 
-        $this->createTransaction($account, $previousService, $bin, Transaction::TYPE_CURRENT_INVENTORY, 9, '2026-07-17 09:00:00');
-        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 7, '2026-07-18 09:00:00');
-        $this->createTransaction($account, $service, $bin, Transaction::TYPE_FILL, 4, '2026-07-18 09:30:00');
+        $this->createTransaction($account, $previousService, $bin, Transaction::TYPE_CURRENT_INVENTORY, 20, '2026-07-17 09:00:00');
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00', 2);
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_FILL, 10, '2026-07-18 09:30:00');
 
         $result = app(ServiceSalesCalculator::class)->calculate($service);
 
         $this->assertSame([], $result['errors']);
-        $this->assertSame(400, $result['sales_total_cents']);
-        $this->assertSame(2, $result['lines'][0]['units_sold']);
-        $this->assertSame(7, $result['lines'][0]['closing_quantity']);
+        $this->assertSame(2000, $result['sales_total_cents']);
+        $this->assertSame(2, $result['lines'][0]['spoilage']);
+        $this->assertSame(10, $result['lines'][0]['units_sold']);
+        $this->assertSame(18, $result['lines'][0]['closing_quantity']);
         $this->assertSame(1, $result['lines'][0]['previous_inventory_transaction_id']);
     }
 
@@ -102,7 +104,7 @@ class ServiceSalesCalculatorTest extends TestCase
         $bin = $this->createBin($account, $machine, $product, 'A1', 20, 2.00);
         $service = $this->createService($account, $location, $warehouse, '2026-07-18', Service::STATUS_SERVICE_OPEN);
 
-        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00');
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00', 2);
 
         $result = app(ServiceSalesCalculator::class)->calculate($service);
 
@@ -110,9 +112,28 @@ class ServiceSalesCalculatorTest extends TestCase
         $this->assertCount(1, $result['lines']);
         $this->assertSame(ServiceSale::CALCULATION_BASELINE, $result['lines'][0]['calculation_status']);
         $this->assertNull($result['lines'][0]['opening_quantity']);
+        $this->assertSame(2, $result['lines'][0]['spoilage']);
         $this->assertNull($result['lines'][0]['units_sold']);
         $this->assertNull($result['lines'][0]['sales_amount_cents']);
         $this->assertSame(8, $result['lines'][0]['closing_quantity']);
+    }
+
+    public function test_count_plus_spoilage_greater_than_opening_inventory_returns_a_blocking_error(): void
+    {
+        [$account, $location, $warehouse] = $this->createLocationFixture();
+        $machine = $this->createMachine($account, $location, 'Snack');
+        $product = $this->createProduct($account, 'Cola');
+        $bin = $this->createBin($account, $machine, $product, 'A1', 20, 2.00);
+        $previousService = $this->createService($account, $location, $warehouse, '2026-07-17', Service::STATUS_SERVICE_CLOSED);
+        $service = $this->createService($account, $location, $warehouse, '2026-07-18', Service::STATUS_SERVICE_OPEN);
+
+        $this->createTransaction($account, $previousService, $bin, Transaction::TYPE_CURRENT_INVENTORY, 5, '2026-07-17 09:00:00');
+        $this->createTransaction($account, $service, $bin, Transaction::TYPE_COUNT, 4, '2026-07-18 09:00:00', 2);
+
+        $result = app(ServiceSalesCalculator::class)->calculate($service);
+
+        $this->assertNotEmpty($result['errors']);
+        $this->assertStringContainsString('Count plus Spoilage greater than its opening inventory', $result['errors'][0]);
     }
 
     public function test_mixed_services_sum_only_calculated_lines(): void
@@ -127,8 +148,8 @@ class ServiceSalesCalculatorTest extends TestCase
         $service = $this->createService($account, $location, $warehouse, '2026-07-18', Service::STATUS_SERVICE_OPEN);
 
         $this->createTransaction($account, $previousService, $binA, Transaction::TYPE_CURRENT_INVENTORY, 20, '2026-07-17 09:00:00');
-        $this->createTransaction($account, $service, $binA, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00');
-        $this->createTransaction($account, $service, $binB, Transaction::TYPE_COUNT, 7, '2026-07-18 09:05:00');
+        $this->createTransaction($account, $service, $binA, Transaction::TYPE_COUNT, 8, '2026-07-18 09:00:00', 1);
+        $this->createTransaction($account, $service, $binB, Transaction::TYPE_COUNT, 7, '2026-07-18 09:05:00', 2);
 
         $result = app(ServiceSalesCalculator::class)->calculate($service);
 
@@ -252,7 +273,8 @@ class ServiceSalesCalculatorTest extends TestCase
         Bin $bin,
         string $type,
         int $quantity,
-        string $transactionAt
+        string $transactionAt,
+        int $spoilage = 0
     ): Transaction {
         return Transaction::create([
             'account_id' => $account->id,
@@ -262,6 +284,7 @@ class ServiceSalesCalculatorTest extends TestCase
             'product_id' => $bin->product_id,
             'transaction_type' => $type,
             'quantity' => $quantity,
+            'spoilage' => $spoilage,
             'transaction_at' => $transactionAt,
             'price' => $bin->price,
             'unit_cost' => null,

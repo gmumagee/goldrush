@@ -1,4 +1,42 @@
 <x-app-layout title="Service Details">
+    {{-- Keep machine sales headers aligned without forcing horizontal page scrolling. --}}
+    <style>
+        .machine-sales-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            width: 100%;
+            min-width: 0;
+            padding-right: 1rem;
+        }
+
+        .machine-sales-heading-main {
+            min-width: 0;
+        }
+
+        .machine-sales-heading-summary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            color: rgb(107 114 128);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 767.98px) {
+            .machine-sales-heading {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.4rem;
+            }
+
+            .machine-sales-heading-summary {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+
         <div class="px-4 py-8 sm:px-6 lg:px-8">
             <div class="mx-auto w-full max-w-7xl space-y-6">
                 @php
@@ -140,10 +178,63 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->isLocationService() ? ($service->warehouse?->warehouse_name ?? '—') : 'N/A' }}</td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayDate($service->service_date) }}</td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->opened_at) }}</td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->completed_at) }}</td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($service->closed_at) }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    @if ($service->service_date)
+                                        <time datetime="{{ \App\Support\AppDateTime::isoDate($service->service_date) }}">
+                                            {{ \App\Support\AppDateTime::displayDate($service->service_date) }}
+                                        </time>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    @if ($service->opened_at)
+                                        <div>
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDateTime($service->opened_at) }}">
+                                                {{ \App\Support\AppDateTime::displayDate($service->opened_at) }}
+                                            </time>
+                                        </div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDateTime($service->opened_at) }}">
+                                                {{ \App\Support\AppDateTime::displayTime($service->opened_at) }}
+                                            </time>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    @if ($service->completed_at)
+                                        <div>
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDateTime($service->completed_at) }}">
+                                                {{ \App\Support\AppDateTime::displayDate($service->completed_at) }}
+                                            </time>
+                                        </div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDateTime($service->completed_at) }}">
+                                                {{ \App\Support\AppDateTime::displayTime($service->completed_at) }}
+                                            </time>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    @if ($service->closed_at)
+                                        <div>
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDateTime($service->closed_at) }}">
+                                                {{ \App\Support\AppDateTime::displayDate($service->closed_at) }}
+                                            </time>
+                                        </div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDateTime($service->closed_at) }}">
+                                                {{ \App\Support\AppDateTime::displayTime($service->closed_at) }}
+                                            </time>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->closedBy?->name ?? 'Not closed yet' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
                                     @if ($service->isMaintenanceService())
@@ -191,61 +282,137 @@
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Finalized bin-level sales facts recorded when this service was completed.</p>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
-                        <thead class="bg-gray-50 dark:bg-gray-800/80">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Machine</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Bin</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Product</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Opening</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Additions</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Removals</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Count</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Units Sold</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Unit Price</th>
-                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Sales</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
-                            @forelse ($service->sales as $sale)
-                                @php
-                                    // Prefer stable machine identifiers so stored sales rows remain readable later.
-                                    $machineLabel = $sale->machine?->serial_number
-                                        ?: $sale->machine?->model
-                                        ?: $sale->machine?->type
-                                        ?: '—';
-                                @endphp
-                                <tr class="bg-white dark:bg-gray-800">
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $machineLabel }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $sale->bin?->bin_code ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $sale->product?->product_name ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                        @if ($sale->isBaseline())
-                                            <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">Baseline</span>
-                                        @else
-                                            <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/15 dark:text-green-300">Calculated</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $sale->isBaseline() ? '—' : $sale->opening_quantity }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $sale->inventory_additions }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $sale->non_sale_removals }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $sale->counted_quantity }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $sale->isBaseline() ? '—' : $sale->units_sold }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ \App\Support\Money::format($sale->unit_price) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $sale->isBaseline() ? '—' : \App\Support\Money::format($sale->sales_amount) }}</td>
-                                </tr>
-                            @empty
-                                <tr class="bg-white dark:bg-gray-800">
-                                    <td colspan="11" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
-                                        No finalized sales lines are stored for this service yet.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                @if ($machineSalesGroups->isEmpty())
+                    <div class="panel-body">
+                        <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
+                            No sales breakdown is available for this service.
+                        </div>
+                    </div>
+                @else
+                    <div x-data="{ openMachineSales: {} }" id="serviceSalesMachinesAccordion" class="space-y-3 p-4">
+                        @foreach ($machineSalesGroups as $index => $group)
+                            @php
+                                // Build stable machine identifiers once so each accordion section has unique controls.
+                                $machineKey = $group['machine']?->id ? 'machine-'.$group['machine']->id : 'unassigned-'.$index;
+                                $headingId = 'sales-machine-heading-'.$service->id.'-'.$machineKey;
+                                $collapseId = 'sales-machine-collapse-'.$service->id.'-'.$machineKey;
+                                $machineLabel = $group['machine']?->type
+                                    ?: $group['machine']?->model
+                                    ?: 'Unknown Machine';
+                            @endphp
+                            <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
+                                <button
+                                    type="button"
+                                    class="flex w-full items-center justify-between gap-4 bg-gray-50 px-4 py-3 text-left dark:bg-gray-800/80"
+                                    id="{{ $headingId }}"
+                                    @click="openMachineSales['{{ $machineKey }}'] = !Boolean(openMachineSales['{{ $machineKey }}'])"
+                                    :aria-expanded="Boolean(openMachineSales['{{ $machineKey }}']).toString()"
+                                    aria-expanded="false"
+                                    aria-controls="{{ $collapseId }}"
+                                >
+                                    <div class="machine-sales-heading">
+                                        <div class="machine-sales-heading-main">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="font-semibold text-gray-800 dark:text-gray-100">{{ $machineLabel }}</span>
+                                                @if ($group['machine']?->serial_number)
+                                                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ $group['machine']->serial_number }}</span>
+                                                @endif
+                                                @if ($group['calculated_count'] === 0)
+                                                    <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">Baseline</span>
+                                                @elseif ($group['calculated_count'] > 0 && $group['baseline_count'] > 0)
+                                                    <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Partial</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="machine-sales-heading-summary">
+                                            <span>{{ $group['bin_count'] }} {{ \Illuminate\Support\Str::plural('bin', $group['bin_count']) }}</span>
+                                            @if ($group['calculated_count'] > 0)
+                                                <span class="mx-2">•</span>
+                                                <span>{{ number_format($group['total_units_sold']) }} units sold</span>
+                                                <span class="mx-2">•</span>
+                                                <span class="font-semibold text-gray-700 dark:text-gray-200">{{ \App\Support\Money::format($group['total_sales']) }}</span>
+                                            @else
+                                                <span class="mx-2">•</span>
+                                                <span>Sales unavailable — initial baseline</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200" :class="Boolean(openMachineSales['{{ $machineKey }}']) ? 'rotate-90' : ''" aria-hidden="true">›</span>
+                                </button>
+
+                                <div
+                                    id="{{ $collapseId }}"
+                                    x-show="Boolean(openMachineSales['{{ $machineKey }}'])"
+                                    x-transition.origin.top.duration.200ms
+                                    class="border-t border-gray-200 bg-white dark:border-gray-700/60 dark:bg-gray-900/30"
+                                    aria-labelledby="{{ $headingId }}"
+                                >
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
+                                            <thead class="bg-gray-50 dark:bg-gray-800/80">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Bin</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Product</th>
+                                                    <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Opening Quantity</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Spoilage</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Final Count</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Units Sold</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Unit Price</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Sales</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
+                                                @foreach ($group['sales'] as $sale)
+                                                    <tr class="bg-white dark:bg-gray-800">
+                                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $sale->bin?->bin_code ?? ($sale->bin?->name ?? ('Bin #'.$sale->bin_id)) }}</td>
+                                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $sale->product?->product_name ?? ($sale->product?->name ?? ('Product #'.$sale->product_id)) }}</td>
+                                                        <td class="px-4 py-3 text-nowrap text-gray-600 dark:text-gray-300">
+                                                            @if ($sale->isBaseline())
+                                                                <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">Baseline</span>
+                                                            @else
+                                                                <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/15 dark:text-green-300">Calculated</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ is_null($sale->opening_quantity) ? '—' : number_format($sale->opening_quantity) }}</td>
+                                                        <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ number_format($sale->spoilage ?? 0) }}</td>
+                                                        <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ number_format($sale->counted_quantity) }}</td>
+                                                        <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ is_null($sale->units_sold) ? '—' : number_format($sale->units_sold) }}</td>
+                                                        <td class="px-4 py-3 text-right text-nowrap text-gray-600 dark:text-gray-300">{{ is_null($sale->unit_price) ? '—' : \App\Support\Money::format($sale->unit_price) }}</td>
+                                                        <td class="px-4 py-3 text-right text-nowrap font-semibold text-gray-600 dark:text-gray-300">{{ is_null($sale->sales_amount) ? '—' : \App\Support\Money::format($sale->sales_amount) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot class="bg-gray-50 dark:bg-gray-800/80">
+                                                <tr>
+                                                    <th colspan="6" class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Machine Total</th>
+                                                    <th class="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-200">
+                                                        @if ($group['calculated_count'] > 0)
+                                                            {{ number_format($group['total_units_sold']) }}
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </th>
+                                                    <th class="px-4 py-3"></th>
+                                                    <th class="px-4 py-3 text-right text-nowrap font-medium text-gray-700 dark:text-gray-200">
+                                                        @if ($group['calculated_count'] > 0)
+                                                            {{ \App\Support\Money::format($group['total_sales']) }}
+                                                            @if ($group['baseline_count'] > 0)
+                                                                <span class="ml-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Partial</span>
+                                                            @endif
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </section>
             @endif
 
@@ -360,7 +527,7 @@
                             $dateCount = $typeGroups->sum(fn ($transactions) => $transactions->count());
                             $dateLabel = $date === 'Unknown Date'
                                 ? 'Unknown Date'
-                                : \App\Support\AppDateTime::displayDate(\Illuminate\Support\Carbon::createFromFormat('Y-m-d', $date));
+                                : \App\Support\AppDateTime::displayDate($date);
                         @endphp
 
                         <div x-data="{ open: false }" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
@@ -371,7 +538,15 @@
                                 :aria-expanded="open.toString()"
                             >
                                 <div class="min-w-0">
-                                    <div class="font-medium text-gray-800 dark:text-gray-100">{{ $dateLabel }}</div>
+                                    <div class="font-medium text-gray-800 dark:text-gray-100">
+                                        @if ($date === 'Unknown Date')
+                                            {{ $dateLabel }}
+                                        @else
+                                            <time datetime="{{ \App\Support\AppDateTime::isoDate($date) }}">
+                                                {{ $dateLabel }}
+                                            </time>
+                                        @endif
+                                    </div>
                                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                         {{ $dateCount }} {{ \Illuminate\Support\Str::plural('transaction', $dateCount) }}
                                     </div>
@@ -428,11 +603,26 @@
                                                             @endphp
 
                                                             <tr class="bg-white dark:bg-gray-800">
-                                                                <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ \App\Support\AppDateTime::displayTime($transaction->transaction_at) }}</td>
+                                                                <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                                                    @if ($transaction->transaction_at)
+                                                                        <time datetime="{{ \App\Support\AppDateTime::isoDateTime($transaction->transaction_at) }}">
+                                                                            {{ \App\Support\AppDateTime::displayTime($transaction->transaction_at) }}
+                                                                        </time>
+                                                                    @else
+                                                                        —
+                                                                    @endif
+                                                                </td>
                                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machineLabel }}</td>
                                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $transaction->bin?->bin_code ?? '—' }}</td>
                                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $transaction->product?->product_name ?? '—' }}</td>
-                                                                <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $transaction->quantity }}</td>
+                                                                <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                                                    <div>{{ $transaction->quantity }}</div>
+                                                                    @if ($transaction->transaction_type === \App\Models\Transaction::TYPE_COUNT)
+                                                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                                            Spoilage: {{ $transaction->spoilage ?? 0 }}
+                                                                        </div>
+                                                                    @endif
+                                                                </td>
                                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $price }}</td>
                                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $unitCost }}</td>
                                                                 <td class="px-5 py-4">

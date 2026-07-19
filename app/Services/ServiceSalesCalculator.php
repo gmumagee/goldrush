@@ -166,15 +166,6 @@ class ServiceSalesCalculator
                 $result['warnings'][] = $resolvedPrice['warning'];
             }
 
-            $preCountMovements = $history->filter(function (Transaction $transaction) use ($previousInventoryTransaction, $finalCount) {
-                if ($previousInventoryTransaction === null) {
-                    return false;
-                }
-
-                return $this->isAfter($transaction, $previousInventoryTransaction)
-                    && $this->isBefore($transaction, $finalCount);
-            });
-
             $postCountMovements = $history->filter(function (Transaction $transaction) use ($finalCount, $completedAt) {
                 if (! $this->isAfter($transaction, $finalCount)) {
                     return false;
@@ -188,8 +179,8 @@ class ServiceSalesCalculator
                     || $transaction->transaction_at->lessThanOrEqualTo($completedAt);
             });
 
-            $inventoryAdditions = $this->sumPositiveMovements($preCountMovements);
-            $nonSaleRemovals = $this->sumNegativeMovements($preCountMovements);
+            // Count spoilage is stored on the final count and should not be mixed with the post-count restock interval.
+            $spoilage = max(0, (int) ($finalCount->spoilage ?? 0));
             $closingAdditions = $this->sumPositiveMovements($postCountMovements);
             $closingRemovals = $this->sumNegativeMovements($postCountMovements);
 
@@ -207,10 +198,11 @@ class ServiceSalesCalculator
             if ($previousInventoryTransaction !== null) {
                 // Reconcile revenue only when a prior current-inventory snapshot exists for the interval.
                 $openingQuantity = (int) $previousInventoryTransaction->quantity;
-                $unitsSold = $openingQuantity + $inventoryAdditions - $nonSaleRemovals - $countedQuantity;
+                $unitsSold = $openingQuantity - $countedQuantity - $spoilage;
 
                 if ($unitsSold < 0) {
-                    $result['errors'][] = 'Negative units sold were calculated for '.$this->describeBin($bin, (int) $finalCount->bin_id).'.';
+                    $result['errors'][] = $this->describeBin($bin, (int) $finalCount->bin_id)
+                        .' has a Count plus Spoilage greater than its opening inventory.';
                     continue;
                 }
 
@@ -229,8 +221,7 @@ class ServiceSalesCalculator
                     'calculation_note' => null,
                     'sales_date' => $service->service_date?->toDateString() ?? $completedAt->toDateString(),
                     'opening_quantity' => $openingQuantity,
-                    'inventory_additions' => $inventoryAdditions,
-                    'non_sale_removals' => $nonSaleRemovals,
+                    'spoilage' => $spoilage,
                     'counted_quantity' => $countedQuantity,
                     'units_sold' => $unitsSold,
                     'unit_price_cents' => $unitPriceCents,
@@ -259,8 +250,7 @@ class ServiceSalesCalculator
                 'calculation_note' => 'Initial inventory baseline; no previous Current Inventory record was available.',
                 'sales_date' => $service->service_date?->toDateString() ?? $completedAt->toDateString(),
                 'opening_quantity' => null,
-                'inventory_additions' => 0,
-                'non_sale_removals' => 0,
+                'spoilage' => $spoilage,
                 'counted_quantity' => $countedQuantity,
                 'units_sold' => null,
                 'unit_price_cents' => $unitPriceCents,

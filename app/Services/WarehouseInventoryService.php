@@ -144,6 +144,28 @@ class WarehouseInventoryService
             ]);
         }
 
+        // Require the count step first so fill inventory only updates the next opening snapshot.
+        $countedBinIds = Transaction::query()
+            ->where('account_id', $service->account_id)
+            ->where('service_id', $service->id)
+            ->where('transaction_type', Transaction::TYPE_COUNT)
+            ->whereIn('bin_id', $binPayloads->pluck('bin_id')->unique()->all())
+            ->pluck('bin_id')
+            ->map(fn ($binId) => (int) $binId)
+            ->all();
+
+        $firstMissingCount = $binPayloads->first(
+            fn (array $payload) => ! in_array((int) $payload['bin_id'], $countedBinIds, true)
+        );
+
+        if ($firstMissingCount !== null) {
+            $binCode = $firstMissingCount['bin_code'] ?? 'the selected bin';
+
+            throw ValidationException::withMessages([
+                'quantity' => 'Record the bin count before adding fill inventory for '.$binCode.'.',
+            ]);
+        }
+
         $aggregatedByProduct = $binPayloads
             ->groupBy('product_id')
             ->map(fn (Collection $payloads) => $payloads->sum('quantity'));

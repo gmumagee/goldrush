@@ -45,8 +45,8 @@ return new class extends Migration
 
             $table->date('sales_date');
             $table->integer('opening_quantity');
-            $table->integer('inventory_additions')->default(0);
-            $table->integer('non_sale_removals')->default(0);
+            // Snapshot spoilage explicitly so completed-service sales can be audited later.
+            $table->unsignedInteger('spoilage')->default(0);
             $table->integer('counted_quantity');
             $table->integer('units_sold');
             $table->decimal('unit_price', 12, 2);

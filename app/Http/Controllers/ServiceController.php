@@ -15,6 +15,7 @@ use App\Services\DataDictionaryService;
 use App\Services\FinalizeServiceSales;
 use App\Services\InventoryCostService;
 use App\Services\WarehouseInventoryService;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,8 @@ class ServiceController extends Controller
 
     public function show(Request $request, int $service): View
     {
+        $accountId = $this->currentAccountId($request);
+
         $service = $this->resolveService($request, $service, [
             'location.route',
             'warehouse',
@@ -143,19 +146,24 @@ class ServiceController extends Controller
             'user',
             'closedBy',
             'calendarEvents',
+            // Keep the sales breakdown inside one account-scoped eager load to avoid Blade-side queries.
             'sales' => fn ($query) => $query
+                ->where('account_id', $accountId)
                 ->with(['product', 'machine', 'bin'])
                 ->orderBy('machine_id')
                 ->orderBy('bin_id')
+                ->orderBy('product_id')
                 ->orderBy('id'),
         ]);
         $service->loadSum('calculatedSales as sales_total', 'sales_amount');
         $service->loadCount(['calculatedSales', 'baselineSales']);
 
         $transactionsByDateAndType = $this->groupTransactionsForService($service);
+        $machineSalesGroups = $this->groupSalesByMachine($service);
 
         return view('services.show', [
             'service' => $service,
+            'machineSalesGroups' => $machineSalesGroups,
             'transactionsByDateAndType' => $transactionsByDateAndType,
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $service->account_id, true),
             'serviceTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_TYPE, $service->account_id, true),
@@ -427,9 +435,22 @@ class ServiceController extends Controller
             'bins' => fn ($query) => $query->with('product')->orderBy('bin_code'),
         ]);
 
+        // Prefill the latest count row so technicians can correct counts and spoilage without creating duplicates.
+        $countTransactionsByBin = Transaction::query()
+            ->where('account_id', $service->account_id)
+            ->where('service_id', $service->id)
+            ->where('machine_id', $machine->id)
+            ->where('transaction_type', Transaction::TYPE_COUNT)
+            ->orderByDesc('transaction_at')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('bin_id')
+            ->keyBy('bin_id');
+
         return view('services.count-machine', [
             'service' => $service,
             'machine' => $machine,
+            'countTransactionsByBin' => $countTransactionsByBin,
         ]);
     }
 
@@ -443,29 +464,33 @@ class ServiceController extends Controller
             'bins' => fn ($query) => $query->with('product')->orderBy('bin_code'),
         ]);
 
-        $quantities = $this->validateBinQuantities($request, $machine, true);
+        $counts = $this->validateBinCounts($request, $machine);
 
-        DB::transaction(function () use ($service, $machine, $quantities, $inventoryCostService) {
+        DB::transaction(function () use ($service, $machine, $counts, $inventoryCostService) {
             foreach ($machine->bins as $bin) {
-                Transaction::create([
-                    'account_id' => $service->account_id,
-                    'service_id' => $service->id,
-                    // Write machine_id from the persisted bin so transaction
-                    // and bin cannot drift based on client input.
-                    'machine_id' => $bin->machine_id,
-                    'bin_id' => $bin->id,
-                    'product_id' => $bin->product_id,
-                    'transaction_type' => Transaction::TYPE_COUNT,
-                    'quantity' => (int) $quantities[$bin->id],
-                    'transaction_at' => now(),
-                    'price' => $bin->price,
-                    'unit_cost' => $inventoryCostService->getUnitCostForCount(
-                        $service->account_id,
-                        $service->warehouse_id ? (int) $service->warehouse_id : null,
-                        $bin->id,
-                        $bin->product_id ? (int) $bin->product_id : null,
-                    ),
-                ]);
+                // Update the existing count row per bin so corrections stay idempotent until service completion.
+                Transaction::query()->updateOrCreate(
+                    [
+                        'account_id' => $service->account_id,
+                        'service_id' => $service->id,
+                        'machine_id' => $bin->machine_id,
+                        'bin_id' => $bin->id,
+                        'product_id' => $bin->product_id,
+                        'transaction_type' => Transaction::TYPE_COUNT,
+                    ],
+                    [
+                        'quantity' => (int) $counts[$bin->id]['quantity'],
+                        'spoilage' => (int) $counts[$bin->id]['spoilage'],
+                        'transaction_at' => now(),
+                        'price' => $bin->price,
+                        'unit_cost' => $inventoryCostService->getUnitCostForCount(
+                            $service->account_id,
+                            $service->warehouse_id ? (int) $service->warehouse_id : null,
+                            $bin->id,
+                            $bin->product_id ? (int) $bin->product_id : null,
+                        ),
+                    ]
+                );
             }
         });
 
@@ -694,6 +719,46 @@ class ServiceController extends Controller
         return array_map('intval', $validated['quantities']);
     }
 
+    protected function validateBinCounts(Request $request, Machine $machine): array
+    {
+        if ($machine->bins->isEmpty()) {
+            throw ValidationException::withMessages([
+                'machine' => 'This machine does not have any bins to service.',
+            ]);
+        }
+
+        $rules = [
+            'counts' => ['required', 'array'],
+        ];
+
+        $attributes = [];
+
+        foreach ($machine->bins as $bin) {
+            $quantityRules = ['required', 'integer', 'min:0'];
+
+            if ((int) $bin->capacity > 0) {
+                $quantityRules[] = 'max:'.$bin->capacity;
+            }
+
+            // Validate spoilage explicitly so unsellable units cannot be omitted or submitted as negative values.
+            $rules['counts.'.$bin->id.'.quantity'] = $quantityRules;
+            $rules['counts.'.$bin->id.'.spoilage'] = ['required', 'integer', 'min:0'];
+            $attributes['counts.'.$bin->id.'.quantity'] = $bin->bin_code.' count quantity';
+            $attributes['counts.'.$bin->id.'.spoilage'] = $bin->bin_code.' spoilage';
+        }
+
+        $validated = validator($request->all(), $rules, [], $attributes)->validate();
+
+        return collect($validated['counts'])
+            ->mapWithKeys(fn (array $count, string|int $binId) => [
+                (int) $binId => [
+                    'quantity' => (int) $count['quantity'],
+                    'spoilage' => (int) $count['spoilage'],
+                ],
+            ])
+            ->all();
+    }
+
     protected function ensureAwaitingAmountCollected(Service $service): void
     {
         // Final collection entry is only valid after the technician has
@@ -734,6 +799,34 @@ class ServiceController extends Controller
                     ->groupBy('transaction_type')
                     ->sortBy(fn (Collection $transactions, string $type) => $typeOrder[$type] ?? 99);
             });
+    }
+
+    protected function groupSalesByMachine(Service $service): Collection
+    {
+        // Group eager-loaded sales lines once so each machine accordion can render without extra queries.
+        return $service->sales
+            ->groupBy(fn ($sale) => $sale->machine_id ?: 'unassigned')
+            ->map(function (Collection $sales) {
+                $machine = $sales->first()?->machine;
+                $calculatedSales = $sales->filter(fn ($sale) => $sale->isCalculated());
+                $baselineSales = $sales->filter(fn ($sale) => $sale->isBaseline());
+                $totalSalesCents = $calculatedSales->reduce(
+                    fn (int $carry, $sale) => $carry + ($sale->sales_amount !== null ? Money::toCents($sale->sales_amount) : 0),
+                    0
+                );
+
+                return [
+                    'machine' => $machine,
+                    'sales' => $sales->values(),
+                    'bin_count' => $sales->pluck('bin_id')->filter()->unique()->count(),
+                    'calculated_count' => $calculatedSales->count(),
+                    'baseline_count' => $baselineSales->count(),
+                    'total_units_sold' => (int) $calculatedSales->sum(fn ($sale) => (int) ($sale->units_sold ?? 0)),
+                    'total_sales' => $calculatedSales->isNotEmpty() ? Money::fromCents($totalSalesCents) : null,
+                ];
+            })
+            ->sortBy(fn (array $group) => mb_strtolower((string) ($group['machine']?->serial_number ?: $group['machine']?->type ?: 'unknown machine')))
+            ->values();
     }
 
     protected function groupServicesByLocation($services)

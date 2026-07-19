@@ -17,7 +17,8 @@ use Illuminate\View\View;
 
 class TransactionController extends Controller
 {
-    protected const TYPES = ['count', 'fill', 'add', 'waste', 'remove', 'adjustment'];
+    // Limit manual machine-bin transactions to the supported service workflow types.
+    protected const TYPES = ['count', 'fill', 'waste', 'remove', 'adjustment'];
 
     public function index(Request $request): View
     {
@@ -106,6 +107,9 @@ class TransactionController extends Controller
                 'product_id' => $bin->product_id,
                 'transaction_type' => $payload['transaction_type'],
                 'quantity' => (int) $payload['quantity'],
+                'spoilage' => $payload['transaction_type'] === Transaction::TYPE_COUNT
+                    ? (int) $payload['spoilage']
+                    : 0,
                 'price' => $payload['price'] ?? $bin->price,
                 'unit_cost' => $payload['transaction_type'] === 'count'
                     ? $inventoryCostService->getUnitCostForCount(
@@ -205,6 +209,9 @@ class TransactionController extends Controller
             'product_id' => $bin->product_id,
             'transaction_type' => $payload['transaction_type'],
             'quantity' => (int) $payload['quantity'],
+            'spoilage' => $payload['transaction_type'] === Transaction::TYPE_COUNT
+                ? (int) $payload['spoilage']
+                : 0,
             'price' => $payload['price'] ?? $bin->price,
             'unit_cost' => $payload['transaction_type'] === 'count'
                 ? $inventoryCostService->getUnitCostForCount(
@@ -265,10 +272,21 @@ class TransactionController extends Controller
             ],
             'transaction_type' => ['required', Rule::in(self::TYPES)],
             'quantity' => ['required', 'integer'],
+            'spoilage' => [
+                Rule::requiredIf(fn () => $request->input('transaction_type') === Transaction::TYPE_COUNT),
+                'nullable',
+                'integer',
+                'min:0',
+            ],
             'price' => ['nullable', 'numeric', 'min:0'],
             'transaction_date' => ['required', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
             'transaction_time' => ['required', 'regex:/^\d{2}:\d{2}:\d{2}$/'],
         ]);
+
+        // Normalize spoilage once so count edits keep their value while other transaction types stay at zero.
+        $payload['spoilage'] = $payload['transaction_type'] === Transaction::TYPE_COUNT
+            ? (int) ($payload['spoilage'] ?? 0)
+            : 0;
 
         $payload['transaction_at'] = $this->combineDateAndTimeInputs(
             $payload['transaction_date'] ?? null,
