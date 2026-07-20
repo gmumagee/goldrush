@@ -10,7 +10,7 @@ class AppDateTime
 {
     // Centralize the application display and input formats so every screen
     // uses the same date and time conventions.
-    public const DISPLAY_DATE_FORMAT = 'd-m-Y';
+    public const DISPLAY_DATE_FORMAT = 'm-d-Y';
     public const DISPLAY_TIME_FORMAT = 'H:i:s';
     public const STORAGE_DATE_FORMAT = 'Y-m-d';
     public const STORAGE_TIME_FORMAT = 'H:i:s';

@@ -80,7 +80,7 @@
                             </div>
                             <div>
                                 <x-label for="purchase_date" value="Purchase Date" />
-                                <x-input id="purchase_date" name="purchase_date" type="text" placeholder="DD-MM-YYYY" :value="old('purchase_date', \App\Support\AppDateTime::inputDate(now()))" required />
+                                <x-input id="purchase_date" name="purchase_date" type="text" placeholder="MM-DD-YYYY" :value="old('purchase_date', \App\Support\AppDateTime::inputDate(now()))" required />
                             </div>
                         </div>
 

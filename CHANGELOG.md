@@ -1,9 +1,33 @@
 
 
+
+
+
+
+
+
+2026-07-20, Remove the Bins item from sidebar navigation, Removed the visible Bins link from the Route Management sidebar group while leaving the underlying bin routes and management screens intact, kept the remaining Route Management links alphabetized, preserved Transactions under Inventory, and extended sidebar coverage so the navigation no longer points to bins.index even though the page still loads directly.
+
+
+2026-07-20, Rename sidebar group headings for inventory and settings, Updated the shared sidebar so the top-level Inventory Setup group now displays as Inventory and the top-level Account group now displays as Settings, while preserving the existing child links, top-level order, route behavior, and sidebar navigation coverage.
+
+
+2026-07-20, Restore Route Management as a top-level sidebar group, Corrected the sidebar hierarchy so Route Management is once again a standalone top-level group positioned immediately after Operations instead of nesting inside Operations, kept Transactions under Inventory Setup, preserved alphabetized child links inside each group, and updated sidebar coverage so route pages expand Route Management without forcing Operations open.
+
+
 2026-07-19, Add spoilage to the Location Service count workflow, Added a persisted spoilage field to count transactions and finalized service-sales rows, changed the Location Service count form to capture Count and Spoilage per bin with idempotent updates, updated sales reconciliation so units sold equals opening quantity minus final count minus spoilage while closing inventory still uses only final count plus post-count fill, replaced the Sales Breakdown Removals column with Spoilage, and extended transaction and service workflow coverage so count edits preserve spoilage and invalid spoilage blocks completion.
 
 
 2026-07-19, Reorder the Location Service count inputs and replace repeated helper copy with header tooltips, Moved Spoilage ahead of Count in the machine count table, removed the repeated inline guidance under each field and the machine-level instruction sentence, added accessible header tooltip buttons while preserving the existing quantity and spoilage field names and saved values, and extended feature coverage for the revised layout.
+
+
+2026-07-19, Add nested machine inventory accordions to the Location Detail page, Replaced the flat Machines table on the location detail screen with nested per-machine accordions, bulk-loaded the latest account-scoped Current Inventory snapshot by bin and product to avoid N+1 transaction queries, displayed bin capacity current inventory available capacity selling price inventory value and snapshot timestamps with AGENT-compliant date and time output, and preserved machine management links plus empty states inside the expanded machine panels.
+
+
+2026-07-19, Simplify the nested machine inventory tables on the Location Detail page, Removed the Available Capacity and Inventory Value columns from each nested machine inventory table, stopped calculating those display-only values in the location detail controller payload, kept current inventory selling price and snapshot timestamps intact, and updated feature coverage so the machine accordions now assert the final six-column layout.
+
+
+2026-07-19, Remove machine management buttons from the Location Detail inventory accordions, Removed the Edit Machine Manage Bins and Add Bins controls from the nested machine accordions on the location detail page, preserved the inventory tables and direct View Machine link, and updated feature coverage so the location screen now asserts those management actions are absent while the underlying routes remain available elsewhere.
 
 
 2026-07-19, Remove inventory additions from persistent service sales, Removed the inventory_additions field from the service-sales schema and model contract, changed reconciliation tests and views so units sold no longer treats additions as part of the sales interval, kept post-count fill tied only to closing Current Inventory, removed the Additions column from the Service Detail machine sales tables, and added count-before-fill regression coverage.
@@ -16,6 +40,26 @@
 
 
 2026-07-19, Align recent service-sales and location-detail updates with AGENT standards, Added short why-comments to the new service-sales calculation persistence and reporting code, updated the location detail services and document timestamps to use the shared DD-MM-YYYY and HH:MM:SS display helpers, and kept the baseline-sales reconciliation workflow unchanged.
+
+
+
+
+
+
+
+
+
+
+2026-07-20, Move Route Management into Operations and alphabetize sidebar groups, Reworked the shared sidebar so Route Management now appears as a nested subgroup inside Operations instead of a separate top-level group, kept Transactions under Inventory Setup, alphabetized the child items inside each sidebar group and nested route-management section, preserved the top-level group order and existing route behavior, and added sidebar feature coverage for placement ordering and expanded active states.
+
+
+2026-07-20, Move Transactions into the Inventory sidebar group, Updated the shared application sidebar so the existing Transactions navigation link now appears under Inventory Setup instead of Operations, expanded the Inventory group automatically on transaction routes, removed the old sidebar placement to keep only one visible Transactions link, and added feature coverage for placement uniqueness and active-state behavior.
+
+
+2026-07-19, Rename baseline service-sales UI wording, Kept the stored service-sale calculation status value as baseline while updating the public-facing service and location detail interfaces to display Initial Installation, centralized the label mapping in the sales model and reconciliation helper, refreshed baseline-only summary messaging, and updated automated coverage to verify the clearer wording without changing reporting behavior.
+
+
+2026-07-19, Correct public-facing date formatting, Updated the shared date formatter and remaining public-facing views to use MM-DD-YYYY dates with separate HH:MM:SS time displays per AGENT.md, corrected form placeholders and calendar and inventory detail displays, aligned console-facing scheduled-service output with the same convention, and refreshed automated test expectations to match the approved format.
 
 
 2026-07-13, Add reusable location contact management, Added account-scoped tbl_contacts and tbl_location_contacts tables for reusable shared contacts, seeded location contact roles into the shared data dictionary, created contact CRUD plus location contact attach and relationship edit workflows, enforced duplicate-role and single-primary-contact rules per location, updated the location detail page with a Contacts card and relationship actions, added a top-level Contacts section in the Account navigation, and kept the legacy tbl_locations contact fields in place for backward compatibility.

@@ -52,9 +52,9 @@ class CalendarWorkflowTest extends TestCase
                 'event_type' => 'General',
                 'title' => 'Insurance renewal call',
                 'description' => 'Confirm policy dates and coverage.',
-                'start_date' => '18-07-2026',
+                'start_date' => '07-18-2026',
                 'start_time' => '09:00:00',
-                'end_date' => '18-07-2026',
+                'end_date' => '07-18-2026',
                 'end_time' => '10:00:00',
                 'status' => CalendarEvent::STATUS_SCHEDULED,
                 'priority' => 'High',
@@ -63,7 +63,7 @@ class CalendarWorkflowTest extends TestCase
                 'warehouse_id' => $warehouse->id,
                 'route_id' => $route->id,
                 'reminder_option' => 'custom',
-                'reminder_custom_date' => '16-07-2026',
+                'reminder_custom_date' => '07-16-2026',
                 'reminder_custom_time' => '07:00:00',
             ])
             ->assertRedirect();
@@ -116,7 +116,7 @@ class CalendarWorkflowTest extends TestCase
             ->post(route('calendar-events.store'), [
                 'event_type' => 'Purchase',
                 'title' => 'Buy inventory for Main Warehouse next Friday',
-                'start_date' => '23-07-2026',
+                'start_date' => '07-23-2026',
                 'start_time' => '11:00:00',
                 'status' => CalendarEvent::STATUS_SCHEDULED,
                 'warehouse_id' => $warehouse->id,
@@ -175,7 +175,7 @@ class CalendarWorkflowTest extends TestCase
             ->post(route('calendar-events.store'), [
                 'event_type' => 'General',
                 'title' => 'Cross account attempt',
-                'start_date' => '20-07-2026',
+                'start_date' => '07-20-2026',
                 'start_time' => '09:00:00',
                 'status' => CalendarEvent::STATUS_SCHEDULED,
                 'location_id' => $locationB->id,
@@ -319,7 +319,7 @@ class CalendarWorkflowTest extends TestCase
             ->get(route('calendar-events.index'))
             ->assertOk()
             ->assertSee('Calendar')
-            ->assertSee('July 12, 2026 - July 18, 2026')
+            ->assertSee('07-12-2026 - 07-18-2026')
             ->assertSee('Previous Week')
             ->assertSee('Current Week')
             ->assertSee('Next Week')

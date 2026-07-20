@@ -469,8 +469,10 @@ class ServiceWorkflowTest extends TestCase
             ->get(route('services.show', $service->id))
             ->assertOk()
             ->assertSeeText('Sales Breakdown')
-            ->assertSeeText('Sales unavailable — initial baseline')
-            ->assertSeeText('Baseline')
+            ->assertSeeText('Initial Installation — sales will be available after the next service.')
+            ->assertSeeText('Initial Installation')
+            ->assertSeeText('Some bins are being recorded as an initial installation because no previous inventory snapshot exists. Sales for those bins will be available after the next service.')
+            ->assertDontSeeText('Baseline')
             ->assertViewHas('machineSalesGroups', function ($groups) use ($machine, $bin) {
                 $machineGroup = $groups->firstWhere('machine.id', $machine->id);
 
@@ -889,11 +891,11 @@ class ServiceWorkflowTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->get(route('services.show', $service->id))
             ->assertOk()
-            ->assertSeeText('18-07-2026')
+            ->assertSeeText('07-18-2026')
             ->assertSeeText('08:15:30')
             ->assertSeeText('09:45:15')
             ->assertSeeText('10:30:45')
-            ->assertSeeText('17-07-2026')
+            ->assertSeeText('07-17-2026')
             ->assertSeeText('11:22:33')
             ->assertSeeText('Spoilage: 2')
             ->assertDontSeeText('Jul')

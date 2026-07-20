@@ -54,15 +54,15 @@
                 $calculatedSalesCount = (int) ($service->calculated_sales_count ?? $service->sales->filter(fn ($sale) => $sale->isCalculated())->count());
                 $baselineSalesCount = (int) ($service->baseline_sales_count ?? $service->sales->filter(fn ($sale) => $sale->isBaseline())->count());
                 $reconciliationStatus = match (true) {
-                    $calculatedSalesCount > 0 && $baselineSalesCount === 0 => 'complete',
-                    $calculatedSalesCount > 0 && $baselineSalesCount > 0 => 'partial',
-                    $calculatedSalesCount === 0 && $baselineSalesCount > 0 => 'baseline_only',
-                    default => 'none',
+                    $calculatedSalesCount > 0 && $baselineSalesCount === 0 => \App\Models\Service::RECONCILIATION_COMPLETE,
+                    $calculatedSalesCount > 0 && $baselineSalesCount > 0 => \App\Models\Service::RECONCILIATION_PARTIAL,
+                    $calculatedSalesCount === 0 && $baselineSalesCount > 0 => \App\Models\Service::RECONCILIATION_BASELINE_ONLY,
+                    default => \App\Models\Service::RECONCILIATION_NONE,
                 };
                 $hasBaselineRows = $baselineSalesCount > 0;
                 $serviceDifference = null;
 
-                if ($reconciliationStatus === 'complete' && $serviceSalesTotal !== null && $service->amount_collected !== null) {
+                if ($reconciliationStatus === \App\Models\Service::RECONCILIATION_COMPLETE && $serviceSalesTotal !== null && $service->amount_collected !== null) {
                     $serviceDifference = \App\Support\Money::fromCents(
                         \App\Support\Money::toCents($service->amount_collected)
                         - \App\Support\Money::toCents($serviceSalesTotal)
@@ -70,9 +70,9 @@
                 }
 
                 $serviceSalesDisplay = match ($reconciliationStatus) {
-                    'complete' => \App\Support\Money::format($serviceSalesTotal),
-                    'partial' => trim(\App\Support\Money::format($serviceSalesTotal).' Partial'),
-                    'baseline_only' => 'Not available — baseline service',
+                    \App\Models\Service::RECONCILIATION_COMPLETE => \App\Support\Money::format($serviceSalesTotal),
+                    \App\Models\Service::RECONCILIATION_PARTIAL => trim(\App\Support\Money::format($serviceSalesTotal).' '.\App\Models\Service::reconciliationStatusLabel($reconciliationStatus)),
+                    \App\Models\Service::RECONCILIATION_BASELINE_ONLY => 'Initial installation — no prior inventory exists, so sales cannot be calculated for this service.',
                     default => '—',
                 };
             @endphp
@@ -139,7 +139,7 @@
 
             @if ($hasBaselineRows && ($service->isServiceCompleted() || $service->isServiceClosed()))
                 <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
-                    Some bins were initialized during this service because no previous inventory snapshot existed. Sales for those bins will be calculated beginning with their next service.
+                    Some bins are being recorded as an initial installation because no previous inventory snapshot exists. Sales for those bins will be available after the next service.
                 </div>
             @endif
 
@@ -261,7 +261,7 @@
                                         N/A
                                     @elseif ($serviceDifference !== null)
                                         {{ \App\Support\Money::format($serviceDifference) }}
-                                    @elseif (in_array($reconciliationStatus, ['partial', 'baseline_only'], true) && ($service->isServiceCompleted() || $service->isServiceClosed()))
+                                    @elseif (in_array($reconciliationStatus, [\App\Models\Service::RECONCILIATION_PARTIAL, \App\Models\Service::RECONCILIATION_BASELINE_ONLY], true) && ($service->isServiceCompleted() || $service->isServiceClosed()))
                                         Unavailable
                                     @else
                                         —
@@ -318,7 +318,7 @@
                                                     <span class="text-sm text-gray-500 dark:text-gray-400">{{ $group['machine']->serial_number }}</span>
                                                 @endif
                                                 @if ($group['calculated_count'] === 0)
-                                                    <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">Baseline</span>
+                                                    <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">{{ \App\Models\Service::reconciliationStatusLabel(\App\Models\Service::RECONCILIATION_BASELINE_ONLY) }}</span>
                                                 @elseif ($group['calculated_count'] > 0 && $group['baseline_count'] > 0)
                                                     <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Partial</span>
                                                 @endif
@@ -333,7 +333,7 @@
                                                 <span class="font-semibold text-gray-700 dark:text-gray-200">{{ \App\Support\Money::format($group['total_sales']) }}</span>
                                             @else
                                                 <span class="mx-2">•</span>
-                                                <span>Sales unavailable — initial baseline</span>
+                                                <span>Initial Installation — sales will be available after the next service.</span>
                                             @endif
                                         </div>
                                     </div>
@@ -368,11 +368,7 @@
                                                         <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $sale->bin?->bin_code ?? ($sale->bin?->name ?? ('Bin #'.$sale->bin_id)) }}</td>
                                                         <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $sale->product?->product_name ?? ($sale->product?->name ?? ('Product #'.$sale->product_id)) }}</td>
                                                         <td class="px-4 py-3 text-nowrap text-gray-600 dark:text-gray-300">
-                                                            @if ($sale->isBaseline())
-                                                                <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">Baseline</span>
-                                                            @else
-                                                                <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/15 dark:text-green-300">Calculated</span>
-                                                            @endif
+                                                            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $sale->isBaseline() ? 'bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-200' : 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300' }}">{{ $sale->calculation_status_label }}</span>
                                                         </td>
                                                         <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ is_null($sale->opening_quantity) ? '—' : number_format($sale->opening_quantity) }}</td>
                                                         <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ number_format($sale->spoilage ?? 0) }}</td>

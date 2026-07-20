@@ -43,7 +43,7 @@
     <div class="grid gap-5 md:grid-cols-2">
         <div>
             <x-label for="start_date" value="Start Date" />
-            <x-input id="start_date" name="start_date" type="text" placeholder="DD-MM-YYYY" :value="old('start_date', \App\Support\AppDateTime::inputDate($calendarEvent->start_at ?: now()))" required />
+            <x-input id="start_date" name="start_date" type="text" placeholder="MM-DD-YYYY" :value="old('start_date', \App\Support\AppDateTime::inputDate($calendarEvent->start_at ?: now()))" required />
         </div>
         <div>
             <x-label for="start_time" value="Start Time" />
@@ -54,7 +54,7 @@
     <div class="grid gap-5 md:grid-cols-2">
         <div>
             <x-label for="end_date" value="End Date" />
-            <x-input id="end_date" name="end_date" type="text" placeholder="DD-MM-YYYY" :value="old('end_date', \App\Support\AppDateTime::inputDate($calendarEvent->end_at))" />
+            <x-input id="end_date" name="end_date" type="text" placeholder="MM-DD-YYYY" :value="old('end_date', \App\Support\AppDateTime::inputDate($calendarEvent->end_at))" />
         </div>
         <div>
             <x-label for="end_time" value="End Time" />
@@ -141,7 +141,7 @@
     <div x-show="reminderOption === '{{ \App\Services\CalendarService::REMINDER_OPTION_CUSTOM }}'" x-cloak class="grid gap-5 md:grid-cols-2">
         <div>
             <x-label for="reminder_custom_date" value="Custom Reminder Date" />
-            <x-input id="reminder_custom_date" name="reminder_custom_date" type="text" placeholder="DD-MM-YYYY" :value="old('reminder_custom_date', \App\Support\AppDateTime::inputDate($customReminderAt))" />
+            <x-input id="reminder_custom_date" name="reminder_custom_date" type="text" placeholder="MM-DD-YYYY" :value="old('reminder_custom_date', \App\Support\AppDateTime::inputDate($customReminderAt))" />
         </div>
         <div>
             <x-label for="reminder_custom_time" value="Custom Reminder Time" />

@@ -86,7 +86,7 @@
 
                             <div>
                                 <x-label for="transaction_date" value="Transaction Date" />
-                                <x-input id="transaction_date" name="transaction_date" type="text" placeholder="DD-MM-YYYY" :value="old('transaction_date', \App\Support\AppDateTime::inputDate($transaction->transaction_at))" required />
+                                <x-input id="transaction_date" name="transaction_date" type="text" placeholder="MM-DD-YYYY" :value="old('transaction_date', \App\Support\AppDateTime::inputDate($transaction->transaction_at))" required />
                             </div>
 
                             <div>

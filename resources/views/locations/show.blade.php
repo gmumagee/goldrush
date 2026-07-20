@@ -1,5 +1,6 @@
 <x-app-layout title="Location Details">
     <style>
+        /* Keep the forced summary grid stable on desktop while stacking cleanly on phones. */
         @media (max-width: 767.98px) {
             .forced-location-summary-grid {
                 display: block !important;
@@ -7,6 +8,47 @@
 
             .forced-location-summary-grid > div {
                 margin-bottom: 1.25rem;
+            }
+        }
+
+        /* Keep nested machine inventory accordions readable without introducing page-level scrolling. */
+        .location-machine-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .machine-inventory-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            width: 100%;
+            padding-right: 1rem;
+        }
+
+        .machine-inventory-heading-main {
+            min-width: 0;
+        }
+
+        .machine-inventory-heading-summary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            color: rgb(107 114 128);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 767.98px) {
+            .machine-inventory-heading {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.4rem;
+            }
+
+            .machine-inventory-heading-summary {
+                justify-content: flex-start;
             }
         }
     </style>
@@ -341,36 +383,174 @@
                 >
                     <div class="space-y-4 p-4">
                         <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Review the machines currently assigned to this location.</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Review the machines currently assigned to this location and inspect the latest current inventory snapshot for each bin.</div>
                             <a href="{{ route('machines.create', ['location_id' => $location->id]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
                         </div>
 
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
-                                <thead class="bg-gray-50 dark:bg-gray-800/80">
-                                    <tr>
-                                        <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Type</th>
-                                        <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Serial</th>
-                                        <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
-                                        <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Bins</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
-                                    @forelse ($location->machines as $machine)
-                                        <tr class="bg-white dark:bg-gray-800">
-                                            <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->type }}</td>
-                                            <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->serial_number ?: '—' }}</td>
-                                            <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->status }}</td>
-                                            <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->bins_count }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr class="bg-white dark:bg-gray-800">
-                                            <td colspan="4" class="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No machines are assigned to this location.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
+                        @if ($machineInventoryGroups->isEmpty())
+                            <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-700/60 dark:text-gray-400">
+                                No machines are assigned to this location.
+                            </div>
+                        @else
+                            <div id="locationMachineItemsAccordion" class="location-machine-list">
+                                @foreach ($machineInventoryGroups as $index => $group)
+                                    @php
+                                        // Use stable numeric IDs so nested machine accordions never collide.
+                                        $machine = $group['machine'];
+                                        $machineHeadingId = 'location-machine-heading-'.$location->id.'-'.$machine->id;
+                                        $machineCollapseId = 'location-machine-collapse-'.$location->id.'-'.$machine->id;
+                                    @endphp
+
+                                    <div x-data="{ open: false }" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
+                                        <h3 id="{{ $machineHeadingId }}">
+                                            <button
+                                                type="button"
+                                                class="flex w-full items-center justify-between gap-4 bg-gray-50 px-4 py-3 text-left dark:bg-gray-800/80"
+                                                @click="open = !open"
+                                                :aria-expanded="open.toString()"
+                                                aria-controls="{{ $machineCollapseId }}"
+                                            >
+                                                <div class="machine-inventory-heading">
+                                                    <div class="machine-inventory-heading-main">
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            <span class="font-semibold text-gray-800 dark:text-gray-100">
+                                                                {{ $machine->type ?: 'Machine #'.$machine->id }}
+                                                            </span>
+                                                            @if ($machine->serial_number)
+                                                                <span class="text-sm text-gray-500 dark:text-gray-400">
+                                                                    {{ $machine->serial_number }}
+                                                                </span>
+                                                            @endif
+                                                            @if ($machine->status)
+                                                                <span class="inline-flex rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-200">
+                                                                    {{ ucfirst($machine->status) }}
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="machine-inventory-heading-summary">
+                                                        <span>
+                                                            {{ $group['bin_count'] }}
+                                                            {{ \Illuminate\Support\Str::plural('bin', $group['bin_count']) }}
+                                                        </span>
+
+                                                        <span class="mx-2" aria-hidden="true">•</span>
+
+                                                        @if ($group['snapshot_bin_count'] > 0)
+                                                            <span>
+                                                                {{ number_format($group['total_current_inventory']) }}
+                                                                items
+                                                            </span>
+                                                        @else
+                                                            <span class="text-gray-500 dark:text-gray-400">
+                                                                Inventory unavailable
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+
+                                                <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200" :class="open ? 'rotate-90' : ''" aria-hidden="true">›</span>
+                                            </button>
+                                        </h3>
+
+                                        <div
+                                            id="{{ $machineCollapseId }}"
+                                            aria-labelledby="{{ $machineHeadingId }}"
+                                            x-show="open"
+                                            x-transition.origin.top.duration.200ms
+                                            class="border-t border-gray-200 bg-white dark:border-gray-700/60 dark:bg-gray-900/30"
+                                        >
+                                            <div class="space-y-4 p-4">
+                                                <div class="flex flex-wrap items-start justify-between gap-4">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                        Review the latest current inventory snapshot for each bin on this machine.
+                                                    </div>
+                                                    {{-- Keep the direct machine detail link while removing edit and bin-management actions from this page. --}}
+                                                    <div class="flex flex-wrap gap-3">
+                                                        <a href="{{ route('machines.show', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View Machine</a>
+                                                    </div>
+                                                </div>
+
+                                                @if ($group['bins']->isEmpty())
+                                                    <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-700/60 dark:text-gray-400">
+                                                        No bins are configured for this machine.
+                                                    </div>
+                                                @else
+                                                    <div class="overflow-x-auto">
+                                                        <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
+                                                            <thead class="bg-gray-50 dark:bg-gray-800/80">
+                                                                <tr>
+                                                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Bin</th>
+                                                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Product</th>
+                                                                    <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Capacity</th>
+                                                                    <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Current Inventory</th>
+                                                                    <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Selling Price</th>
+                                                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Inventory As Of</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
+                                                                @foreach ($group['bins'] as $binRow)
+                                                                    <tr class="bg-white dark:bg-gray-800">
+                                                                        <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">
+                                                                            {{ $binRow['bin']->bin_code ?: 'Bin #'.$binRow['bin']->id }}
+                                                                        </td>
+                                                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                                                            {{ $binRow['product']?->product_name ?? 'No product assigned' }}
+                                                                        </td>
+                                                                        <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                                                                            {{ number_format($binRow['capacity']) }}
+                                                                        </td>
+                                                                        <td class="px-5 py-4 text-right tabular-nums font-semibold text-gray-800 dark:text-gray-100">
+                                                                            @if ($binRow['has_inventory_snapshot'])
+                                                                                {{ number_format($binRow['current_inventory']) }}
+                                                                            @else
+                                                                                —
+                                                                            @endif
+                                                                        </td>
+                                                                        <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                                                                            @if (! is_null($binRow['selling_price']))
+                                                                                {{ \App\Support\Money::format($binRow['selling_price']) }}
+                                                                            @else
+                                                                                —
+                                                                            @endif
+                                                                        </td>
+                                                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                                                            @if ($binRow['inventory_as_of_iso'])
+                                                                                <time datetime="{{ $binRow['inventory_as_of_iso'] }}">
+                                                                                    <div>{{ $binRow['inventory_as_of_date'] }}</div>
+                                                                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ $binRow['inventory_as_of_time'] }}</div>
+                                                                                </time>
+                                                                            @else
+                                                                                —
+                                                                            @endif
+                                                                        </td>
+                                                                    </tr>
+                                                                @endforeach
+                                                            </tbody>
+                                                            <tfoot class="bg-gray-50 dark:bg-gray-800/80">
+                                                                <tr>
+                                                                    <th colspan="3" class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Machine Total</th>
+                                                                    <th class="px-5 py-3 text-right tabular-nums font-medium text-gray-800 dark:text-gray-100">
+                                                                        @if ($group['snapshot_bin_count'] > 0)
+                                                                            {{ number_format($group['total_current_inventory']) }}
+                                                                        @else
+                                                                            —
+                                                                        @endif
+                                                                    </th>
+                                                                    <th class="px-5 py-3"></th>
+                                                                    <th class="px-5 py-3"></th>
+                                                                </tr>
+                                                            </tfoot>
+                                                        </table>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -454,14 +634,14 @@
                                                             $calculatedSalesCount = (int) ($service->calculated_sales_count ?? 0);
                                                             $baselineSalesCount = (int) ($service->baseline_sales_count ?? 0);
                                                             $reconciliationStatus = match (true) {
-                                                                $calculatedSalesCount > 0 && $baselineSalesCount === 0 => 'complete',
-                                                                $calculatedSalesCount > 0 && $baselineSalesCount > 0 => 'partial',
-                                                                $calculatedSalesCount === 0 && $baselineSalesCount > 0 => 'baseline_only',
-                                                                default => 'none',
+                                                                $calculatedSalesCount > 0 && $baselineSalesCount === 0 => \App\Models\Service::RECONCILIATION_COMPLETE,
+                                                                $calculatedSalesCount > 0 && $baselineSalesCount > 0 => \App\Models\Service::RECONCILIATION_PARTIAL,
+                                                                $calculatedSalesCount === 0 && $baselineSalesCount > 0 => \App\Models\Service::RECONCILIATION_BASELINE_ONLY,
+                                                                default => \App\Models\Service::RECONCILIATION_NONE,
                                                             };
                                                             $serviceDifference = null;
 
-                                                            if ($reconciliationStatus === 'complete' && $serviceSalesTotal !== null && $service->amount_collected !== null) {
+                                                            if ($reconciliationStatus === \App\Models\Service::RECONCILIATION_COMPLETE && $serviceSalesTotal !== null && $service->amount_collected !== null) {
                                                                 $serviceDifference = \App\Support\Money::fromCents(
                                                                     \App\Support\Money::toCents($service->amount_collected)
                                                                     - \App\Support\Money::toCents($serviceSalesTotal)
@@ -469,9 +649,9 @@
                                                             }
 
                                                             $serviceSalesDisplay = match ($reconciliationStatus) {
-                                                                'complete' => \App\Support\Money::format($serviceSalesTotal),
-                                                                'partial' => trim(\App\Support\Money::format($serviceSalesTotal).' Partial'),
-                                                                'baseline_only' => 'Baseline',
+                                                                \App\Models\Service::RECONCILIATION_COMPLETE => \App\Support\Money::format($serviceSalesTotal),
+                                                                \App\Models\Service::RECONCILIATION_PARTIAL => trim(\App\Support\Money::format($serviceSalesTotal).' '.\App\Models\Service::reconciliationStatusLabel($reconciliationStatus)),
+                                                                \App\Models\Service::RECONCILIATION_BASELINE_ONLY => \App\Models\Service::reconciliationStatusLabel($reconciliationStatus),
                                                                 default => '—',
                                                             };
                                                         @endphp

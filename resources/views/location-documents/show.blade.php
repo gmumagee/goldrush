@@ -46,7 +46,11 @@
                         </div>
                         <div>
                             <dt class="text-gray-500 dark:text-gray-400">Uploaded At</dt>
-                            <dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $document->created_at?->format('d-m-Y H:i') ?: '—' }}</dd>
+                            <dd class="mt-1 text-gray-800 dark:text-gray-100">
+                                {{-- Split the visible date and time so document metadata follows the app-wide display rule. --}}
+                                <div>{{ \App\Support\AppDateTime::displayDate($document->created_at) }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ \App\Support\AppDateTime::displayTime($document->created_at) }}</div>
+                            </dd>
                         </div>
                         <div class="md:col-span-2">
                             <dt class="text-gray-500 dark:text-gray-400">Description</dt>

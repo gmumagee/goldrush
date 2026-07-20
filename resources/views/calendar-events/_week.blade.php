@@ -7,7 +7,8 @@
     <div class="weekly-calendar-header">
         <div>
             <h2 class="weekly-calendar-title">{{ $calendarTitle }}</h2>
-            <div class="weekly-calendar-range">{{ $weekStart->format('F j, Y') }} - {{ $weekEnd->format('F j, Y') }}</div>
+            {{-- Use the shared formatter so the weekly range follows the app-wide public date convention. --}}
+            <div class="weekly-calendar-range">{{ \App\Support\AppDateTime::displayDate($weekStart) }} - {{ \App\Support\AppDateTime::displayDate($weekEnd) }}</div>
         </div>
         <div class="weekly-calendar-navigation">
             <a href="{{ $previousWeekUrl }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Previous Week</a>
@@ -28,7 +29,7 @@
                 <section class="weekly-day-card" aria-labelledby="weekly-day-{{ $dateKey }}">
                     <div class="weekly-day-label">
                         <h3 id="weekly-day-{{ $dateKey }}" class="weekly-day-name">{{ $day->format('l') }}</h3>
-                        <div class="weekly-day-date">{{ $day->format('M j') }}</div>
+                        <div class="weekly-day-date">{{ \App\Support\AppDateTime::displayDate($day) }}</div>
                     </div>
                     <div class="weekly-day-events">
                         @forelse ($dayEvents as $event)
@@ -43,9 +44,9 @@
                                             <span>All day</span>
                                         @else
                                             <span>
-                                                {{ $event->start_at?->format('g:i A') ?? 'No time' }}
+                                                {{ \App\Support\AppDateTime::displayTime($event->start_at, 'No time') }}
                                                 @if ($event->end_at)
-                                                    - {{ $event->end_at->format('g:i A') }}
+                                                    - {{ \App\Support\AppDateTime::displayTime($event->end_at) }}
                                                 @endif
                                             </span>
                                         @endif

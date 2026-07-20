@@ -3,9 +3,9 @@
         ? \App\Models\Account::query()->select(['id', 'account_name', 'slug'])->find(session('current_account_id'))
         : null;
 
-    $operationsOpen = request()->routeIs('services.*') || request()->routeIs('transactions.*') || request()->routeIs('calendar-events.*');
-    $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*');
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
+    $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');
+    $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*') || request()->routeIs('transactions.*');
     $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('data-dictionary.*') || request()->is('users*') || request()->is('settings*');
 
     $sectionButtonClasses = 'flex w-full min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition';
@@ -109,47 +109,6 @@
                 <ul id="sidebar-operations" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
                     <li><a href="{{ route('calendar-events.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('calendar-events.*') ? $activeChildClasses : $inactiveChildClasses }}">Calendar</a></li>
                     <li><a href="{{ route('services.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('services.*') ? $activeChildClasses : $inactiveChildClasses }}">Services</a></li>
-                    <li><a href="{{ route('transactions.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('transactions.*') ? $activeChildClasses : $inactiveChildClasses }}">Transactions</a></li>
-                </ul>
-            </div>
-
-            <div
-                x-data="{
-                    open: {{ $inventoryOpen ? 'true' : 'false' }},
-                    init() {
-                        const saved = localStorage.getItem('sidebar-inventory-open');
-                        this.open = {{ $inventoryOpen ? 'true' : 'false' }} || saved === 'true';
-                        this.$watch('open', value => localStorage.setItem('sidebar-inventory-open', value));
-                    }
-                }"
-            >
-                <button
-                    type="button"
-                    class="{{ $sectionButtonClasses }} {{ $sectionButtonStateClasses }}"
-                    @click="open = !open"
-                    :aria-expanded="open.toString()"
-                    aria-controls="sidebar-inventory"
-                >
-                    <span class="flex min-w-0 items-center gap-3">
-                        <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M2 3h12v10H2zm2 2v2h8V5zm0 4v2h5V9z" />
-                        </svg>
-                        <span class="truncate leading-5">Inventory Setup</span>
-                    </span>
-                    <span
-                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200"
-                        :class="open ? 'rotate-90' : ''"
-                        aria-hidden="true"
-                    >
-                        ›
-                    </span>
-                </button>
-
-                <ul id="sidebar-inventory" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
-                    <li><a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.*') ? $activeChildClasses : $inactiveChildClasses }}">Products</a></li>
-                    <li><a href="{{ route('vendors.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.*') ? $activeChildClasses : $inactiveChildClasses }}">Vendors</a></li>
-                    <li><a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.*') ? $activeChildClasses : $inactiveChildClasses }}">Warehouses</a></li>
-                    <li><a href="{{ route('purchases.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('purchases.*') ? $activeChildClasses : $inactiveChildClasses }}">Purchases</a></li>
                 </ul>
             </div>
 
@@ -186,10 +145,50 @@
                 </button>
 
                 <ul id="sidebar-route-management" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
-                    <li><a href="{{ route('routes.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('routes.*') ? $activeChildClasses : $inactiveChildClasses }}">Routes</a></li>
                     <li><a href="{{ route('locations.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('locations.*') ? $activeChildClasses : $inactiveChildClasses }}">Locations</a></li>
                     <li><a href="{{ route('machines.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('machines.*') ? $activeChildClasses : $inactiveChildClasses }}">Machines</a></li>
-                    <li><a href="{{ route('bins.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('bins.*') ? $activeChildClasses : $inactiveChildClasses }}">Bins</a></li>
+                    <li><a href="{{ route('routes.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('routes.*') ? $activeChildClasses : $inactiveChildClasses }}">Routes</a></li>
+                </ul>
+            </div>
+
+            <div
+                x-data="{
+                    open: {{ $inventoryOpen ? 'true' : 'false' }},
+                    init() {
+                        const saved = localStorage.getItem('sidebar-inventory-open');
+                        this.open = {{ $inventoryOpen ? 'true' : 'false' }} || saved === 'true';
+                        this.$watch('open', value => localStorage.setItem('sidebar-inventory-open', value));
+                    }
+                }"
+            >
+                <button
+                    type="button"
+                    class="{{ $sectionButtonClasses }} {{ $sectionButtonStateClasses }}"
+                    @click="open = !open"
+                    :aria-expanded="open.toString()"
+                    aria-controls="sidebar-inventory"
+                >
+                    <span class="flex min-w-0 items-center gap-3">
+                        <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M2 3h12v10H2zm2 2v2h8V5zm0 4v2h5V9z" />
+                        </svg>
+                        <span class="truncate leading-5">Inventory</span>
+                    </span>
+                    <span
+                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200"
+                        :class="open ? 'rotate-90' : ''"
+                        aria-hidden="true"
+                    >
+                        ›
+                    </span>
+                </button>
+
+                <ul id="sidebar-inventory" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
+                    <li><a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.*') ? $activeChildClasses : $inactiveChildClasses }}">Products</a></li>
+                    <li><a href="{{ route('purchases.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('purchases.*') ? $activeChildClasses : $inactiveChildClasses }}">Purchases</a></li>
+                    <li><a href="{{ route('transactions.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('transactions.*') ? $activeChildClasses : $inactiveChildClasses }}">Transactions</a></li>
+                    <li><a href="{{ route('vendors.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.*') ? $activeChildClasses : $inactiveChildClasses }}">Vendors</a></li>
+                    <li><a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.*') ? $activeChildClasses : $inactiveChildClasses }}">Warehouses</a></li>
                 </ul>
             </div>
 
@@ -214,7 +213,7 @@
                         <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 8a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 1c-2.33 0-7 1.17-7 3.5V14h14v-1.5C15 10.17 10.33 9 8 9Z" />
                         </svg>
-                        <span class="truncate leading-5">Account</span>
+                        <span class="truncate leading-5">Settings</span>
                     </span>
                     <span
                         class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200"
@@ -226,12 +225,12 @@
                 </button>
 
                 <ul id="sidebar-account" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
-                    <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
                     <li><a href="{{ route('password.edit') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('password.*') ? $activeChildClasses : $inactiveChildClasses }}">Change Password</a></li>
-                    <li><a href="{{ route('account-users.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('account-users.*') ? $activeChildClasses : $inactiveChildClasses }}">Users</a></li>
                     <li><a href="{{ route('contacts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('contacts.*') ? $activeChildClasses : $inactiveChildClasses }}">Contacts</a></li>
                     <li><a href="{{ route('data-dictionary.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('data-dictionary.*') ? $activeChildClasses : $inactiveChildClasses }}">Data Dictionary</a></li>
                     <li><span class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500">Settings<span class="ml-auto text-xs">Soon</span></span></li>
+                    <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
+                    <li><a href="{{ route('account-users.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('account-users.*') ? $activeChildClasses : $inactiveChildClasses }}">Users</a></li>
                 </ul>
             </div>
         </div>

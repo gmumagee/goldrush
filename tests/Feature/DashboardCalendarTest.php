@@ -99,7 +99,7 @@ class DashboardCalendarTest extends TestCase
         $response->assertOk()
             ->assertSee('Dashboard')
             ->assertSee('Weekly Calendar')
-            ->assertSee('July 12, 2026 - July 18, 2026')
+            ->assertSee('07-12-2026 - 07-18-2026')
             ->assertSee('Sunday')
             ->assertSee('Saturday')
             ->assertSee('Service: Main Office')

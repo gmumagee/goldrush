@@ -6,15 +6,15 @@
                     $calculatedSalesCount = (int) ($service->calculated_sales_count ?? 0);
                     $baselineSalesCount = (int) ($service->baseline_sales_count ?? 0);
                     $reconciliationStatus = match (true) {
-                    $calculatedSalesCount > 0 && $baselineSalesCount === 0 => 'complete',
-                    $calculatedSalesCount > 0 && $baselineSalesCount > 0 => 'partial',
-                    $calculatedSalesCount === 0 && $baselineSalesCount > 0 => 'baseline_only',
-                    default => 'none',
+                    $calculatedSalesCount > 0 && $baselineSalesCount === 0 => \App\Models\Service::RECONCILIATION_COMPLETE,
+                    $calculatedSalesCount > 0 && $baselineSalesCount > 0 => \App\Models\Service::RECONCILIATION_PARTIAL,
+                    $calculatedSalesCount === 0 && $baselineSalesCount > 0 => \App\Models\Service::RECONCILIATION_BASELINE_ONLY,
+                    default => \App\Models\Service::RECONCILIATION_NONE,
                 };
                 $salesSummary = match ($reconciliationStatus) {
-                    'complete' => 'Finalized Sales: '.\App\Support\Money::format((string) $service->sales_total),
-                    'partial' => 'Calculated Sales Subtotal: '.\App\Support\Money::format((string) $service->sales_total).' (Partial)',
-                    'baseline_only' => 'Finalized Sales: Not available — baseline service',
+                    \App\Models\Service::RECONCILIATION_COMPLETE => 'Finalized Sales: '.\App\Support\Money::format((string) $service->sales_total),
+                    \App\Models\Service::RECONCILIATION_PARTIAL => 'Calculated Sales Subtotal: '.\App\Support\Money::format((string) $service->sales_total).' ('.\App\Models\Service::reconciliationStatusLabel($reconciliationStatus).')',
+                    \App\Models\Service::RECONCILIATION_BASELINE_ONLY => 'Finalized Sales: Initial installation — no prior inventory exists, so sales cannot be calculated for this service.',
                     default => null,
                 };
             @endphp
@@ -51,9 +51,9 @@
                             </div>
                         @endif
 
-                        @if (in_array($reconciliationStatus, ['partial', 'baseline_only'], true))
+                        @if (in_array($reconciliationStatus, [\App\Models\Service::RECONCILIATION_PARTIAL, \App\Models\Service::RECONCILIATION_BASELINE_ONLY], true))
                             <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
-                                Financial difference is unavailable because one or more bins were initialized as inventory baselines during this service.
+                                Financial difference is unavailable because one or more bins are being recorded as an initial installation during this service.
                             </div>
                         @endif
 

@@ -20,6 +20,10 @@ class Service extends Model
     public const TYPE_MAINTENANCE = 'maintenance_service';
     public const TYPE_LOCATION_SERVICE = self::TYPE_LOCATION;
     public const TYPE_MAINTENANCE_SERVICE = self::TYPE_MAINTENANCE;
+    public const RECONCILIATION_COMPLETE = 'complete';
+    public const RECONCILIATION_PARTIAL = 'partial';
+    public const RECONCILIATION_BASELINE_ONLY = 'baseline_only';
+    public const RECONCILIATION_NONE = 'none';
 
     protected $table = 'tbl_services';
 
@@ -180,5 +184,16 @@ class Service extends Model
     {
         // Sum only calculated sales because baseline rows do not represent measured revenue.
         return (string) $this->calculatedSales()->sum('sales_amount');
+    }
+
+    public static function reconciliationStatusLabel(?string $status): string
+    {
+        // Keep service-level reconciliation labels consistent anywhere baseline-only services are shown.
+        return match (trim((string) $status)) {
+            self::RECONCILIATION_COMPLETE => 'Complete',
+            self::RECONCILIATION_PARTIAL => 'Partial',
+            self::RECONCILIATION_BASELINE_ONLY => 'Initial Installation',
+            default => '—',
+        };
     }
 }

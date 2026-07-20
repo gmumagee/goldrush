@@ -18,13 +18,13 @@ abstract class Controller extends BaseController
 
     protected function normalizeDateInput(?string $value, string $field, bool $nullable = false): ?string
     {
-        // Normalize user-facing DD-MM-YYYY values before they cross the
+        // Normalize user-facing MM-DD-YYYY values before they cross the
         // database boundary so storage can remain on native date columns.
         $normalizedDate = AppDateTime::normalizeDateInput($value);
 
         if ($normalizedDate === null && ! $nullable) {
             throw ValidationException::withMessages([
-                $field => 'Use the DD-MM-YYYY date format.',
+                $field => 'Use the MM-DD-YYYY date format.',
             ]);
         }
 
@@ -54,7 +54,7 @@ abstract class Controller extends BaseController
 
         if (! $dateTime) {
             throw ValidationException::withMessages([
-                $dateField => 'Use the DD-MM-YYYY date format.',
+                $dateField => 'Use the MM-DD-YYYY date format.',
                 $timeField => 'Use the HH:MM:SS time format.',
             ]);
         }

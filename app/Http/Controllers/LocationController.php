@@ -6,11 +6,14 @@ use App\Models\AccountUser;
 use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\RouteLocation;
+use App\Models\Transaction;
 use App\Models\VendingRoute;
 use App\Services\DataDictionaryService;
+use App\Support\AppDateTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -109,7 +112,16 @@ class LocationController extends Controller
                 ->orderByDesc('id'),
             'machines' => fn ($query) => $query
                 ->where('account_id', $accountId)
-                ->withCount('bins')
+                ->with([
+                    'bins' => fn ($binQuery) => $binQuery
+                        ->where('account_id', $accountId)
+                        ->with([
+                            'product' => fn ($productQuery) => $productQuery->where('account_id', $accountId),
+                        ])
+                        ->orderBy('bin_code')
+                        ->orderBy('id'),
+                ])
+                ->orderBy('type')
                 ->orderBy('serial_number')
                 ->orderBy('id'),
             'services' => fn ($query) => $query
@@ -146,12 +158,16 @@ class LocationController extends Controller
 
         abort_if(! $membership, 403);
 
+        // Prepare machine inventory rows once so the view can stay query-free and tenant-safe.
+        $machineInventoryGroups = $this->buildMachineInventoryGroups($location, $accountId);
+
         return view('locations.show', [
             'location' => $location,
             'addressLine' => $addressLine,
             'primaryContactName' => $primaryContactName,
             'primaryContactPhone' => $primaryContactPhone,
             'primaryContactEmail' => $primaryContactEmail,
+            'machineInventoryGroups' => $machineInventoryGroups,
             'locationContactRoleLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_CONTACT_ROLE, $accountId, true),
             'locationDocumentTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, $accountId, true),
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
@@ -239,6 +255,135 @@ class LocationController extends Controller
         });
 
         return redirect()->route('locations.index')->with('status', 'Location deleted successfully.');
+    }
+
+    protected function buildMachineInventoryGroups(Location $location, int $accountId): Collection
+    {
+        $machines = $location->machines->values();
+
+        if ($machines->isEmpty()) {
+            return collect();
+        }
+
+        // Load the newest current-inventory snapshots in one pass so nested machine rows do not create N+1 queries.
+        $latestInventoryByBinProduct = $this->latestCurrentInventoryByBinProduct($machines, $accountId);
+
+        return $machines->map(function ($machine) use ($latestInventoryByBinProduct) {
+            $snapshotBinCount = 0;
+
+            $binRows = $machine->bins
+                ->map(function ($bin) use (
+                    $latestInventoryByBinProduct,
+                    &$snapshotBinCount
+                ) {
+                    $product = $bin->product;
+                    $inventoryTransaction = null;
+
+                    if ($product !== null) {
+                        $inventoryTransaction = $latestInventoryByBinProduct->get(
+                            $this->inventorySnapshotKey((int) $bin->id, (int) $product->id)
+                        );
+                    }
+
+                    $hasInventorySnapshot = $inventoryTransaction !== null;
+                    $currentInventory = $hasInventorySnapshot ? (int) $inventoryTransaction->quantity : null;
+                    $capacity = (int) ($bin->capacity ?? 0);
+                    $sellingPrice = $this->resolveBinSellingPrice($bin, $inventoryTransaction);
+
+                    if ($hasInventorySnapshot) {
+                        $snapshotBinCount++;
+                    }
+
+                    return [
+                        'bin' => $bin,
+                        'product' => $product,
+                        'capacity' => $capacity,
+                        'has_inventory_snapshot' => $hasInventorySnapshot,
+                        'current_inventory' => $currentInventory,
+                        'selling_price' => $sellingPrice,
+                        'inventory_as_of' => $inventoryTransaction?->transaction_at,
+                        'inventory_as_of_date' => $inventoryTransaction
+                            ? AppDateTime::displayDate($inventoryTransaction->transaction_at)
+                            : null,
+                        'inventory_as_of_time' => $inventoryTransaction
+                            ? AppDateTime::displayTime($inventoryTransaction->transaction_at)
+                            : null,
+                        'inventory_as_of_iso' => $inventoryTransaction
+                            ? AppDateTime::isoDateTime($inventoryTransaction->transaction_at)
+                            : null,
+                    ];
+                })
+                ->values();
+
+            return [
+                'machine' => $machine,
+                'bins' => $binRows,
+                'bin_count' => $binRows->count(),
+                'snapshot_bin_count' => $snapshotBinCount,
+                'total_current_inventory' => $binRows
+                    ->filter(fn (array $row) => $row['has_inventory_snapshot'])
+                    ->sum('current_inventory'),
+            ];
+        })->values();
+    }
+
+    protected function latestCurrentInventoryByBinProduct(Collection $machines, int $accountId): Collection
+    {
+        $bins = $machines
+            ->flatMap(fn ($machine) => $machine->bins)
+            ->values();
+
+        if ($bins->isEmpty()) {
+            return collect();
+        }
+
+        // Match snapshots by bin and product so historical product swaps do not leak stale inventory into the UI.
+        return Transaction::query()
+            ->select([
+                'id',
+                'account_id',
+                'machine_id',
+                'bin_id',
+                'product_id',
+                'transaction_type',
+                'quantity',
+                'transaction_at',
+                'price',
+                'unit_cost',
+            ])
+            ->where('account_id', $accountId)
+            ->whereIn('machine_id', $machines->pluck('id')->all())
+            ->whereIn('bin_id', $bins->pluck('id')->all())
+            ->where('transaction_type', Transaction::TYPE_CURRENT_INVENTORY)
+            ->whereNotNull('product_id')
+            ->whereNotNull('transaction_at')
+            ->orderByDesc('transaction_at')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy(fn (Transaction $transaction) => $this->inventorySnapshotKey(
+                (int) $transaction->bin_id,
+                (int) $transaction->product_id
+            ))
+            ->map(fn (Collection $transactions) => $transactions->first());
+    }
+
+    protected function inventorySnapshotKey(int $binId, int $productId): string
+    {
+        return $binId.':'.$productId;
+    }
+
+    protected function resolveBinSellingPrice($bin, ?Transaction $inventoryTransaction): ?string
+    {
+        // Prefer the live bin selling price because that is the customer-facing vend price used by the app.
+        if ($bin->price !== null && $bin->price !== '') {
+            return (string) $bin->price;
+        }
+
+        if ($inventoryTransaction?->price !== null && $inventoryTransaction->price !== '') {
+            return (string) $inventoryTransaction->price;
+        }
+
+        return null;
     }
 
     protected function locationForAccount(int $accountId, int $locationId, array $with = []): Location

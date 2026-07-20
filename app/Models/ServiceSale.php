@@ -61,6 +61,16 @@ class ServiceSale extends Model
         return strcasecmp(trim((string) $this->calculation_status), self::CALCULATION_BASELINE) === 0;
     }
 
+    public function getCalculationStatusLabelAttribute(): string
+    {
+        // Map stored sales statuses to clearer public-facing labels without changing persisted values.
+        return match (strtolower(trim((string) $this->calculation_status))) {
+            self::CALCULATION_BASELINE => 'Initial Installation',
+            self::CALCULATION_CALCULATED => 'Calculated',
+            default => ucfirst(str_replace('_', ' ', trim((string) $this->calculation_status))),
+        };
+    }
+
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class, 'service_id');

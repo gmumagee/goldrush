@@ -284,7 +284,7 @@ class AutoScheduleRouteServices extends Command
             sprintf(
                 'Service scheduled for %s on %s',
                 $location->location_name,
-                $targetDate->format('M j, Y')
+                $targetDate->format('m-d-Y')
             )
         );
     }

@@ -14,7 +14,7 @@ class AppDateTimeTest extends TestCase
 
         $value = CarbonImmutable::parse('2026-07-19 14:30:45', 'UTC');
 
-        $this->assertSame('19-07-2026', AppDateTime::displayDate($value));
+        $this->assertSame('07-19-2026', AppDateTime::displayDate($value));
         $this->assertSame('14:30:45', AppDateTime::displayTime($value));
         $this->assertSame('2026-07-19', AppDateTime::isoDate($value));
         $this->assertSame('2026-07-19T14:30:45+00:00', AppDateTime::isoDateTime($value));
@@ -30,7 +30,7 @@ class AppDateTimeTest extends TestCase
 
         $value = CarbonImmutable::parse('2026-07-19 03:15:30', 'UTC');
 
-        $this->assertSame('18-07-2026', AppDateTime::displayDate($value));
+        $this->assertSame('07-18-2026', AppDateTime::displayDate($value));
         $this->assertSame('23:15:30', AppDateTime::displayTime($value));
         $this->assertSame('2026-07-18', AppDateTime::isoDate($value));
         $this->assertSame('2026-07-18T23:15:30-04:00', AppDateTime::isoDateTime($value));
