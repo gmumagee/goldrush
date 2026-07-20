@@ -128,6 +128,45 @@
         @apply p-5;
     }
 
+    .dashboard-low-inventory-card {
+        width: 100%;
+        max-width: none;
+    }
+
+    .dashboard-sales-chart-container {
+        position: relative;
+        min-height: 300px;
+        height: 340px;
+    }
+
+    .low-inventory-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+        padding: 6px 8px;
+        border-bottom: 1px solid rgb(229 231 235);
+        line-height: 1.25;
+    }
+
+    .low-inventory-row:last-child {
+        border-bottom: 0;
+    }
+
+    .low-inventory-product {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .low-inventory-quantity {
+        flex: 0 0 auto;
+        font-weight: 600;
+        text-align: right;
+    }
+
     .weekly-calendar-card {
         overflow: hidden;
         border: 1px solid rgb(229 231 235);
@@ -552,6 +591,10 @@
 }
 
 @media (max-width: 576px) {
+    .dashboard-sales-chart-container {
+        height: 280px;
+    }
+
     .location-summary-grid {
         grid-template-columns: 1fr;
         gap: 1.25rem;

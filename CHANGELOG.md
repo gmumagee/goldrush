@@ -6,6 +6,27 @@
 
 
 
+2026-07-20, Display the dashboard Sales axis in explicit U.S. dollars, Updated the existing Alpine-driven Sales line graph so the visible y-axis label now reads Sales (USD), y-axis ticks render as whole-number U.S. currency values with dollar signs and comma separators, hover tooltips keep two decimal places in U.S. dollars, and dashboard coverage now asserts the USD formatter contract without changing the chart data, layout, or sales aggregation.
+
+
+2026-07-20, Move the dashboard Sales card ahead of Low Inventory and remove Low Inventory font overrides, Reordered the responsive dashboard grid so the Sales graph now renders first and occupies the left two thirds of the row while the Low Inventory card renders second on the right third and still stacks underneath Sales on smaller screens, removed the Low Inventory card's fixed 10 point typography overrides so it inherits the application's normal text sizing, and updated dashboard coverage to assert the new card order and typography behavior without changing the underlying sales or Main Warehouse inventory queries.
+
+
+2026-07-20, Rework the dashboard cards into a responsive shared row, Replaced the custom fixed-width dashboard flex wrappers with the existing Tailwind grid so Low Inventory now occupies roughly one third of the dashboard row and Sales uses the remaining two thirds on large screens while both stack full width on smaller screens, preserved the compact 10 pixel low-inventory rows and the existing sales chart behavior, and updated dashboard coverage to reject the old fixed pixel layout rules.
+
+
+2026-07-20, Add dynamic axis labels to the dashboard sales graph, Extended the existing Alpine-driven Sales line graph so the y-axis now shows Sales and the x-axis title switches between Date Week and Month for the 1 month 3 month 6 month and 1 year views, updated the chart accessibility label to match the active bucket type, and expanded dashboard coverage for the new axis-label metadata without changing the sales aggregation or the Main Warehouse low-inventory card.
+
+
+2026-07-20, Narrow the Main Warehouse low-inventory dashboard card, Reworked the existing Low Inventory — Main Warehouse card into a compact 280 pixel desktop panel with full-width mobile behavior, reduced the body to 10 pixel product-and-quantity rows only, removed the prior SKU table and footer link without changing the Main Warehouse query or top-10 ordering, and extended dashboard coverage for the new width rules and compact row layout.
+
+
+2026-07-20, Add an interactive dashboard sales graph, Added a dashboard Sales card that aggregates calculated service-sales revenue into daily weekly and monthly zero-filled periods for the last 1 month 3 months 6 months and 1 year, rendered the graph as an Alpine-driven responsive SVG line chart that switches periods without reloading, preserved the existing Main Warehouse low-inventory card, and extended dashboard coverage for current-account scoping bucket calculations and baseline-row exclusion.
+
+
+2026-07-20, Add a Main Warehouse low-inventory dashboard card, Reused the canonical warehouse inventory ledger aggregation to show the 10 lowest on-hand products from the current account's exact Main Warehouse on the dashboard, added safe missing and duplicate warehouse states plus a drill-in link to the warehouse inventory page, and extended dashboard coverage so other warehouses other accounts and machine-bin inventory stay excluded from the card.
+
+
 2026-07-20, Remove the Bins item from sidebar navigation, Removed the visible Bins link from the Route Management sidebar group while leaving the underlying bin routes and management screens intact, kept the remaining Route Management links alphabetized, preserved Transactions under Inventory, and extended sidebar coverage so the navigation no longer points to bins.index even though the page still loads directly.
 
 

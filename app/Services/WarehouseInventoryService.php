@@ -226,7 +226,39 @@ class WarehouseInventoryService
 
     public function inventoryForWarehouse(int $accountId, int $warehouseId, ?string $search = null): Collection
     {
-        $query = InventoryLedger::query()
+        return $this->warehouseInventorySummaryQuery($accountId, $warehouseId, $search)
+            ->orderBy('p.product_name')
+            ->get();
+    }
+
+    public function lowInventoryForWarehouse(int $accountId, int $warehouseId, int $limit = 10): Collection
+    {
+        // Reuse the warehouse ledger aggregation so dashboard inventory stays
+        // aligned with the warehouse detail page totals and sign handling.
+        return $this->warehouseInventorySummaryQuery($accountId, $warehouseId)
+            ->orderBy('quantity_on_hand')
+            ->orderBy('p.product_name')
+            ->limit($limit)
+            ->get();
+    }
+
+    public function ledgerForWarehouse(int $accountId, int $warehouseId, int $limit = 25): Collection
+    {
+        return InventoryLedger::query()
+            ->where('account_id', $accountId)
+            ->where('warehouse_id', $warehouseId)
+            ->with('product')
+            ->orderByDesc('movement_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
+    }
+
+    protected function warehouseInventorySummaryQuery(int $accountId, int $warehouseId, ?string $search = null)
+    {
+        // Keep the summary query in one place so dashboard and warehouse views
+        // both use the same signed quantity and cost aggregation rules.
+        return InventoryLedger::query()
             ->from('tbl_inventory_ledger as l')
             ->join('tbl_products as p', function ($join) use ($accountId) {
                 $join->on('p.id', '=', 'l.product_id')
@@ -244,7 +276,6 @@ class WarehouseInventoryService
                 });
             })
             ->groupBy('l.product_id', 'p.sku', 'p.product_name', 'p.size', 'p.package_type')
-            ->orderBy('p.product_name')
             ->selectRaw('
                 l.product_id,
                 p.sku,
@@ -259,19 +290,5 @@ class WarehouseInventoryService
                     ELSE 0
                 END as average_unit_cost
             ');
-
-        return $query->get();
-    }
-
-    public function ledgerForWarehouse(int $accountId, int $warehouseId, int $limit = 25): Collection
-    {
-        return InventoryLedger::query()
-            ->where('account_id', $accountId)
-            ->where('warehouse_id', $warehouseId)
-            ->with('product')
-            ->orderByDesc('movement_at')
-            ->orderByDesc('id')
-            ->limit($limit)
-            ->get();
     }
 }
