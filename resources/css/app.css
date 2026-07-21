@@ -508,21 +508,39 @@
     }
 
     /* Preserve the default gray accordion treatment for location and unknown service types. */
-    .service-accordion--location {
+    .service-accordion-button--location {
     }
 
-    /* Keep maintenance service headers visibly blue in every accordion state. */
-    .service-accordion--maintenance > button,
-    .service-accordion--maintenance > button:hover,
-    .service-accordion--maintenance > button:focus-visible {
-        background-color: rgb(219 234 254);
+    /* Apply the maintenance service background directly to the visible header button in every interaction state. */
+    .service-accordion-button--maintenance,
+    .service-accordion-button--maintenance[aria-expanded='false'],
+    .service-accordion-button--maintenance[aria-expanded='true'],
+    .service-accordion-button--maintenance:hover,
+    .service-accordion-button--maintenance:focus,
+    .service-accordion-button--maintenance:focus-visible {
+        background-color: rgb(219 234 254) !important;
+        color: rgb(31 41 55);
+    }
+
+    /* Keep the maintenance chevron readable while preserving the existing rotation behavior. */
+    .service-accordion-button--maintenance .service-accordion-chevron {
+        color: rgb(30 64 175);
     }
 
     /* Keep maintenance service headers readable when dark mode is active. */
-    .dark .service-accordion--maintenance > button,
-    .dark .service-accordion--maintenance > button:hover,
-    .dark .service-accordion--maintenance > button:focus-visible {
-        background-color: rgb(30 64 175 / 0.35);
+    .dark .service-accordion-button--maintenance,
+    .dark .service-accordion-button--maintenance[aria-expanded='false'],
+    .dark .service-accordion-button--maintenance[aria-expanded='true'],
+    .dark .service-accordion-button--maintenance:hover,
+    .dark .service-accordion-button--maintenance:focus,
+    .dark .service-accordion-button--maintenance:focus-visible {
+        background-color: rgb(30 64 175 / 0.35) !important;
+        color: rgb(219 234 254);
+    }
+
+    /* Keep the maintenance chevron readable against the darker blue background. */
+    .dark .service-accordion-button--maintenance .service-accordion-chevron {
+        color: rgb(219 234 254);
     }
 
     .dark .service-detail-table th {

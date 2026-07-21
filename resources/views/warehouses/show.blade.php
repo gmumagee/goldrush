@@ -8,9 +8,15 @@
                 </div>
                 <div class="flex gap-3">
                     <a href="{{ route('warehouses.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Warehouses</a>
-                    <a href="{{ route('calendar-events.create', ['source_type' => 'warehouse', 'source_id' => $warehouse->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
-                    <a href="{{ route('warehouses.edit', $warehouse) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Warehouse</a>
-                    <a href="{{ route('purchases.create', ['warehouse_id' => $warehouse->id]) }}" class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500">Create Purchase</a>
+                    @can('create', \App\Models\CalendarEvent::class)
+                        <a href="{{ route('calendar-events.create', ['source_type' => 'warehouse', 'source_id' => $warehouse->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
+                    @endcan
+                    @can('update', $warehouse)
+                        <a href="{{ route('warehouses.edit', $warehouse) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Warehouse</a>
+                    @endcan
+                    @can('create', \App\Models\Purchase::class)
+                        <a href="{{ route('purchases.create', ['warehouse_id' => $warehouse->id]) }}" class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500">Create Purchase</a>
+                    @endcan
                 </div>
             </div>
             @if (session('status'))

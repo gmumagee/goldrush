@@ -15,15 +15,12 @@ class DataDictionaryController extends Controller
 {
     public function __construct(protected DataDictionaryService $dataDictionaryService)
     {
-        $this->middleware(function (Request $request, $next) {
-            $this->ensureCanManageDataDictionary($request);
-
-            return $next($request);
-        });
     }
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', DataDictionary::class);
+
         $accountId = $this->currentAccountId($request);
         $filters = $this->validatedIndexFilters($request);
         $names = $this->allowedNames($accountId);
@@ -60,6 +57,8 @@ class DataDictionaryController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', DataDictionary::class);
+
         $names = $this->allowedNames($this->currentAccountId($request));
         $selectedName = trim((string) $request->query('name', ''));
 
@@ -71,6 +70,8 @@ class DataDictionaryController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', DataDictionary::class);
+
         $accountId = $this->currentAccountId($request);
         $allowedNames = $this->allowedNames($accountId);
         $data = $request->validate([
@@ -106,6 +107,7 @@ class DataDictionaryController extends Controller
     public function edit(Request $request, int $dataDictionary): View|RedirectResponse
     {
         $entry = $this->dictionaryEntryForScope($this->currentAccountId($request), $dataDictionary);
+        $this->authorize('update', $entry);
 
         if ($entry->isGlobal()) {
             return $this->globalValueRedirect();
@@ -120,6 +122,7 @@ class DataDictionaryController extends Controller
     public function update(Request $request, int $dataDictionary): RedirectResponse
     {
         $entry = $this->dictionaryEntryForScope($this->currentAccountId($request), $dataDictionary);
+        $this->authorize('update', $entry);
 
         if ($entry->isGlobal()) {
             return $this->globalValueRedirect();
@@ -151,6 +154,7 @@ class DataDictionaryController extends Controller
     public function deactivate(Request $request, int $dataDictionary): RedirectResponse
     {
         $entry = $this->dictionaryEntryForScope($this->currentAccountId($request), $dataDictionary);
+        $this->authorize('update', $entry);
 
         if ($entry->isGlobal()) {
             return $this->globalValueRedirect();
@@ -166,6 +170,7 @@ class DataDictionaryController extends Controller
     public function activate(Request $request, int $dataDictionary): RedirectResponse
     {
         $entry = $this->dictionaryEntryForScope($this->currentAccountId($request), $dataDictionary);
+        $this->authorize('update', $entry);
 
         if ($entry->isGlobal()) {
             return $this->globalValueRedirect();
@@ -177,20 +182,6 @@ class DataDictionaryController extends Controller
             ->route('data-dictionary.index', ['name' => $entry->name])
             ->with('status', 'Dictionary value reactivated successfully.');
     }
-
-    protected function ensureCanManageDataDictionary(Request $request): void
-    {
-        $membership = AccountUser::query()
-            ->where('account_id', $this->currentAccountId($request))
-            ->where('user_id', $request->user()->id)
-            ->where('status', AccountUser::STATUS_ACTIVE)
-            ->first();
-
-        if (! $membership || ! $membership->canManageAccountUsers()) {
-            abort(403);
-        }
-    }
-
     protected function dictionaryEntryForScope(int $accountId, int $id): DataDictionary
     {
         return DataDictionary::query()

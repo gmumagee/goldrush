@@ -8,8 +8,12 @@
                 </div>
                 <div class="flex gap-3">
                     <a href="{{ route('routes.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Routes</a>
-                    <a href="{{ route('calendar-events.create', ['source_type' => 'route', 'source_id' => $route->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
-                    <a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Route</a>
+                    @can('create', \App\Models\CalendarEvent::class)
+                        <a href="{{ route('calendar-events.create', ['source_type' => 'route', 'source_id' => $route->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
+                    @endcan
+                    @can('update', $route)
+                        <a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Route</a>
+                    @endcan
                 </div>
             </div>
 
@@ -39,6 +43,9 @@
                     </div>
                 </div>
                 <div class="panel-body">
+                    @cannot('update', $route)
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Only users with update access can change route stops.</p>
+                    @else
                     @if ($availableLocations->isEmpty())
                         <p class="text-sm text-gray-500 dark:text-gray-400">All current-account locations are already assigned to this route.</p>
                     @else
@@ -53,6 +60,7 @@
                             <x-button>Add Location</x-button>
                         </form>
                     @endif
+                    @endcannot
                 </div>
             </section>
 
@@ -84,6 +92,7 @@
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $routeLocation->location?->state ?: '—' }}</td>
                                     <td class="px-5 py-4">
                                         <div class="flex flex-wrap gap-2">
+                                            @can('update', $routeLocation)
                                             @if (! $loop->first)
                                                 <form method="POST" action="{{ route('routes.locations.move-up', [$route, $routeLocation]) }}">
                                                     @csrf
@@ -96,11 +105,14 @@
                                                     <button type="submit" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Move Down</button>
                                                 </form>
                                             @endif
+                                            @endcan
+                                            @can('delete', $routeLocation)
                                             <form method="POST" action="{{ route('routes.locations.destroy', [$route, $routeLocation]) }}">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove From Route</button>
                                             </form>
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>

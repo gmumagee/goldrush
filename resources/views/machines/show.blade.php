@@ -13,15 +13,17 @@
                     <a href="{{ route('machines.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                         Back to Machines
                     </a>
-                    <a href="{{ route('machines.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                        Edit Machine
-                    </a>
-                    <a href="{{ route('machines.bins.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                        Edit Bins
-                    </a>
-                    <a href="{{ route('machines.bins.create', $machine) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
-                        Add Bins
-                    </a>
+                    @can('update', $machine)
+                        <a href="{{ route('machines.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                            Edit Machine
+                        </a>
+                        <a href="{{ route('machines.bins.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                            Edit Bins
+                        </a>
+                        <a href="{{ route('machines.bins.create', $machine) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
+                            Add Bins
+                        </a>
+                    @endcan
                 </div>
             </div>
 

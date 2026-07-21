@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use App\Http\Middleware\EnsureAccountSelected;
 use App\Support\EnsureActiveCurrentAccountMember;
+use App\Support\RestrictTechnicianToServiceScreens;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'account.selected' => EnsureAccountSelected::class,
             'account.member' => EnsureActiveCurrentAccountMember::class,
+            'technician.services' => RestrictTechnicianToServiceScreens::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

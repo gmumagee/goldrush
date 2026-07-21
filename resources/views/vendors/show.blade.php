@@ -3,7 +3,7 @@
         <div class="mx-auto w-full max-w-5xl space-y-6">
             <div class="flex items-center justify-between gap-4">
                 <div><h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">{{ $vendor->vendor_name }}</h1><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $vendor->location ?: 'No location set' }}</p></div>
-                <div class="flex gap-3"><a href="{{ route('vendors.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Vendors</a><a href="{{ route('vendors.edit', $vendor) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Vendor</a></div>
+                <div class="flex gap-3"><a href="{{ route('vendors.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Vendors</a>@can('update', $vendor)<a href="{{ route('vendors.edit', $vendor) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Vendor</a>@endcan</div>
             </div>
             @if (session('status'))
                 <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900/60 dark:bg-green-500/10 dark:text-green-300">{{ session('status') }}</div>

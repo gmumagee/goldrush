@@ -12,6 +12,8 @@ class ContactController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Contact::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
 
@@ -40,11 +42,15 @@ class ContactController extends Controller
 
     public function create(): View
     {
+        $this->authorize('create', Contact::class);
+
         return view('contacts.create');
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Contact::class);
+
         $data = $this->validatedContactData($request);
         $data['account_id'] = $this->currentAccountId($request);
 
@@ -60,6 +66,7 @@ class ContactController extends Controller
         $contact = $this->contactForAccount($this->currentAccountId($request), $contact, [
             'locationContacts.location',
         ]);
+        $this->authorize('view', $contact);
 
         return view('contacts.show', compact('contact'));
     }
@@ -67,6 +74,7 @@ class ContactController extends Controller
     public function edit(Request $request, int $contact): View
     {
         $contact = $this->contactForAccount($this->currentAccountId($request), $contact);
+        $this->authorize('update', $contact);
 
         return view('contacts.edit', compact('contact'));
     }
@@ -74,6 +82,7 @@ class ContactController extends Controller
     public function update(Request $request, int $contact): RedirectResponse
     {
         $contact = $this->contactForAccount($this->currentAccountId($request), $contact);
+        $this->authorize('update', $contact);
         $contact->update($this->validatedContactData($request));
 
         return redirect()
@@ -84,6 +93,7 @@ class ContactController extends Controller
     public function destroy(Request $request, int $contact): RedirectResponse
     {
         $contact = $this->contactForAccount($this->currentAccountId($request), $contact, ['locationContacts']);
+        $this->authorize('delete', $contact);
 
         if ($contact->locationContacts()->exists()) {
             return back()->withErrors([

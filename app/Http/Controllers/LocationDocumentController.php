@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AccountUser;
 use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\LocationDocument;
@@ -24,10 +23,9 @@ class LocationDocumentController extends Controller
 
     public function create(Request $request, int $location): View
     {
-        $this->ensureCanManageDocuments($request);
-
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
+        $this->authorize('update', $location);
 
         return view('location-documents.create', [
             'location' => $location,
@@ -37,10 +35,9 @@ class LocationDocumentController extends Controller
 
     public function store(Request $request, int $location): RedirectResponse
     {
-        $this->ensureCanManageDocuments($request);
-
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
+        $this->authorize('update', $location);
         $data = $this->validatedData($request, $accountId);
         $uploadedFile = $request->file('file');
         $extension = mb_strtolower((string) ($uploadedFile->getClientOriginalExtension() ?: $uploadedFile->extension()));
@@ -85,23 +82,24 @@ class LocationDocumentController extends Controller
 
     public function show(Request $request, int $location, int $document): View
     {
-        $membership = $this->currentMembership($request);
-        $location = $this->locationForAccount($membership->account_id, $location);
-        $document = $this->documentForAccount($membership->account_id, $location->id, $document, ['uploadedBy']);
+        $accountId = $this->currentAccountId($request);
+        $location = $this->locationForAccount($accountId, $location);
+        $document = $this->documentForAccount($accountId, $location->id, $document, ['uploadedBy']);
+        $this->authorize('view', $document);
 
         return view('location-documents.show', [
             'location' => $location,
             'document' => $document,
-            'documentTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, $membership->account_id, true),
-            'canManageDocuments' => $this->canManageDocuments($membership),
+            'documentTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, $accountId, true),
         ]);
     }
 
     public function download(Request $request, int $location, int $document): StreamedResponse|RedirectResponse
     {
-        $membership = $this->currentMembership($request);
-        $location = $this->locationForAccount($membership->account_id, $location);
-        $document = $this->documentForAccount($membership->account_id, $location->id, $document);
+        $accountId = $this->currentAccountId($request);
+        $location = $this->locationForAccount($accountId, $location);
+        $document = $this->documentForAccount($accountId, $location->id, $document);
+        $this->authorize('view', $document);
 
         if (! Storage::disk($document->storage_disk)->exists($document->storage_path)) {
             return redirect()
@@ -117,11 +115,10 @@ class LocationDocumentController extends Controller
 
     public function destroy(Request $request, int $location, int $document): RedirectResponse
     {
-        $this->ensureCanManageDocuments($request);
-
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
         $document = $this->documentForAccount($accountId, $location->id, $document);
+        $this->authorize('delete', $document);
 
         DB::transaction(function () use ($document) {
             $document->deleteStoredFile();
@@ -162,34 +159,5 @@ class LocationDocumentController extends Controller
             ->where('location_id', $locationId)
             ->with($with)
             ->findOrFail($documentId);
-    }
-
-    protected function currentMembership(Request $request): AccountUser
-    {
-        $membership = AccountUser::query()
-            ->where('account_id', $this->currentAccountId($request))
-            ->where('user_id', $request->user()->id)
-            ->where('status', AccountUser::STATUS_ACTIVE)
-            ->first();
-
-        abort_if(! $membership, 403);
-
-        return $membership;
-    }
-
-    protected function ensureCanManageDocuments(Request $request): void
-    {
-        $membership = $this->currentMembership($request);
-
-        if (! $this->canManageDocuments($membership)) {
-            abort(403);
-        }
-    }
-
-    protected function canManageDocuments(AccountUser $membership): bool
-    {
-        return $membership->roleMatches(AccountUser::ROLE_OWNER)
-            || $membership->roleMatches(AccountUser::ROLE_ADMIN)
-            || $membership->roleMatches(AccountUser::ROLE_MANAGER);
     }
 }

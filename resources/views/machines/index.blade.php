@@ -6,7 +6,9 @@
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Machines</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage machines for the selected account.</p>
                 </div>
-                <a href="{{ route('machines.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
+                @can('create', \App\Models\Machine::class)
+                    <a href="{{ route('machines.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
+                @endcan
             </div>
             @if (session('status'))
                 <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900/60 dark:bg-green-500/10 dark:text-green-300">{{ session('status') }}</div>
@@ -96,13 +98,17 @@
                                                         <td class="px-5 py-4">
                                                             <div class="flex flex-wrap gap-2">
                                                                 <a href="{{ route('machines.show', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View</a>
-                                                                <a href="{{ route('machines.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
-                                                                <a href="{{ route('bins.create', ['machine_id' => $machine->id]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Add Bin</a>
-                                                                <form method="POST" action="{{ route('machines.destroy', $machine) }}">
-                                                                    @csrf
-                                                                    @method('DELETE')
-                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Delete</button>
-                                                                </form>
+                                                                @can('update', $machine)
+                                                                    <a href="{{ route('machines.edit', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                                    <a href="{{ route('bins.create', ['machine_id' => $machine->id]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Add Bin</a>
+                                                                @endcan
+                                                                @can('delete', $machine)
+                                                                    <form method="POST" action="{{ route('machines.destroy', $machine) }}">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Delete</button>
+                                                                    </form>
+                                                                @endcan
                                                             </div>
                                                         </td>
                                                     </tr>

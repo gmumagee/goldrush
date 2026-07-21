@@ -23,6 +23,7 @@ class LocationContactController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
+        $this->authorize('update', $location);
 
         $contacts = Contact::query()
             ->where('account_id', $accountId)
@@ -42,6 +43,7 @@ class LocationContactController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
+        $this->authorize('update', $location);
         $mode = (string) $request->input('mode', 'existing');
 
         if ($mode === 'new') {
@@ -56,6 +58,7 @@ class LocationContactController extends Controller
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
         $locationContact = $this->locationContactForAccount($accountId, $location->id, $locationContact, ['contact']);
+        $this->authorize('update', $locationContact);
 
         return view('location-contacts.edit', [
             'location' => $location,
@@ -69,6 +72,7 @@ class LocationContactController extends Controller
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
         $locationContact = $this->locationContactForAccount($accountId, $location->id, $locationContact);
+        $this->authorize('update', $locationContact);
         $relationshipData = $this->validatedRelationshipData($request, $accountId);
 
         DB::transaction(function () use ($relationshipData, $location, $locationContact) {
@@ -97,6 +101,7 @@ class LocationContactController extends Controller
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
         $locationContact = $this->locationContactForAccount($accountId, $location->id, $locationContact);
+        $this->authorize('delete', $locationContact);
         $locationContact->delete();
 
         return redirect()

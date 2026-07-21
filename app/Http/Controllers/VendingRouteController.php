@@ -26,6 +26,8 @@ class VendingRouteController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', VendingRoute::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
         $scheduledDayOptions = $this->scheduledDayOptions($accountId);
@@ -71,6 +73,8 @@ class VendingRouteController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', VendingRoute::class);
+
         $accountId = $this->currentAccountId($request);
 
         return view('routes.create', [
@@ -82,6 +86,8 @@ class VendingRouteController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', VendingRoute::class);
+
         $accountId = $this->currentAccountId($request);
         $data = $this->validateRoute($request, $accountId);
 
@@ -106,6 +112,7 @@ class VendingRouteController extends Controller
             'assignedUser',
             'routeLocations.location',
         ]);
+        $this->authorize('view', $route);
 
         $assignedLocationIds = $route->routeLocations->pluck('location_id');
         $availableLocations = Location::query()
@@ -125,6 +132,7 @@ class VendingRouteController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $route = $this->routeForAccount($accountId, $route, ['warehouse', 'assignedUser']);
+        $this->authorize('update', $route);
 
         return view('routes.edit', [
             'route' => $route,
@@ -138,6 +146,7 @@ class VendingRouteController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $route = $this->routeForAccount($accountId, $route);
+        $this->authorize('update', $route);
         $data = $this->validateRoute($request, $accountId);
 
         $route->update([
@@ -155,6 +164,7 @@ class VendingRouteController extends Controller
     public function destroy(Request $request, int $route): RedirectResponse
     {
         $route = $this->routeForAccount($this->currentAccountId($request), $route, ['routeLocations']);
+        $this->authorize('delete', $route);
 
         if ($route->routeLocations()->exists()) {
             return back()->withErrors([

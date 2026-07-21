@@ -51,8 +51,58 @@ class AccountUser extends Model
         return $this->roleMatches(self::ROLE_OWNER);
     }
 
-    public function canManageAccountUsers(): bool
+    public function isAdminTier(): bool
     {
         return $this->roleMatches(self::ROLE_OWNER) || $this->roleMatches(self::ROLE_ADMIN);
+    }
+
+    public function isStandardTier(): bool
+    {
+        return $this->roleMatches(self::ROLE_MANAGER);
+    }
+
+    public function isTechnician(): bool
+    {
+        return $this->roleMatches(self::ROLE_TECHNICIAN);
+    }
+
+    public function isViewer(): bool
+    {
+        return $this->roleMatches(self::ROLE_VIEWER);
+    }
+
+    public function canManage(): bool
+    {
+        return $this->isAdminTier() || $this->isStandardTier();
+    }
+
+    public function canDelete(): bool
+    {
+        return $this->isAdminTier();
+    }
+
+    public function canGenerateReports(): bool
+    {
+        return $this->isAdminTier() || $this->isStandardTier();
+    }
+
+    public function canUpdateServiceRecords(): bool
+    {
+        return $this->canManage() || $this->isTechnician();
+    }
+
+    public function canAccessOperationalRecords(): bool
+    {
+        return $this->canManage() || $this->isViewer();
+    }
+
+    public function canViewServiceRecords(): bool
+    {
+        return $this->canUpdateServiceRecords() || $this->isViewer();
+    }
+
+    public function canManageAccountUsers(): bool
+    {
+        return $this->isAdminTier();
     }
 }

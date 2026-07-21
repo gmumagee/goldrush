@@ -19,7 +19,9 @@
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Account Users</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage user access, roles, and membership status for the current account.</p>
                 </div>
-                <a href="{{ route('account-users.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add User</a>
+                @can('create', \App\Models\AccountUser::class)
+                    <a href="{{ route('account-users.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add User</a>
+                @endcan
             </div>
 
             @if (session('status'))
@@ -61,22 +63,26 @@
                                     <td class="px-5 py-4"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $userBadge($membership->user?->status) }}">{{ $userStatusLabels[strtolower(trim((string) $membership->user?->status))] ?? ($membership->user?->status ?: 'Unknown') }}</span></td>
                                     <td class="px-5 py-4">
                                         <div class="flex flex-wrap gap-2">
-                                            <a href="{{ route('account-users.edit', $membership) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
-                                            @if ((int) $membership->user_id !== (int) auth()->id())
-                                                <a href="{{ route('account-users.password.edit', $membership) }}" class="inline-flex items-center rounded-xl border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-500/10">Reset Password</a>
-                                            @endif
-                                            @if (strtolower(trim((string) $membership->status)) === 'active')
-                                                <form method="POST" action="{{ route('account-users.deactivate', $membership) }}">
+                                            @can('update', $membership)
+                                                <a href="{{ route('account-users.edit', $membership) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                @can('resetPassword', $membership)
+                                                    <a href="{{ route('account-users.password.edit', $membership) }}" class="inline-flex items-center rounded-xl border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-500/10">Reset Password</a>
+                                                @endcan
+                                                @if (strtolower(trim((string) $membership->status)) === 'active')
+                                                    <form method="POST" action="{{ route('account-users.deactivate', $membership) }}">
+                                                        @csrf
+                                                        @method('PATCH')
+                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10">Deactivate</button>
+                                                    </form>
+                                                @endif
+                                            @endcan
+                                            @can('delete', $membership)
+                                                <form method="POST" action="{{ route('account-users.destroy', $membership) }}">
                                                     @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10">Deactivate</button>
+                                                    @method('DELETE')
+                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove</button>
                                                 </form>
-                                            @endif
-                                            <form method="POST" action="{{ route('account-users.destroy', $membership) }}">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove</button>
-                                            </form>
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>

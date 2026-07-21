@@ -30,17 +30,19 @@
                 </div>
                 <div class="flex flex-wrap gap-3">
                     <a href="{{ route('calendar-events.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Calendar</a>
-                    <a href="{{ route('calendar-events.edit', $event) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Event</a>
-                    @if ($event->isScheduled())
-                        <form method="POST" action="{{ route('calendar-events.complete', $event) }}">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">Complete Event</button>
-                        </form>
-                        <form method="POST" action="{{ route('calendar-events.cancel', $event) }}">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Cancel Event</button>
-                        </form>
-                    @endif
+                    @can('update', $event)
+                        <a href="{{ route('calendar-events.edit', $event) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Event</a>
+                        @if ($event->isScheduled())
+                            <form method="POST" action="{{ route('calendar-events.complete', $event) }}">
+                                @csrf
+                                <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">Complete Event</button>
+                            </form>
+                            <form method="POST" action="{{ route('calendar-events.cancel', $event) }}">
+                                @csrf
+                                <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Cancel Event</button>
+                            </form>
+                        @endif
+                    @endcan
                 </div>
             </div>
 
@@ -140,10 +142,14 @@
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $reminder->message ?: $event->title }}</td>
                                     <td class="px-5 py-4">
                                         @if ($reminder->status === \App\Models\CalendarReminder::STATUS_PENDING)
-                                            <form method="POST" action="{{ route('calendar-reminders.dismiss', $reminder) }}">
-                                                @csrf
-                                                <button type="submit" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Dismiss</button>
-                                            </form>
+                                            @can('update', $reminder)
+                                                <form method="POST" action="{{ route('calendar-reminders.dismiss', $reminder) }}">
+                                                    @csrf
+                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Dismiss</button>
+                                                </form>
+                                            @else
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">Pending</span>
+                                            @endcan
                                         @else
                                             <span class="text-xs text-gray-500 dark:text-gray-400">Dismissed</span>
                                         @endif

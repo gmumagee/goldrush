@@ -19,6 +19,7 @@ class MachineBinController extends Controller
     {
         $accountId = (int) $request->session()->get('current_account_id');
         abort_unless($machine->account_id === $accountId, 404);
+        $this->authorize('update', $machine);
 
         $machine->load(['location', 'bins.product']);
 
@@ -33,6 +34,7 @@ class MachineBinController extends Controller
     {
         $accountId = (int) $request->session()->get('current_account_id');
         abort_unless($machine->account_id === $accountId, 404);
+        $this->authorize('update', $machine);
 
         $machine->load([
             'location',
@@ -54,6 +56,7 @@ class MachineBinController extends Controller
     {
         $accountId = (int) $request->session()->get('current_account_id');
         abort_unless($machine->account_id === $accountId, 404);
+        $this->authorize('update', $machine);
 
         $data = $request->validate([
             'row_letter' => ['required', 'string', 'max:5', 'regex:/^[A-Za-z]+$/'],
@@ -102,6 +105,7 @@ class MachineBinController extends Controller
     {
         $accountId = (int) $request->session()->get('current_account_id');
         abort_unless($machine->account_id === $accountId, 404);
+        $this->authorize('update', $machine);
 
         $machine->load([
             'bins' => fn ($query) => $query->orderBy('bin_code'),

@@ -9,6 +9,8 @@
 
 
 
+2026-07-21, Move Location Detail service-type styling onto the visible header button, Reworked the Location Detail services accordion so the stored tbl_services.service_type value now maps directly to button-level service-accordion-button classes and a rendered data-service-type hook, replaced the wrapper-only maintenance background override with button-specific light-blue and dark-mode rules that keep the chevron readable across collapsed expanded hover and focus states, and extended location-detail coverage to verify Service #9 style mapping button attributes non-service accordion isolation and the updated stylesheet contract.
+
 
 
 2026-07-21, Color Location Detail service accordions by stored service type, Kept the Location Detail service accordion classifier tied to the persisted tbl_services.service_type value, removed the old location and maintenance color overrides so location_service and unknown service types fall back to the existing gray accordion styling, added a light blue maintenance_service header treatment with a dark-mode variant, and extended location-detail coverage for service-type class mapping accessibility markup non-service accordion isolation and the stylesheet color contract.

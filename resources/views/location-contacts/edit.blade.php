@@ -20,7 +20,11 @@
                             <dt class="text-gray-500 dark:text-gray-400">Reusable Contact</dt>
                             <dd class="mt-1">
                                 @if ($locationContact->contact)
-                                    <a href="{{ route('contacts.edit', $locationContact->contact) }}" class="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-300 dark:hover:text-violet-200">Edit Contact Details</a>
+                                    @can('update', $locationContact->contact)
+                                        <a href="{{ route('contacts.edit', $locationContact->contact) }}" class="text-sm font-medium text-violet-600 hover:text-violet-500 dark:text-violet-300 dark:hover:text-violet-200">Edit Contact Details</a>
+                                    @else
+                                        <span class="text-gray-500 dark:text-gray-400">View only</span>
+                                    @endcan
                                 @else
                                     <span class="text-gray-500 dark:text-gray-400">Unavailable</span>
                                 @endif

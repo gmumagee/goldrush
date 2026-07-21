@@ -8,7 +8,9 @@
                 </div>
                 <div class="flex gap-3">
                     <a href="{{ route('contacts.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Contacts</a>
-                    <a href="{{ route('contacts.edit', $contact) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Contact</a>
+                    @can('update', $contact)
+                        <a href="{{ route('contacts.edit', $contact) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Contact</a>
+                    @endcan
                 </div>
             </div>
 
@@ -93,12 +95,16 @@
                                     <td class="px-5 py-4">
                                         @if ($locationContact->location)
                                             <div class="flex flex-wrap gap-2">
-                                                <a href="{{ route('locations.contacts.edit', [$locationContact->location, $locationContact]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit Relationship</a>
-                                                <form method="POST" action="{{ route('locations.contacts.destroy', [$locationContact->location, $locationContact]) }}">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove From Location</button>
-                                                </form>
+                                                @can('update', $locationContact)
+                                                    <a href="{{ route('locations.contacts.edit', [$locationContact->location, $locationContact]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit Relationship</a>
+                                                @endcan
+                                                @can('delete', $locationContact)
+                                                    <form method="POST" action="{{ route('locations.contacts.destroy', [$locationContact->location, $locationContact]) }}">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove From Location</button>
+                                                    </form>
+                                                @endcan
                                             </div>
                                         @else
                                             <span class="text-gray-500 dark:text-gray-400">—</span>

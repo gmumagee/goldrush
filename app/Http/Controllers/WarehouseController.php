@@ -21,6 +21,8 @@ class WarehouseController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Warehouse::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
 
@@ -44,11 +46,15 @@ class WarehouseController extends Controller
 
     public function create(): View
     {
+        $this->authorize('create', Warehouse::class);
+
         return view('warehouses.create');
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Warehouse::class);
+
         $accountId = $this->currentAccountId($request);
 
         $data = $request->validate([
@@ -71,6 +77,7 @@ class WarehouseController extends Controller
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
         $warehouse = $this->warehouseForAccount($accountId, $warehouse, ['purchases.vendor']);
+        $this->authorize('view', $warehouse);
 
         return view('warehouses.show', [
             'warehouse' => $warehouse,
@@ -84,6 +91,7 @@ class WarehouseController extends Controller
     public function edit(Request $request, int $warehouse): View
     {
         $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+        $this->authorize('update', $warehouse);
 
         return view('warehouses.edit', compact('warehouse'));
     }
@@ -91,6 +99,7 @@ class WarehouseController extends Controller
     public function update(Request $request, int $warehouse): RedirectResponse
     {
         $warehouse = $this->warehouseForAccount($this->currentAccountId($request), $warehouse);
+        $this->authorize('update', $warehouse);
 
         $data = $request->validate([
             'warehouse_name' => ['required', 'string', 'max:255'],
@@ -112,6 +121,7 @@ class WarehouseController extends Controller
             'services',
             'inventoryLedger',
         ]);
+        $this->authorize('delete', $warehouse);
 
         if ($warehouse->purchases()->exists() || $warehouse->services()->exists() || $warehouse->inventoryLedger()->exists()) {
             return back()->withErrors([

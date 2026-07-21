@@ -47,7 +47,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/accounts/select', [AccountSelectionController::class, 'edit'])->name('accounts.select');
     Route::post('/accounts/select', [AccountSelectionController::class, 'update']);
 
-    Route::middleware(['account.selected', 'account.member'])->group(function () {
+    Route::middleware(['account.selected', 'account.member', 'technician.services'])->group(function () {
         Route::get('/dashboard', DashboardController::class)
             ->name('dashboard');
 

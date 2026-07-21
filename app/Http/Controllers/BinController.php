@@ -15,6 +15,8 @@ class BinController extends Controller
 {
     public function index(Request $request, InventoryService $inventoryService): View
     {
+        $this->authorize('viewAny', Bin::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
         $machineId = $request->integer('machine_id');
@@ -50,6 +52,8 @@ class BinController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Bin::class);
+
         $accountId = $this->currentAccountId($request);
 
         return view('bins.create', [
@@ -60,6 +64,8 @@ class BinController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Bin::class);
+
         $accountId = $this->currentAccountId($request);
         $data = $this->validateBin($request, $accountId);
 
@@ -74,6 +80,7 @@ class BinController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $bin = $this->binForAccount($accountId, $bin, ['machine.location', 'product']);
+        $this->authorize('view', $bin);
 
         return view('bins.show', [
             'bin' => $bin,
@@ -85,6 +92,7 @@ class BinController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $bin = $this->binForAccount($accountId, $bin, ['machine.location', 'product']);
+        $this->authorize('update', $bin);
 
         return view('bins.edit', [
             'bin' => $bin,
@@ -97,6 +105,7 @@ class BinController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $bin = $this->binForAccount($accountId, $bin);
+        $this->authorize('update', $bin);
         $data = $this->validateBin($request, $accountId, $bin);
 
         $bin->update($data);
@@ -110,6 +119,7 @@ class BinController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $bin = $this->binForAccount($accountId, $bin, ['transactions']);
+        $this->authorize('delete', $bin);
 
         if ($bin->transactions()->exists()) {
             return back()->withErrors([

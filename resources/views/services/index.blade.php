@@ -7,9 +7,11 @@
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage location-based vending service visits for the selected account.</p>
                 </div>
 
-                <a href="{{ route('services.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
-                    Create Service
-                </a>
+                @can('create', \App\Models\Service::class)
+                    <a href="{{ route('services.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
+                        Create Service
+                    </a>
+                @endcan
             </div>
 
             @if (session('status'))
@@ -108,24 +110,26 @@
                                                             <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                                                                 View
                                                             </a>
-                                                            <a href="{{ route('services.edit', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                                                                Edit
-                                                            </a>
-                                                            @if ($service->isLocationService())
-                                                                <form method="POST" action="{{ route('services.open', $service) }}">
-                                                                    @csrf
-                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-blue-500/10">
-                                                                        Open Service
-                                                                    </button>
-                                                                </form>
-                                                            @else
-                                                                <form method="POST" action="{{ route('services.maintenance.open', $service) }}">
-                                                                    @csrf
-                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-yellow-300 px-3 py-1.5 text-xs font-medium text-yellow-800 transition hover:bg-yellow-50 dark:border-yellow-500/40 dark:text-yellow-200 dark:hover:bg-yellow-500/10">
-                                                                        Open Maintenance Service
-                                                                    </button>
-                                                                </form>
-                                                            @endif
+                                                            @can('update', $service)
+                                                                <a href="{{ route('services.edit', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                                                                    Edit
+                                                                </a>
+                                                                @if ($service->isLocationService())
+                                                                    <form method="POST" action="{{ route('services.open', $service) }}">
+                                                                        @csrf
+                                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-blue-500/10">
+                                                                            Open Service
+                                                                        </button>
+                                                                    </form>
+                                                                @else
+                                                                    <form method="POST" action="{{ route('services.maintenance.open', $service) }}">
+                                                                        @csrf
+                                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-yellow-300 px-3 py-1.5 text-xs font-medium text-yellow-800 transition hover:bg-yellow-50 dark:border-yellow-500/40 dark:text-yellow-200 dark:hover:bg-yellow-500/10">
+                                                                            Open Maintenance Service
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
+                                                            @endcan
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -211,9 +215,11 @@
                                                             <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                                                                 View
                                                             </a>
-                                                            <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
-                                                                Enter Amount Collected
-                                                            </a>
+                                                            @can('update', $service)
+                                                                <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
+                                                                    Enter Amount Collected
+                                                                </a>
+                                                            @endcan
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -316,44 +322,46 @@
                                                                 View
                                                             </a>
 
-                                                            @if ($service->isAwaitingService() && $service->isLocationService())
-                                                                <form method="POST" action="{{ route('services.open', $service) }}">
-                                                                    @csrf
-                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-blue-500/10">
-                                                                        Open Service
-                                                                    </button>
-                                                                </form>
-                                                            @endif
+                                                            @can('update', $service)
+                                                                @if ($service->isAwaitingService() && $service->isLocationService())
+                                                                    <form method="POST" action="{{ route('services.open', $service) }}">
+                                                                        @csrf
+                                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-blue-500/10">
+                                                                            Open Service
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
 
-                                                            @if ($service->isAwaitingService() && $service->isMaintenanceService())
-                                                                <form method="POST" action="{{ route('services.maintenance.open', $service) }}">
-                                                                    @csrf
-                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-yellow-300 px-3 py-1.5 text-xs font-medium text-yellow-800 transition hover:bg-yellow-50 dark:border-yellow-500/40 dark:text-yellow-200 dark:hover:bg-yellow-500/10">
-                                                                        Open Maintenance Service
-                                                                    </button>
-                                                                </form>
-                                                            @endif
+                                                                @if ($service->isAwaitingService() && $service->isMaintenanceService())
+                                                                    <form method="POST" action="{{ route('services.maintenance.open', $service) }}">
+                                                                        @csrf
+                                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-yellow-300 px-3 py-1.5 text-xs font-medium text-yellow-800 transition hover:bg-yellow-50 dark:border-yellow-500/40 dark:text-yellow-200 dark:hover:bg-yellow-500/10">
+                                                                            Open Maintenance Service
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
 
-                                                            @if ($service->isServiceOpen() && $service->isLocationService())
-                                                                <form method="POST" action="{{ route('services.complete', $service) }}">
-                                                                    @csrf
-                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-50 dark:border-green-500/40 dark:text-green-300 dark:hover:bg-green-500/10">
-                                                                        Complete Service
-                                                                    </button>
-                                                                </form>
-                                                            @endif
+                                                                @if ($service->isServiceOpen() && $service->isLocationService())
+                                                                    <form method="POST" action="{{ route('services.complete', $service) }}">
+                                                                        @csrf
+                                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-50 dark:border-green-500/40 dark:text-green-300 dark:hover:bg-green-500/10">
+                                                                            Complete Service
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
 
-                                                            @if ($service->isServiceOpen() && $service->isMaintenanceService())
-                                                                <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-yellow-300 px-3 py-1.5 text-xs font-medium text-yellow-800 transition hover:bg-yellow-50 dark:border-yellow-500/40 dark:text-yellow-200 dark:hover:bg-yellow-500/10">
-                                                                    Close Maintenance Service
-                                                                </a>
-                                                            @endif
+                                                                @if ($service->isServiceOpen() && $service->isMaintenanceService())
+                                                                    <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-yellow-300 px-3 py-1.5 text-xs font-medium text-yellow-800 transition hover:bg-yellow-50 dark:border-yellow-500/40 dark:text-yellow-200 dark:hover:bg-yellow-500/10">
+                                                                        Close Maintenance Service
+                                                                    </a>
+                                                                @endif
 
-                                                            @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
-                                                                <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
-                                                                    Enter Amount Collected
-                                                                </a>
-                                                            @endif
+                                                                @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
+                                                                    <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
+                                                                        Enter Amount Collected
+                                                                    </a>
+                                                                @endif
+                                                            @endcan
                                                         </div>
                                                     </td>
                                                 </tr>

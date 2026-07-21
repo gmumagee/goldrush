@@ -17,15 +17,12 @@ class AccountUserController extends Controller
 {
     public function __construct(protected DataDictionaryService $dataDictionaryService)
     {
-        $this->middleware(function (Request $request, $next) {
-            $this->ensureCanManageAccountUsers($request);
-
-            return $next($request);
-        });
     }
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', AccountUser::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
 
@@ -55,6 +52,8 @@ class AccountUserController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', AccountUser::class);
+
         $accountId = $this->currentAccountId($request);
 
         return view('account-users.create', [
@@ -66,6 +65,8 @@ class AccountUserController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', AccountUser::class);
+
         $accountId = $this->currentAccountId($request);
         $email = mb_strtolower(trim((string) $request->input('email')));
         $existingUser = User::query()
@@ -130,6 +131,7 @@ class AccountUserController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $membership = $this->membershipForAccount($accountId, $accountUser, ['user']);
+        $this->authorize('update', $membership);
 
         return view('account-users.edit', [
             'membership' => $membership,
@@ -145,6 +147,7 @@ class AccountUserController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $membership = $this->membershipForAccount($accountId, $accountUser);
+        $this->authorize('update', $membership);
 
         $data = $request->validate([
             'role' => ['required', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_ACCOUNT_USER_ROLE, $accountId)],
@@ -182,6 +185,7 @@ class AccountUserController extends Controller
     public function deactivate(Request $request, int $accountUser): RedirectResponse
     {
         $membership = $this->membershipForAccount($this->currentAccountId($request), $accountUser);
+        $this->authorize('update', $membership);
         $this->guardLastOwner($membership, $membership->role, AccountUser::STATUS_INACTIVE);
 
         $membership->update([
@@ -204,6 +208,7 @@ class AccountUserController extends Controller
     public function destroy(Request $request, int $accountUser): RedirectResponse
     {
         $membership = $this->membershipForAccount($this->currentAccountId($request), $accountUser);
+        $this->authorize('delete', $membership);
         $this->guardLastOwner($membership, null, null, true);
 
         $removingSelf = (int) $membership->user_id === (int) $request->user()->id;
@@ -221,19 +226,6 @@ class AccountUserController extends Controller
             ->route('account-users.index')
             ->with('status', 'User removed from account successfully.');
     }
-
-    protected function ensureCanManageAccountUsers(Request $request): void
-    {
-        $membership = AccountUser::query()
-            ->where('account_id', $this->currentAccountId($request))
-            ->where('user_id', $request->user()->id)
-            ->first();
-
-        if (! $membership || ! $membership->isActive() || ! $membership->canManageAccountUsers()) {
-            abort(403);
-        }
-    }
-
     protected function membershipForAccount(int $accountId, int $accountUserId, array $with = []): AccountUser
     {
         return AccountUser::query()

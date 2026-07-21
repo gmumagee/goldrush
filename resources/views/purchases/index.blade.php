@@ -21,7 +21,9 @@
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Purchases</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Post inbound inventory purchases and maintain warehouse inventory history.</p>
                 </div>
-                <a href="{{ route('purchases.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Create Purchase</a>
+                @can('create', \App\Models\Purchase::class)
+                    <a href="{{ route('purchases.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Create Purchase</a>
+                @endcan
             </div>
 
             @if (session('status'))
@@ -62,12 +64,14 @@
                                     <td class="px-5 py-4">
                                         <div class="flex flex-wrap gap-2">
                                             <a href="{{ route('purchases.show', $purchase) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View</a>
+                                            @can('delete', $purchase)
                                             @if ($purchase->isPosted())
                                                 <form method="POST" action="{{ route('purchases.void', $purchase) }}">
                                                     @csrf
                                                     <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Void Purchase</button>
                                                 </form>
                                             @endif
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>

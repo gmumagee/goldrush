@@ -1,7 +1,26 @@
 @php
+    $currentUser = auth()->user();
+    $currentMembership = $currentUser
+        ? app(\App\Support\CurrentAccountMembershipResolver::class)->forUser($currentUser)
+        : null;
     $currentAccount = session('current_account_id')
         ? \App\Models\Account::query()->select(['id', 'account_name', 'slug'])->find(session('current_account_id'))
         : null;
+    $isTechnician = $currentMembership?->isTechnician() ?? false;
+    $workspaceRoute = $isTechnician ? route('services.index') : route('dashboard');
+    $canViewCalendar = $currentUser?->can('viewAny', \App\Models\CalendarEvent::class) ?? false;
+    $canViewServices = $currentUser?->can('viewAny', \App\Models\Service::class) ?? false;
+    $canViewLocations = $currentUser?->can('viewAny', \App\Models\Location::class) ?? false;
+    $canViewMachines = $currentUser?->can('viewAny', \App\Models\Machine::class) ?? false;
+    $canViewRoutes = $currentUser?->can('viewAny', \App\Models\VendingRoute::class) ?? false;
+    $canViewProducts = $currentUser?->can('viewAny', \App\Models\Product::class) ?? false;
+    $canViewPurchases = $currentUser?->can('viewAny', \App\Models\Purchase::class) ?? false;
+    $canViewTransactions = $currentUser?->can('viewAny', \App\Models\Transaction::class) ?? false;
+    $canViewVendors = $currentUser?->can('viewAny', \App\Models\Vendor::class) ?? false;
+    $canViewWarehouses = $currentUser?->can('viewAny', \App\Models\Warehouse::class) ?? false;
+    $canViewContacts = $currentUser?->can('viewAny', \App\Models\Contact::class) ?? false;
+    $canViewDictionary = $currentUser?->can('viewAny', \App\Models\DataDictionary::class) ?? false;
+    $canViewAccountUsers = $currentUser?->can('viewAny', \App\Models\AccountUser::class) ?? false;
 
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
     $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');
@@ -37,7 +56,7 @@
                 </svg>
             </button>
 
-            <a class="block" href="{{ route('dashboard') }}">
+            <a class="block" href="{{ $workspaceRoute }}">
                 <svg class="fill-violet-500" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
                     <path d="M31.956 14.8C31.372 6.92 25.08.628 17.2.044V5.76a9.04 9.04 0 0 0 9.04 9.04h5.716ZM14.8 26.24v5.716C6.92 31.372.63 25.08.044 17.2H5.76a9.04 9.04 0 0 1 9.04 9.04Zm11.44-9.04h5.716c-.584 7.88-6.876 14.172-14.756 14.756V26.24a9.04 9.04 0 0 1 9.04-9.04ZM.044 14.8C.63 6.92 6.92.628 14.8.044V5.76a9.04 9.04 0 0 1-9.04 9.04H.044Z" />
                 </svg>
@@ -61,19 +80,20 @@
                 <ul class="mt-3 space-y-1">
                     <li>
                         <a
-                            href="{{ route('dashboard') }}"
-                            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('dashboard') ? $activeChildClasses : $inactiveChildClasses }}"
+                            href="{{ $workspaceRoute }}"
+                            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs($isTechnician ? 'services.*' : 'dashboard') ? $activeChildClasses : $inactiveChildClasses }}"
                         >
                             <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
                                 <path d="M5.936.278A7.983 7.983 0 0 1 8 0a8 8 0 1 1-8 8c0-.722.104-1.413.278-2.064a1 1 0 1 1 1.932.516A5.99 5.99 0 0 0 2 8a6 6 0 1 0 6-6c-.53 0-1.045.076-1.548.21A1 1 0 1 1 5.936.278Z" />
                                 <path d="M6.068 7.482A2.003 2.003 0 0 0 8 10a2 2 0 1 0-.518-3.932L3.707 2.293a1 1 0 0 0-1.414 1.414l3.775 3.775Z" />
                             </svg>
-                            <span class="opacity-100">Dashboard</span>
+                            <span class="opacity-100">{{ $isTechnician ? 'Services' : 'Dashboard' }}</span>
                         </a>
                     </li>
                 </ul>
             </div>
 
+            @if ($canViewCalendar || $canViewServices)
             <div
                 x-data="{
                     open: {{ $operationsOpen ? 'true' : 'false' }},
@@ -107,11 +127,17 @@
                 </button>
 
                 <ul id="sidebar-operations" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
-                    <li><a href="{{ route('calendar-events.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('calendar-events.*') ? $activeChildClasses : $inactiveChildClasses }}">Calendar</a></li>
-                    <li><a href="{{ route('services.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('services.*') ? $activeChildClasses : $inactiveChildClasses }}">Services</a></li>
+                    @if ($canViewCalendar)
+                        <li><a href="{{ route('calendar-events.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('calendar-events.*') ? $activeChildClasses : $inactiveChildClasses }}">Calendar</a></li>
+                    @endif
+                    @if ($canViewServices)
+                        <li><a href="{{ route('services.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('services.*') ? $activeChildClasses : $inactiveChildClasses }}">Services</a></li>
+                    @endif
                 </ul>
             </div>
+            @endif
 
+            @if ($canViewLocations || $canViewMachines || $canViewRoutes)
             <div
                 x-data="{
                     open: {{ $routeManagementOpen ? 'true' : 'false' }},
@@ -145,12 +171,20 @@
                 </button>
 
                 <ul id="sidebar-route-management" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
-                    <li><a href="{{ route('locations.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('locations.*') ? $activeChildClasses : $inactiveChildClasses }}">Locations</a></li>
-                    <li><a href="{{ route('machines.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('machines.*') ? $activeChildClasses : $inactiveChildClasses }}">Machines</a></li>
-                    <li><a href="{{ route('routes.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('routes.*') ? $activeChildClasses : $inactiveChildClasses }}">Routes</a></li>
+                    @if ($canViewLocations)
+                        <li><a href="{{ route('locations.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('locations.*') ? $activeChildClasses : $inactiveChildClasses }}">Locations</a></li>
+                    @endif
+                    @if ($canViewMachines)
+                        <li><a href="{{ route('machines.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('machines.*') ? $activeChildClasses : $inactiveChildClasses }}">Machines</a></li>
+                    @endif
+                    @if ($canViewRoutes)
+                        <li><a href="{{ route('routes.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('routes.*') ? $activeChildClasses : $inactiveChildClasses }}">Routes</a></li>
+                    @endif
                 </ul>
             </div>
+            @endif
 
+            @if ($canViewProducts || $canViewPurchases || $canViewTransactions || $canViewVendors || $canViewWarehouses)
             <div
                 x-data="{
                     open: {{ $inventoryOpen ? 'true' : 'false' }},
@@ -184,13 +218,24 @@
                 </button>
 
                 <ul id="sidebar-inventory" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
-                    <li><a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.*') ? $activeChildClasses : $inactiveChildClasses }}">Products</a></li>
-                    <li><a href="{{ route('purchases.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('purchases.*') ? $activeChildClasses : $inactiveChildClasses }}">Purchases</a></li>
-                    <li><a href="{{ route('transactions.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('transactions.*') ? $activeChildClasses : $inactiveChildClasses }}">Transactions</a></li>
-                    <li><a href="{{ route('vendors.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.*') ? $activeChildClasses : $inactiveChildClasses }}">Vendors</a></li>
-                    <li><a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.*') ? $activeChildClasses : $inactiveChildClasses }}">Warehouses</a></li>
+                    @if ($canViewProducts)
+                        <li><a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.*') ? $activeChildClasses : $inactiveChildClasses }}">Products</a></li>
+                    @endif
+                    @if ($canViewPurchases)
+                        <li><a href="{{ route('purchases.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('purchases.*') ? $activeChildClasses : $inactiveChildClasses }}">Purchases</a></li>
+                    @endif
+                    @if ($canViewTransactions)
+                        <li><a href="{{ route('transactions.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('transactions.*') ? $activeChildClasses : $inactiveChildClasses }}">Transactions</a></li>
+                    @endif
+                    @if ($canViewVendors)
+                        <li><a href="{{ route('vendors.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('vendors.*') ? $activeChildClasses : $inactiveChildClasses }}">Vendors</a></li>
+                    @endif
+                    @if ($canViewWarehouses)
+                        <li><a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.*') ? $activeChildClasses : $inactiveChildClasses }}">Warehouses</a></li>
+                    @endif
                 </ul>
             </div>
+            @endif
 
             <div
                 x-data="{
@@ -226,11 +271,17 @@
 
                 <ul id="sidebar-account" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
                     <li><a href="{{ route('password.edit') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('password.*') ? $activeChildClasses : $inactiveChildClasses }}">Change Password</a></li>
-                    <li><a href="{{ route('contacts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('contacts.*') ? $activeChildClasses : $inactiveChildClasses }}">Contacts</a></li>
-                    <li><a href="{{ route('data-dictionary.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('data-dictionary.*') ? $activeChildClasses : $inactiveChildClasses }}">Data Dictionary</a></li>
+                    @if ($canViewContacts)
+                        <li><a href="{{ route('contacts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('contacts.*') ? $activeChildClasses : $inactiveChildClasses }}">Contacts</a></li>
+                    @endif
+                    @if ($canViewDictionary)
+                        <li><a href="{{ route('data-dictionary.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('data-dictionary.*') ? $activeChildClasses : $inactiveChildClasses }}">Data Dictionary</a></li>
+                    @endif
                     <li><span class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500">Settings<span class="ml-auto text-xs">Soon</span></span></li>
                     <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
-                    <li><a href="{{ route('account-users.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('account-users.*') ? $activeChildClasses : $inactiveChildClasses }}">Users</a></li>
+                    @if ($canViewAccountUsers)
+                        <li><a href="{{ route('account-users.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('account-users.*') ? $activeChildClasses : $inactiveChildClasses }}">Users</a></li>
+                    @endif
                 </ul>
             </div>
         </div>

@@ -60,7 +60,7 @@
                 </div>
             </section>
 
-            @if ($canManageDocuments)
+            @can('delete', $document)
                 <section class="panel">
                     <div class="panel-body">
                         <div class="flex justify-end">
@@ -72,7 +72,7 @@
                         </div>
                     </div>
                 </section>
-            @endif
+            @endcan
         </div>
     </div>
 </x-app-layout>

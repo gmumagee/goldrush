@@ -22,6 +22,8 @@ class TransactionController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Transaction::class);
+
         $accountId = $this->currentAccountId($request);
         $serviceId = $request->integer('service_id');
         $machineId = $request->integer('machine_id');
@@ -63,6 +65,8 @@ class TransactionController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Transaction::class);
+
         $accountId = $this->currentAccountId($request);
         $selectedMachineId = $request->integer('machine_id');
         $selectedBinId = $request->integer('bin_id');
@@ -82,6 +86,8 @@ class TransactionController extends Controller
         InventoryCostService $inventoryCostService,
     ): RedirectResponse
     {
+        $this->authorize('create', Transaction::class);
+
         $accountId = $this->currentAccountId($request);
         [$service, $bin, $payload] = $this->validatedTransactionPayload($request, $accountId);
 
@@ -136,6 +142,7 @@ class TransactionController extends Controller
             'bin',
             'product',
         ]);
+        $this->authorize('view', $transaction);
 
         return view('transactions.show', [
             'transaction' => $transaction,
@@ -151,6 +158,7 @@ class TransactionController extends Controller
             'bin.product',
             'product',
         ]);
+        $this->authorize('update', $transaction);
 
         if (! $transaction->service?->isServiceOpen()) {
             return redirect()
@@ -183,6 +191,7 @@ class TransactionController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $transaction = $this->transactionForAccount($accountId, $transaction, ['service']);
+        $this->authorize('update', $transaction);
 
         if (! $transaction->service?->isServiceOpen()) {
             return back()->withErrors(['transaction' => 'Only Service Open transactions can be edited.']);
@@ -232,6 +241,7 @@ class TransactionController extends Controller
     public function destroy(Request $request, int $transaction): RedirectResponse
     {
         $transaction = $this->transactionForAccount($this->currentAccountId($request), $transaction, ['service']);
+        $this->authorize('delete', $transaction);
 
         if (! $transaction->service?->isServiceOpen()) {
             return back()->withErrors(['transaction' => 'Only Service Open transactions can be deleted.']);

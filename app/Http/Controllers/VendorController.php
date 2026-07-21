@@ -11,6 +11,8 @@ class VendorController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Vendor::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
 
@@ -33,11 +35,15 @@ class VendorController extends Controller
 
     public function create(): View
     {
+        $this->authorize('create', Vendor::class);
+
         return view('vendors.create');
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Vendor::class);
+
         $accountId = $this->currentAccountId($request);
 
         $data = $request->validate([
@@ -55,6 +61,7 @@ class VendorController extends Controller
     public function show(Request $request, int $vendor): View
     {
         $vendor = $this->vendorForAccount($this->currentAccountId($request), $vendor, ['products']);
+        $this->authorize('view', $vendor);
 
         return view('vendors.show', compact('vendor'));
     }
@@ -62,6 +69,7 @@ class VendorController extends Controller
     public function edit(Request $request, int $vendor): View
     {
         $vendor = $this->vendorForAccount($this->currentAccountId($request), $vendor);
+        $this->authorize('update', $vendor);
 
         return view('vendors.edit', compact('vendor'));
     }
@@ -69,6 +77,7 @@ class VendorController extends Controller
     public function update(Request $request, int $vendor): RedirectResponse
     {
         $vendor = $this->vendorForAccount($this->currentAccountId($request), $vendor);
+        $this->authorize('update', $vendor);
 
         $data = $request->validate([
             'vendor_name' => ['required', 'string', 'max:255'],
@@ -83,6 +92,7 @@ class VendorController extends Controller
     public function destroy(Request $request, int $vendor): RedirectResponse
     {
         $vendor = $this->vendorForAccount($this->currentAccountId($request), $vendor, ['products']);
+        $this->authorize('delete', $vendor);
 
         if ($vendor->products()->exists()) {
             return back()->withErrors([

@@ -18,6 +18,7 @@ class CalendarReminderController extends Controller
         $reminder = CalendarReminder::query()
             ->forAccount($this->currentAccountId($request))
             ->findOrFail($calendarReminder);
+        $this->authorize('update', $reminder);
 
         $this->calendarService->dismissReminder($reminder, (int) $request->user()->id);
 

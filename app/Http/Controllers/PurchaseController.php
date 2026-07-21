@@ -24,6 +24,8 @@ class PurchaseController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Purchase::class);
+
         $accountId = $this->currentAccountId($request);
 
         $purchases = Purchase::query()
@@ -43,6 +45,8 @@ class PurchaseController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Purchase::class);
+
         $accountId = $this->currentAccountId($request);
 
         return view('purchases.create', [
@@ -54,6 +58,8 @@ class PurchaseController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Purchase::class);
+
         $accountId = $this->currentAccountId($request);
         $data = $this->validatePurchase($request, $accountId);
 
@@ -79,6 +85,7 @@ class PurchaseController extends Controller
             'vendor',
             'warehouse',
         ]);
+        $this->authorize('view', $purchase);
 
         return view('purchases.show', [
             'purchase' => $purchase,
@@ -89,6 +96,7 @@ class PurchaseController extends Controller
     public function void(Request $request, int $purchase): RedirectResponse
     {
         $purchase = $this->purchaseForAccount($this->currentAccountId($request), $purchase, ['items']);
+        $this->authorize('delete', $purchase);
         $this->warehouseInventoryService->voidPurchase($purchase);
 
         return redirect()

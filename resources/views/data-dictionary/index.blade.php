@@ -19,7 +19,9 @@
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Data Dictionary</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">View global dictionary defaults and manage account-specific values for the current account.</p>
                 </div>
-                <a href="{{ route('data-dictionary.create', ['name' => $filters['name']]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Dictionary Value</a>
+                @can('create', \App\Models\DataDictionary::class)
+                    <a href="{{ route('data-dictionary.create', ['name' => $filters['name']]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Dictionary Value</a>
+                @endcan
             </div>
 
             @if (session('status'))
@@ -116,20 +118,24 @@
                                         @if ($entry->isGlobal())
                                             <span class="text-xs font-medium text-gray-400 dark:text-gray-500">View only</span>
                                         @else
-                                            <div class="flex flex-wrap gap-2">
-                                                <a href="{{ route('data-dictionary.edit', $entry) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
-                                                @if ($entry->is_active)
-                                                    <form method="POST" action="{{ route('data-dictionary.deactivate', $entry) }}">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10">Deactivate</button>
-                                                    </form>
-                                                @else
-                                                    <form method="POST" action="{{ route('data-dictionary.activate', $entry) }}">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-50 dark:border-green-500/40 dark:text-green-300 dark:hover:bg-green-500/10">Reactivate</button>
-                                                    </form>
-                                                @endif
-                                            </div>
+                                            @can('update', $entry)
+                                                <div class="flex flex-wrap gap-2">
+                                                    <a href="{{ route('data-dictionary.edit', $entry) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                    @if ($entry->is_active)
+                                                        <form method="POST" action="{{ route('data-dictionary.deactivate', $entry) }}">
+                                                            @csrf
+                                                            <button type="submit" class="inline-flex items-center rounded-xl border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10">Deactivate</button>
+                                                        </form>
+                                                    @else
+                                                        <form method="POST" action="{{ route('data-dictionary.activate', $entry) }}">
+                                                            @csrf
+                                                            <button type="submit" class="inline-flex items-center rounded-xl border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-50 dark:border-green-500/40 dark:text-green-300 dark:hover:bg-green-500/10">Reactivate</button>
+                                                        </form>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-xs font-medium text-gray-400 dark:text-gray-500">View only</span>
+                                            @endcan
                                         @endif
                                     </td>
                                 </tr>

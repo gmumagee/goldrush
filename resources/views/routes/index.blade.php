@@ -3,7 +3,9 @@
         <div class="mx-auto w-full max-w-7xl space-y-6">
             <div class="flex items-center justify-between gap-4">
                 <div><h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Routes</h1><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage routes for the selected account.</p></div>
-                <a href="{{ route('routes.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Route</a>
+                @can('create', \App\Models\VendingRoute::class)
+                    <a href="{{ route('routes.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Route</a>
+                @endcan
             </div>
             @if (session('status'))
                 <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900/60 dark:bg-green-500/10 dark:text-green-300">{{ session('status') }}</div>
@@ -36,7 +38,9 @@
                                             </div>
                                             <div class="flex flex-wrap gap-2">
                                                 <a href="{{ route('routes.show', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Manage Stops</a>
-                                                <a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                @can('update', $route)
+                                                    <a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                @endcan
                                             </div>
                                         </div>
                                     </div>
@@ -65,7 +69,9 @@
                                             </div>
                                             <div class="flex flex-wrap gap-2">
                                                 <a href="{{ route('routes.show', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Manage Stops</a>
-                                                <a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                @can('update', $route)
+                                                    <a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>
+                                                @endcan
                                             </div>
                                         </div>
                                     </div>
@@ -92,7 +98,7 @@
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $scheduledDayLabels[$route->scheduled_day] ?? ($route->scheduled_day ?: '—') }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $route->stops_count }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $route->description ?: '—' }}</td>
-                                    <td class="px-5 py-4"><div class="flex flex-wrap gap-2"><a href="{{ route('routes.show', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Manage Stops</a><a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a><form method="POST" action="{{ route('routes.destroy', $route) }}">@csrf @method('DELETE') <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Delete</button></form></div></td>
+                                    <td class="px-5 py-4"><div class="flex flex-wrap gap-2"><a href="{{ route('routes.show', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Manage Stops</a>@can('update', $route)<a href="{{ route('routes.edit', $route) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit</a>@endcan @can('delete', $route)<form method="POST" action="{{ route('routes.destroy', $route) }}">@csrf @method('DELETE') <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Delete</button></form>@endcan</div></td>
                                 </tr>
                             @empty
                                 <tr class="bg-white dark:bg-gray-800"><td colspan="5" class="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No routes found for this account.</td></tr>
