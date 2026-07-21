@@ -17,9 +17,6 @@ class Location extends Model
         'city',
         'state',
         'zip_code',
-        'contact_name',
-        'contact_phone',
-        'contact_email',
     ];
 
     public function account()

@@ -391,7 +391,6 @@ class CalendarWorkflowTest extends TestCase
             'city' => 'Toronto',
             'state' => 'ON',
             'zip_code' => 'M1M1M1',
-            'contact_name' => 'Jamie Admin',
         ]);
 
         RouteLocation::create([

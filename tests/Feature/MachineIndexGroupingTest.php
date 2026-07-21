@@ -238,7 +238,6 @@ class MachineIndexGroupingTest extends TestCase
             'city' => 'Toronto',
             'state' => 'ON',
             'zip_code' => 'M1M1M1',
-            'contact_name' => 'Casey Operator',
         ]);
 
         RouteLocation::create([

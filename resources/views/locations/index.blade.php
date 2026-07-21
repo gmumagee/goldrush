@@ -54,7 +54,7 @@
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->address ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->city ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->state ?: '—' }}</td>
-                                    <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->contact_name ?: '—' }}</td>
+                                    <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->primaryLocationContact?->contact?->display_name ?? '—' }}</td>
                                 </tr>
                             @empty
                                 <tr class="bg-white dark:bg-gray-800">

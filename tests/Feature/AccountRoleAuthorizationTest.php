@@ -74,9 +74,6 @@ class AccountRoleAuthorizationTest extends TestCase
                 'city' => 'Toronto',
                 'state' => 'ON',
                 'zip_code' => 'A1A1A1',
-                'contact_name' => 'Manager Contact',
-                'contact_phone' => '555-1234',
-                'contact_email' => 'manager@example.com',
             ])
             ->assertOk()
             ->assertSee('Location updated successfully.');
@@ -165,9 +162,6 @@ class AccountRoleAuthorizationTest extends TestCase
             'city' => null,
             'state' => null,
             'zip_code' => null,
-            'contact_name' => null,
-            'contact_phone' => null,
-            'contact_email' => null,
         ])->assertForbidden();
 
         $this->actingAs($user)->withSession($session)->delete(route('locations.destroy', $location))

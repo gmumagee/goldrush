@@ -51,13 +51,6 @@ class DemoContactSeeder extends DemoSeeder
                     ],
                 );
 
-                if ($relationship['is_primary']) {
-                    $location->update([
-                        'contact_name' => $this->displayName($contact),
-                        'contact_phone' => $contact->phone,
-                        'contact_email' => $contact->email,
-                    ]);
-                }
             }
         });
     }
@@ -160,10 +153,5 @@ class DemoContactSeeder extends DemoSeeder
                 'is_primary' => true,
             ],
         ];
-    }
-
-    protected function displayName(Contact $contact): string
-    {
-        return trim(implode(' ', array_filter([$contact->first_name, $contact->last_name])));
     }
 }

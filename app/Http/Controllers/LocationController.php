@@ -35,13 +35,21 @@ class LocationController extends Controller
 
         $locations = Location::query()
             ->where('account_id', $accountId)
-            ->with('primaryRouteLocation.route')
+            ->with(['primaryRouteLocation.route', 'primaryLocationContact.contact'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($locationQuery) use ($search) {
                     $locationQuery
                         ->where('location_name', 'like', '%'.$search.'%')
                         ->orWhere('city', 'like', '%'.$search.'%')
-                        ->orWhere('contact_name', 'like', '%'.$search.'%');
+                        ->orWhereHas('contacts', function ($contactQuery) use ($search) {
+                            $contactQuery
+                                ->where('first_name', 'like', '%'.$search.'%')
+                                ->orWhere('last_name', 'like', '%'.$search.'%')
+                                ->orWhere('organization', 'like', '%'.$search.'%')
+                                ->orWhere('email', 'like', '%'.$search.'%')
+                                ->orWhere('phone', 'like', '%'.$search.'%')
+                                ->orWhere('mobile_phone', 'like', '%'.$search.'%');
+                        });
                 });
             })
             ->orderBy('id', 'desc')
@@ -79,9 +87,6 @@ class LocationController extends Controller
             'city' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:100'],
             'zip_code' => ['nullable', 'string', 'max:20'],
-            'contact_name' => ['nullable', 'string', 'max:255'],
-            'contact_phone' => ['nullable', 'string', 'max:50'],
-            'contact_email' => ['nullable', 'email', 'max:255'],
         ]);
 
         $data['account_id'] = $accountId;
@@ -157,11 +162,9 @@ class LocationController extends Controller
             $location->address,
             $cityStateZip,
         ])->filter()->implode(', ');
-        $primaryContactName = $primaryContact?->display_name ?: ($location->contact_name ?: null);
-        $primaryContactPhone = $primaryContact
-            ? ($primaryContact->phone ?: $primaryContact->mobile_phone)
-            : ($location->contact_phone ?: null);
-        $primaryContactEmail = $primaryContact?->email ?: ($primaryContact ? null : ($location->contact_email ?: null));
+        $primaryContactName = $primaryContact?->display_name;
+        $primaryContactPhone = $primaryContact?->phone ?: $primaryContact?->mobile_phone;
+        $primaryContactEmail = $primaryContact?->email;
 
         // Prepare machine inventory rows once so the view can stay query-free and tenant-safe.
         $machineInventoryGroups = $this->buildMachineInventoryGroups($location, $accountId);
@@ -213,9 +216,6 @@ class LocationController extends Controller
             'city' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:100'],
             'zip_code' => ['nullable', 'string', 'max:20'],
-            'contact_name' => ['nullable', 'string', 'max:255'],
-            'contact_phone' => ['nullable', 'string', 'max:50'],
-            'contact_email' => ['nullable', 'email', 'max:255'],
         ]);
 
         DB::transaction(function () use ($location, $data, $accountId) {

@@ -116,9 +116,6 @@ class LocationSummaryCardTest extends TestCase
             'city' => 'Arlington',
             'state' => 'VA',
             'zip_code' => '22201',
-            'contact_name' => 'Legacy Person',
-            'contact_phone' => '555-999-1000',
-            'contact_email' => 'legacy@example.com',
         ]);
 
         RouteLocation::create([

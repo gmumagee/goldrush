@@ -243,9 +243,6 @@ class MachineController extends Controller
                 'city' => null,
                 'state' => null,
                 'zip_code' => null,
-                'contact_name' => null,
-                'contact_phone' => null,
-                'contact_email' => null,
             ]
         );
 
