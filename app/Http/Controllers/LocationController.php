@@ -9,6 +9,7 @@ use App\Models\RouteLocation;
 use App\Models\Transaction;
 use App\Models\VendingRoute;
 use App\Services\DataDictionaryService;
+use App\Services\DashboardSalesChartService;
 use App\Support\AppDateTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,10 @@ use Illuminate\View\View;
 
 class LocationController extends Controller
 {
-    public function __construct(protected DataDictionaryService $dataDictionaryService)
+    public function __construct(
+        protected DataDictionaryService $dataDictionaryService,
+        protected DashboardSalesChartService $dashboardSalesChartService,
+    )
     {
     }
 
@@ -160,6 +164,8 @@ class LocationController extends Controller
 
         // Prepare machine inventory rows once so the view can stay query-free and tenant-safe.
         $machineInventoryGroups = $this->buildMachineInventoryGroups($location, $accountId);
+        // Build location sales directly from persisted service-sale snapshots so historical machine moves never change past location revenue.
+        $locationSalesChart = $this->dashboardSalesChartService->buildForLocation($accountId, (int) $location->id);
 
         return view('locations.show', [
             'location' => $location,
@@ -172,6 +178,7 @@ class LocationController extends Controller
             'locationDocumentTypeLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, $accountId, true),
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
             'serviceTypeLabels' => $this->dataDictionaryService->labels('service_type', $accountId, true),
+            'locationSalesChart' => $locationSalesChart,
             'canManageDocuments' => $membership->roleMatches(AccountUser::ROLE_OWNER)
                 || $membership->roleMatches(AccountUser::ROLE_ADMIN)
                 || $membership->roleMatches(AccountUser::ROLE_MANAGER),

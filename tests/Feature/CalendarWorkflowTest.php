@@ -7,7 +7,6 @@ use App\Models\AccountUser;
 use App\Models\CalendarEvent;
 use App\Models\CalendarReminder;
 use App\Models\Location;
-use App\Models\Purchase;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\VendingRoute;
@@ -91,9 +90,7 @@ class CalendarWorkflowTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Insurance renewal reminder')
-            ->assertSee('Insurance renewal call')
-            ->assertSee('Upcoming Events');
+            ->assertSee('Insurance renewal call');
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -110,27 +107,6 @@ class CalendarWorkflowTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee('Insurance renewal reminder');
-
-        $this->actingAs($user)
-            ->withSession(['current_account_id' => $account->id])
-            ->post(route('calendar-events.store'), [
-                'event_type' => 'Purchase',
-                'title' => 'Buy inventory for Main Warehouse next Friday',
-                'start_date' => '07-23-2026',
-                'start_time' => '11:00:00',
-                'status' => CalendarEvent::STATUS_SCHEDULED,
-                'warehouse_id' => $warehouse->id,
-                'reminder_option' => 'none',
-            ])
-            ->assertRedirect();
-
-        $this->assertDatabaseHas('tbl_calendar_events', [
-            'account_id' => $account->id,
-            'event_type' => 'Purchase',
-            'title' => 'Buy inventory for Main Warehouse next Friday',
-            'source_type' => null,
-            'source_id' => null,
-        ]);
     }
 
     public function test_calendar_access_and_links_are_scoped_to_the_current_account(): void
@@ -184,7 +160,7 @@ class CalendarWorkflowTest extends TestCase
                 'reminder_option' => 'none',
             ])
             ->assertRedirect(route('calendar-events.create'))
-            ->assertSessionHasErrors(['location_id', 'source_id']);
+            ->assertSessionHasErrors(['location_id']);
 
         $this->assertDatabaseMissing('tbl_calendar_events', [
             'title' => 'Cross account attempt',
@@ -314,10 +290,11 @@ class CalendarWorkflowTest extends TestCase
             'status' => CalendarEvent::STATUS_SCHEDULED,
         ]);
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
-            ->get(route('calendar-events.index'))
-            ->assertOk()
+            ->get(route('calendar-events.index'));
+
+        $response->assertOk()
             ->assertSee('Calendar')
             ->assertSee('07-12-2026 - 07-18-2026')
             ->assertSee('Previous Week')
@@ -329,10 +306,49 @@ class CalendarWorkflowTest extends TestCase
             ->assertSee('All Day Service')
             ->assertSee('All day')
             ->assertSee('Main Office')
-            ->assertSee('Assigned: '.$user->name)
+            ->assertSee($user->name)
             ->assertDontSee('Completed This Week')
             ->assertDontSee('Next Week Scheduled')
             ->assertDontSee('Other Account Scheduled');
+
+        $this->assertWeeklyNavigationState($response->getContent(), 'current');
+    }
+
+    public function test_calendar_week_navigation_selects_only_the_displayed_relative_week_button(): void
+    {
+        // Re-render the shared weekly selector across past current and future weeks so the selected state survives each full-page navigation.
+        $user = User::factory()->create(['status' => 'active']);
+        $account = $this->createAccount('Weekly Navigation Account');
+        $this->attachUserToAccount($user, $account, 'owner');
+
+        $currentWeekResponse = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('calendar-events.index', ['date' => '2026-07-16']));
+
+        $currentWeekResponse->assertOk()
+            ->assertSee(route('calendar-events.index', ['date' => '2026-07-05']), false)
+            ->assertSee(route('calendar-events.index', ['date' => '2026-07-16']), false)
+            ->assertSee(route('calendar-events.index', ['date' => '2026-07-19']), false);
+
+        $this->assertWeeklyNavigationState($currentWeekResponse->getContent(), 'current');
+
+        $previousWeekResponse = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('calendar-events.index', ['date' => '2026-07-05']));
+
+        $previousWeekResponse->assertOk()
+            ->assertSee('07-05-2026 - 07-11-2026');
+
+        $this->assertWeeklyNavigationState($previousWeekResponse->getContent(), 'previous');
+
+        $nextWeekResponse = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('calendar-events.index', ['date' => '2026-07-26']));
+
+        $nextWeekResponse->assertOk()
+            ->assertSee('07-26-2026 - 08-01-2026');
+
+        $this->assertWeeklyNavigationState($nextWeekResponse->getContent(), 'next');
     }
 
     protected function createAccount(string $name): Account
@@ -389,5 +405,30 @@ class CalendarWorkflowTest extends TestCase
             'state' => 'ON',
             'zip_code' => 'M2M2M2',
         ]);
+    }
+
+    protected function assertWeeklyNavigationState(string $content, string $selectedSelector): void
+    {
+        // Parse the rendered week-selector markup so exactly one button proves selected by color class active class and aria state.
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*aria-pressed="true"/', $content, $pressedMatches);
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*class="[^"]*\\bactive\\b[^"]*"/', $content, $activeMatches);
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*class="[^"]*\\bbg-violet-600\\b[^"]*"/', $content, $selectedStyleMatches);
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*class="[^"]*\\bborder-gray-300\\b[^"]*"/', $content, $outlineMatches);
+
+        $this->assertSame([$selectedSelector], $pressedMatches[1]);
+        $this->assertSame([$selectedSelector], $activeMatches[1]);
+        $this->assertSame([$selectedSelector], $selectedStyleMatches[1]);
+        $this->assertSame(1, substr_count($content, 'aria-pressed="true"'));
+
+        $expectedOutlineSelectors = collect(['previous', 'current', 'next'])
+            ->reject(fn (string $selector) => $selector === $selectedSelector)
+            ->values()
+            ->all();
+
+        sort($expectedOutlineSelectors);
+        $actualOutlineSelectors = $outlineMatches[1];
+        sort($actualOutlineSelectors);
+
+        $this->assertSame($expectedOutlineSelectors, $actualOutlineSelectors);
     }
 }

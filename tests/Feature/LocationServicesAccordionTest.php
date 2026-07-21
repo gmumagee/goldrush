@@ -17,6 +17,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\VendingRoute;
 use App\Models\Warehouse;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,6 +25,20 @@ use Tests\TestCase;
 class LocationServicesAccordionTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Carbon::setTestNow('2026-07-20 09:00:00');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_location_detail_page_shows_only_account_scoped_services_for_the_location_in_newest_first_order(): void
     {
@@ -120,13 +135,148 @@ class LocationServicesAccordionTest extends TestCase
             ->assertSee('href="'.route('services.show', $olderService).'"', false)
             ->assertSee('href="'.route('services.show', $maintenanceService).'"', false)
             ->assertSee('service-accordion--maintenance', false)
-            ->assertDontSeeText('Warehouse')
-            ->assertDontSeeText('Transactions')
             ->assertDontSeeText('location_service')
             ->assertDontSeeText($otherLocation->location_name)
             ->assertDontSeeText($foreignLocation->location_name)
             ->assertDontSeeText('July 19, 2026')
             ->assertDontSeeText('July 21, 2026');
+    }
+
+    public function test_location_detail_service_accordions_use_stored_service_type_classes_and_preserve_accessibility_markup(): void
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE, 'name' => 'Owner User']);
+        $account = $this->createAccount('Service Styling Account');
+        $otherAccount = $this->createAccount('Foreign Service Styling');
+
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
+
+        DataDictionary::create([
+            'account_id' => null,
+            'name' => 'service_type',
+            'value' => Service::TYPE_LOCATION_SERVICE,
+            'label' => 'Location Service',
+            'sort_order' => 10,
+            'is_active' => true,
+        ]);
+
+        DataDictionary::create([
+            'account_id' => null,
+            'name' => 'service_type',
+            'value' => Service::TYPE_MAINTENANCE,
+            'label' => 'Maintenance Service',
+            'sort_order' => 20,
+            'is_active' => true,
+        ]);
+
+        $route = $this->createRoute($account, 'Service Styling Route');
+        $location = $this->createLocation($account, $route, 'Service Styling Stop');
+        $otherLocation = $this->createLocation($account, $route, 'Excluded Stop');
+        $foreignLocation = $this->createLocation($otherAccount, $this->createRoute($otherAccount, 'Foreign Route'), 'Foreign Stop');
+        $warehouse = $this->createWarehouse($account, 'Service Styling Warehouse');
+
+        $openLocationService = $this->createService($account, $location, $warehouse, $user, [
+            'service_date' => '2026-07-20',
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $closedLocationService = $this->createService($account, $location, $warehouse, $user, [
+            'service_date' => '2026-07-19',
+            'status' => Service::STATUS_SERVICE_CLOSED,
+            'closed_at' => '2026-07-19 08:45:00',
+        ]);
+
+        $openMaintenanceService = $this->createService($account, $location, null, $user, [
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'service_date' => '2026-07-18',
+            'status' => Service::STATUS_SERVICE_OPEN,
+            'opened_at' => '2026-07-18 08:00:00',
+        ]);
+
+        $closedMaintenanceService = $this->createService($account, $location, null, $user, [
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'service_date' => '2026-07-17',
+            'status' => Service::STATUS_SERVICE_CLOSED,
+            'closed_at' => '2026-07-17 08:45:00',
+        ]);
+
+        $unknownTypeService = $this->createService($account, $location, $warehouse, $user, [
+            'service_type' => 'mystery_service',
+            'service_date' => '2026-07-16',
+            'status' => Service::STATUS_AWAITING_SERVICE,
+        ]);
+
+        $this->createService($account, $otherLocation, null, $user, [
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'service_date' => '2026-07-15',
+            'status' => Service::STATUS_SERVICE_OPEN,
+        ]);
+
+        $this->createService($otherAccount, $foreignLocation, null, null, [
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'service_date' => '2026-07-21',
+            'status' => Service::STATUS_SERVICE_CLOSED,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('locations.show', $location));
+
+        $response->assertOk()
+            ->assertSeeText('Services')
+            ->assertSeeText('Service Type')
+            ->assertSeeText('Location Service')
+            ->assertSeeText('Maintenance Service')
+            ->assertSeeText('mystery_service')
+            ->assertSeeTextInOrder(['07-20-2026', '07-19-2026', '07-18-2026', '07-17-2026', '07-16-2026'])
+            ->assertDontSeeText('location_maintenance')
+            ->assertDontSeeText('07-15-2026')
+            ->assertDontSeeText('07-21-2026')
+            ->assertDontSeeText($otherLocation->location_name)
+            ->assertDontSeeText($foreignLocation->location_name);
+
+        foreach ([$openLocationService, $closedLocationService, $openMaintenanceService, $closedMaintenanceService, $unknownTypeService] as $service) {
+            // Lock the accordion IDs and expanded-state bindings to the rendered service rows.
+            $response->assertSee('aria-controls="location-service-'.$service->id.'"', false)
+                ->assertSee('id="location-service-'.$service->id.'"', false)
+                ->assertSee(':aria-expanded="(openServiceId === '.$service->id.').toString()"', false);
+        }
+
+        $openLocationClasses = $this->serviceAccordionContainerClasses($response->getContent(), $openLocationService->id);
+        $closedLocationClasses = $this->serviceAccordionContainerClasses($response->getContent(), $closedLocationService->id);
+        $openMaintenanceClasses = $this->serviceAccordionContainerClasses($response->getContent(), $openMaintenanceService->id);
+        $closedMaintenanceClasses = $this->serviceAccordionContainerClasses($response->getContent(), $closedMaintenanceService->id);
+        $unknownTypeClasses = $this->serviceAccordionContainerClasses($response->getContent(), $unknownTypeService->id);
+
+        $this->assertStringContainsString('service-accordion--location', $openLocationClasses);
+        $this->assertStringContainsString('service-accordion--location', $closedLocationClasses);
+        $this->assertStringContainsString('service-accordion--maintenance', $openMaintenanceClasses);
+        $this->assertStringContainsString('service-accordion--maintenance', $closedMaintenanceClasses);
+        $this->assertStringContainsString('service-accordion--location', $unknownTypeClasses);
+        $this->assertStringNotContainsString('service-accordion--maintenance', $openLocationClasses);
+        $this->assertStringNotContainsString('service-accordion--maintenance', $closedLocationClasses);
+        $this->assertStringNotContainsString('service-accordion--maintenance', $unknownTypeClasses);
+        $this->assertStringNotContainsString('service-accordion--location', $openMaintenanceClasses);
+        $this->assertStringNotContainsString('service-accordion--location', $closedMaintenanceClasses);
+
+        $this->assertStringNotContainsString('service-accordion--', $this->elementClassesById($response->getContent(), 'locationContactsAccordion'));
+        $this->assertStringNotContainsString('service-accordion--', $this->elementClassesById($response->getContent(), 'locationDocumentsAccordion'));
+        $this->assertStringNotContainsString('service-accordion--', $this->elementClassesById($response->getContent(), 'locationMachinesAccordion'));
+    }
+
+    public function test_service_accordion_styles_keep_location_defaults_and_define_maintenance_blue_rules(): void
+    {
+        // Read the source stylesheet so the accordion color contract stays explicit in version control.
+        $css = file_get_contents(resource_path('css/app.css'));
+
+        $this->assertNotFalse($css);
+        $this->assertStringContainsString('.service-accordion--location {', $css);
+        $this->assertStringNotContainsString('.service-accordion--location > button', $css);
+        $this->assertStringNotContainsString('.service-accordion--location > div', $css);
+        $this->assertStringContainsString('.service-accordion--maintenance > button,', $css);
+        $this->assertStringContainsString('background-color: rgb(219 234 254);', $css);
+        $this->assertStringContainsString('.dark .service-accordion--maintenance > button,', $css);
+        $this->assertStringContainsString('background-color: rgb(30 64 175 / 0.35);', $css);
+        $this->assertStringNotContainsString('location_maintenance', $css);
     }
 
     public function test_service_create_form_preselects_only_locations_from_the_current_account(): void
@@ -284,7 +434,7 @@ class LocationServicesAccordionTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->get(route('locations.show', $location))
             ->assertOk()
-            ->assertSeeTextInOrder(['Location Summary', 'Contacts', 'Documents', 'Machines', 'Services'])
+            ->assertSeeTextInOrder(['Location Sales', 'Location Summary', 'Contacts', 'Documents', 'Machines', 'Services'])
             ->assertSee('id="locationContactsAccordion"', false)
             ->assertSee('aria-controls="locationContactsCollapse"', false)
             ->assertSee('id="locationContactsCollapse"', false)
@@ -306,6 +456,183 @@ class LocationServicesAccordionTest extends TestCase
             ->assertSee('href="'.route('machines.create', ['location_id' => $location->id]).'"', false)
             ->assertSee(':aria-expanded="open.toString()"', false)
             ->assertSee('x-data="{ open: false }"', false);
+    }
+
+    public function test_location_detail_shows_a_location_sales_chart_using_persisted_location_sales_history(): void
+    {
+        // Seed current and historical machine sales so the chart proves it filters by finalized service-sale location snapshots instead of the location's current machines.
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE, 'name' => 'Owner User']);
+        $account = $this->createAccount('Location Sales Account');
+        $otherAccount = $this->createAccount('Foreign Location Sales');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
+
+        $route = $this->createRoute($account, 'Location Sales Route');
+        $locationA = $this->createLocation($account, $route, 'Location A');
+        $locationB = $this->createLocation($account, $route, 'Location B');
+        $locationC = $this->createLocation($account, $route, 'Location C');
+        $otherLocation = $this->createLocation($otherAccount, $this->createRoute($otherAccount, 'Foreign Route'), 'Foreign Location');
+        $warehouse = $this->createWarehouse($account, 'Main Warehouse');
+        $otherWarehouse = $this->createWarehouse($otherAccount, 'Foreign Warehouse');
+
+        $machineOne = Machine::create([
+            'account_id' => $account->id,
+            'location_id' => $locationA->id,
+            'type' => 'Current Machine',
+            'serial_number' => 'LOC-A-100',
+            'status' => 'active',
+        ]);
+
+        $machineTwo = Machine::create([
+            'account_id' => $account->id,
+            'location_id' => $locationA->id,
+            'type' => 'Moved Machine',
+            'serial_number' => 'LOC-A-200',
+            'status' => 'active',
+        ]);
+
+        $machineThree = Machine::create([
+            'account_id' => $account->id,
+            'location_id' => $locationA->id,
+            'type' => 'Transferred In',
+            'serial_number' => 'LOC-A-300',
+            'status' => 'active',
+        ]);
+
+        $otherMachine = Machine::create([
+            'account_id' => $otherAccount->id,
+            'location_id' => $otherLocation->id,
+            'type' => 'Foreign Machine',
+            'serial_number' => 'FOREIGN-100',
+            'status' => 'active',
+        ]);
+
+        $currentProduct = Product::create([
+            'account_id' => $account->id,
+            'vendor_id' => null,
+            'sku' => 'location-sales-current',
+            'product_name' => 'Current Product',
+            'barcode' => '100001',
+        ]);
+
+        $historicalProduct = Product::create([
+            'account_id' => $account->id,
+            'vendor_id' => null,
+            'sku' => 'location-sales-historical',
+            'product_name' => 'Historical Product',
+            'barcode' => '100002',
+        ]);
+
+        $transferredProduct = Product::create([
+            'account_id' => $account->id,
+            'vendor_id' => null,
+            'sku' => 'location-sales-transferred',
+            'product_name' => 'Transferred Product',
+            'barcode' => '100003',
+        ]);
+
+        $foreignProduct = Product::create([
+            'account_id' => $otherAccount->id,
+            'vendor_id' => null,
+            'sku' => 'foreign-location-sales',
+            'product_name' => 'Foreign Product',
+            'barcode' => '200001',
+        ]);
+
+        $this->createLocationSaleRecord($account, $locationA, $warehouse, $machineOne, $currentProduct, '2026-07-01', '100.00');
+        $this->createLocationSaleRecord($account, $locationA, $warehouse, $machineTwo, $historicalProduct, '2026-07-03', '75.00');
+
+        $machineTwo->update(['location_id' => $locationB->id]);
+
+        $this->createLocationSaleRecord($account, $locationB, $warehouse, $machineTwo, $historicalProduct, '2026-07-10', '50.00');
+        $this->createLocationSaleRecord($account, $locationC, $warehouse, $machineThree, $transferredProduct, '2026-07-02', '20.00');
+
+        $machineThree->update(['location_id' => $locationA->id]);
+
+        $this->createLocationSaleRecord($account, $locationA, $warehouse, $machineThree, $transferredProduct, '2026-07-12', null, ServiceSale::CALCULATION_BASELINE);
+        $this->createLocationSaleRecord($account, $locationA, $warehouse, $machineThree, $transferredProduct, '2026-07-13', null, ServiceSale::CALCULATION_CALCULATED);
+        $this->createLocationSaleRecord($otherAccount, $otherLocation, $otherWarehouse, $otherMachine, $foreignProduct, '2026-07-01', '999.00');
+
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('locations.show', $locationA));
+
+        $response->assertOk()
+            ->assertSeeTextInOrder(['Location Sales', 'Location Summary', 'Contacts'])
+            ->assertSee('id="location-sales-chart"', false)
+            ->assertSee('data-sales-chart-id="location-sales-chart"', false)
+            ->assertSee('aria-label="Location sales by date for the last 1 month"', false)
+            ->assertSee('Select location sales time period')
+            ->assertSeeText('Sales (USD)')
+            ->assertSeeText('1 Month')
+            ->assertSeeText('3 Months')
+            ->assertSeeText('6 Months')
+            ->assertSeeText('1 Year')
+            ->assertSee('data-sales-period="1m"', false)
+            ->assertSee('data-sales-period="3m"', false)
+            ->assertSee('data-sales-period="6m"', false)
+            ->assertSee('data-sales-period="1y"', false)
+            ->assertSee('aria-pressed="true"', false)
+            ->assertSee('x-html="yAxisMarkup"', false)
+            ->assertSee('x-html="xAxisMarkup"', false)
+            ->assertSee('x-text="currentPeriod.x_axis_label"', false)
+            ->assertSeeText('No calculated sales were recorded for this location during this period.')
+            ->assertViewHas('locationSalesChart', function (array $locationSalesChart) {
+                $oneMonth = $locationSalesChart['periods']['1m'] ?? [];
+                $threeMonths = $locationSalesChart['periods']['3m'] ?? [];
+                $sixMonths = $locationSalesChart['periods']['6m'] ?? [];
+                $oneYear = $locationSalesChart['periods']['1y'] ?? [];
+                $oneMonthLabels = $oneMonth['labels'] ?? [];
+                $oneMonthValues = $oneMonth['values'] ?? [];
+                $threeMonthLabels = $threeMonths['labels'] ?? [];
+                $threeMonthValues = $threeMonths['values'] ?? [];
+                $sixMonthLabels = $sixMonths['labels'] ?? [];
+                $oneYearLabels = $oneYear['labels'] ?? [];
+                $oneYearValues = $oneYear['values'] ?? [];
+                $julyFirstIndex = array_search('2026-07-01', $oneMonthLabels, true);
+                $julySecondIndex = array_search('2026-07-02', $oneMonthLabels, true);
+                $julyThirdIndex = array_search('2026-07-03', $oneMonthLabels, true);
+                $julyTenthIndex = array_search('2026-07-10', $oneMonthLabels, true);
+                $julyThirteenthIndex = array_search('2026-07-13', $oneMonthLabels, true);
+                $juneTwentyEighthWeekIndex = array_search('2026-06-28', $threeMonthLabels, true);
+                $julyTwelfthWeekIndex = array_search('2026-07-12', $threeMonthLabels, true);
+                $julyMonthIndex = array_search('2026-07-01', $oneYearLabels, true);
+
+                return $locationSalesChart['default_period'] === '1m'
+                    && $oneMonth['x_axis_label'] === 'Date'
+                    && count($oneMonthLabels) === 31
+                    && $julyFirstIndex !== false
+                    && $julySecondIndex !== false
+                    && $julyThirdIndex !== false
+                    && $julyTenthIndex !== false
+                    && $julyThirteenthIndex !== false
+                    && (float) $oneMonthValues[$julyFirstIndex] === 100.0
+                    && (float) $oneMonthValues[$julySecondIndex] === 0.0
+                    && (float) $oneMonthValues[$julyThirdIndex] === 75.0
+                    && (float) $oneMonthValues[$julyTenthIndex] === 0.0
+                    && (float) $oneMonthValues[$julyThirteenthIndex] === 0.0
+                    && $threeMonths['x_axis_label'] === 'Week'
+                    && $juneTwentyEighthWeekIndex !== false
+                    && $julyTwelfthWeekIndex !== false
+                    && (float) $threeMonthValues[$juneTwentyEighthWeekIndex] === 175.0
+                    && (float) $threeMonthValues[$julyTwelfthWeekIndex] === 0.0
+                    && $sixMonths['x_axis_label'] === 'Week'
+                    && $oneYear['x_axis_label'] === 'Month'
+                    && $julyMonthIndex !== false
+                    && (float) $oneYearValues[$julyMonthIndex] === 175.0;
+            });
+
+        $locationSalesQueries = collect(DB::getQueryLog())
+            ->filter(function (array $query) use ($locationA) {
+                $sql = strtolower($query['query']);
+
+                return (str_contains($sql, 'from "tbl_service_sales"') || str_contains($sql, 'from `tbl_service_sales`'))
+                    && str_contains($sql, 'sum(sales_amount)')
+                    && in_array($locationA->id, $query['bindings'], true);
+            });
+
+        $this->assertCount(1, $locationSalesQueries);
     }
 
     public function test_location_detail_groups_machine_inventory_into_nested_accordions_from_latest_current_inventory_snapshots(): void
@@ -637,5 +964,114 @@ class LocationServicesAccordionTest extends TestCase
             'amount_collected' => null,
             'status' => Service::STATUS_AWAITING_SERVICE,
         ], $overrides));
+    }
+
+    protected function createLocationSaleRecord(
+        Account $account,
+        Location $location,
+        ?Warehouse $warehouse,
+        Machine $machine,
+        Product $product,
+        string $salesDate,
+        ?string $salesAmount,
+        string $calculationStatus = ServiceSale::CALCULATION_CALCULATED,
+    ): ServiceSale {
+        // Persist realistic service-sales rows so the location chart exercises historical location snapshots instead of current machine assignments.
+        $bin = \App\Models\Bin::create([
+            'account_id' => $account->id,
+            'machine_id' => $machine->id,
+            'product_id' => $product->id,
+            'bin_code' => 'BIN-'.uniqid(),
+            'capacity' => 20,
+            'price' => 2.50,
+        ]);
+
+        $service = $this->createService($account, $location, $warehouse, null, [
+            'service_date' => $salesDate,
+            'status' => Service::STATUS_SERVICE_COMPLETED,
+        ]);
+
+        $previousInventoryTransaction = Transaction::create([
+            'account_id' => $account->id,
+            'service_id' => $service->id,
+            'machine_id' => $machine->id,
+            'bin_id' => $bin->id,
+            'product_id' => $product->id,
+            'transaction_type' => Transaction::TYPE_CURRENT_INVENTORY,
+            'quantity' => 20,
+            'spoilage' => 0,
+            'transaction_at' => $salesDate.' 08:00:00',
+            'price' => 2.50,
+            'unit_cost' => 1.00,
+        ]);
+
+        $countTransaction = Transaction::create([
+            'account_id' => $account->id,
+            'service_id' => $service->id,
+            'machine_id' => $machine->id,
+            'bin_id' => $bin->id,
+            'product_id' => $product->id,
+            'transaction_type' => Transaction::TYPE_COUNT,
+            'quantity' => 8,
+            'spoilage' => 0,
+            'transaction_at' => $salesDate.' 09:00:00',
+            'price' => 2.50,
+            'unit_cost' => 1.00,
+        ]);
+
+        return ServiceSale::create([
+            'account_id' => $account->id,
+            'service_id' => $service->id,
+            'location_id' => $location->id,
+            'machine_id' => $machine->id,
+            'bin_id' => $bin->id,
+            'product_id' => $product->id,
+            'previous_inventory_transaction_id' => $calculationStatus === ServiceSale::CALCULATION_BASELINE
+                ? null
+                : $previousInventoryTransaction->id,
+            'count_transaction_id' => $countTransaction->id,
+            'calculation_status' => $calculationStatus,
+            'calculation_note' => $calculationStatus === ServiceSale::CALCULATION_BASELINE
+                ? 'Initial inventory baseline; no previous Current Inventory record was available.'
+                : null,
+            'sales_date' => $salesDate,
+            'opening_quantity' => $calculationStatus === ServiceSale::CALCULATION_BASELINE ? null : 20,
+            'spoilage' => 0,
+            'counted_quantity' => 8,
+            'units_sold' => $calculationStatus === ServiceSale::CALCULATION_BASELINE ? null : 12,
+            'unit_price' => '2.50',
+            'sales_amount' => $salesAmount,
+            'calculation_version' => 'inventory_reconciliation_v1',
+            'calculated_at' => $salesDate.' 10:00:00',
+        ]);
+    }
+
+    protected function serviceAccordionContainerClasses(string $html, int $serviceId): string
+    {
+        // Parse the rendered HTML so the test validates the live accordion container classes for each service.
+        $document = new \DOMDocument();
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $button = $xpath->query("//button[@aria-controls='location-service-{$serviceId}']")->item(0);
+
+        if (! $button instanceof \DOMElement || ! $button->parentNode instanceof \DOMElement) {
+            $this->fail('Unable to locate the rendered service accordion for service '.$serviceId.'.');
+        }
+
+        return $button->parentNode->getAttribute('class');
+    }
+
+    protected function elementClassesById(string $html, string $id): string
+    {
+        // Parse the rendered HTML so non-service accordions can be checked for accidental recoloring classes.
+        $document = new \DOMDocument();
+        @$document->loadHTML($html);
+        $element = $document->getElementById($id);
+
+        if (! $element instanceof \DOMElement) {
+            $this->fail('Unable to locate the rendered element with ID '.$id.'.');
+        }
+
+        return $element->getAttribute('class');
     }
 }

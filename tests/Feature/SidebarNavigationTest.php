@@ -23,41 +23,44 @@ class SidebarNavigationTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->get(route('dashboard'));
 
-        $response->assertOk()
-            ->assertSeeInOrder(['Workspace', 'Operations', 'Route Management', 'Inventory', 'Settings'])
-            ->assertSeeInOrder(['Calendar', 'Services'])
-            ->assertSeeInOrder(['Locations', 'Machines', 'Routes'])
-            ->assertSeeInOrder(['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses'])
-            ->assertSeeInOrder(['Change Password', 'Contacts', 'Data Dictionary', 'Settings', 'Switch Account', 'Users']);
+        $response->assertOk();
 
         $content = $response->getContent();
+        $routeManagementSection = $this->extractSidebarSection($content, 'sidebar-route-management');
+        $inventorySection = $this->extractSidebarSection($content, 'sidebar-inventory');
+        $operationsSection = $this->extractSidebarSection($content, 'sidebar-operations');
+        $accountSection = $this->extractSidebarSection($content, 'sidebar-account');
+
+        $this->assertStringOrder($content, [
+            'Workspace',
+            'aria-controls="sidebar-operations"',
+            'aria-controls="sidebar-route-management"',
+            'aria-controls="sidebar-inventory"',
+            'aria-controls="sidebar-account"',
+        ]);
+        $this->assertStringOrder($operationsSection, ['Calendar', 'Services']);
+        $this->assertStringOrder($routeManagementSection, ['Locations', 'Machines', 'Routes']);
+        $this->assertStringOrder($inventorySection, ['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
+        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Data Dictionary', 'Settings', 'Switch Account', 'Users']);
 
         $this->assertSame(1, substr_count($content, 'Route Management'));
         $this->assertSame(1, substr_count($content, route('routes.index')));
         $this->assertSame(1, substr_count($content, route('transactions.index')));
         $this->assertStringNotContainsString('>Bins<', $content);
         $this->assertStringNotContainsString('href="'.route('bins.index').'"', $content);
-        $this->assertMatchesRegularExpression(
-            '/Operations.*?Route Management.*?Inventory.*?Settings/s',
-            $content
-        );
         $this->assertStringNotContainsString('Inventory Setup', $content);
         $this->assertStringNotContainsString('<span class="truncate leading-5">Account</span>', $content);
-        $this->assertDoesNotMatchRegularExpression(
-            '/id="sidebar-operations".*?Route Management/s',
-            $content
+        $this->assertStringContainsString(
+            'href="'.route('transactions.index').'"',
+            $inventorySection
         );
-        $this->assertMatchesRegularExpression(
-            '/id="sidebar-route-management".*?href="'.preg_quote(route('routes.index'), '/').'"/s',
-            $content
+        $this->assertStringNotContainsString(
+            'href="'.route('transactions.index').'"',
+            $operationsSection
         );
-        $this->assertMatchesRegularExpression(
-            '/id="sidebar-inventory".*?href="'.preg_quote(route('transactions.index'), '/').'"/s',
-            $content
-        );
-        $this->assertDoesNotMatchRegularExpression(
-            '/id="sidebar-operations".*?href="'.preg_quote(route('transactions.index'), '/').'"/s',
-            $content
+        $this->assertStringContainsString(
+            'href="'.route('routes.index').'"',
+            $routeManagementSection
         );
 
         $this->actingAs($user)
@@ -93,13 +96,13 @@ class SidebarNavigationTest extends TestCase
             'href="'.route('routes.index').'" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"',
             $content
         );
-        $this->assertMatchesRegularExpression(
-            '/id="sidebar-route-management".*?href="'.preg_quote(route('routes.index'), '/').'".*?bg-violet-500\\/10 text-violet-700/s',
-            $content
+        $this->assertStringContainsString(
+            'href="'.route('routes.index').'" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"',
+            $this->extractSidebarSection($content, 'sidebar-route-management')
         );
-        $this->assertDoesNotMatchRegularExpression(
-            '/id="sidebar-operations".*?href="'.preg_quote(route('routes.index'), '/').'"/s',
-            $content
+        $this->assertStringNotContainsString(
+            'href="'.route('routes.index').'"',
+            $this->extractSidebarSection($content, 'sidebar-operations')
         );
     }
 
@@ -130,13 +133,13 @@ class SidebarNavigationTest extends TestCase
             'href="'.route('transactions.index').'" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"',
             $content
         );
-        $this->assertMatchesRegularExpression(
-            '/id="sidebar-inventory".*?href="'.preg_quote(route('transactions.index'), '/').'".*?bg-violet-500\\/10 text-violet-700/s',
-            $content
+        $this->assertStringContainsString(
+            'href="'.route('transactions.index').'" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"',
+            $this->extractSidebarSection($content, 'sidebar-inventory')
         );
-        $this->assertDoesNotMatchRegularExpression(
-            '/id="sidebar-operations".*?href="'.preg_quote(route('transactions.index'), '/').'"/s',
-            $content
+        $this->assertStringNotContainsString(
+            'href="'.route('transactions.index').'"',
+            $this->extractSidebarSection($content, 'sidebar-operations')
         );
     }
 
@@ -160,5 +163,26 @@ class SidebarNavigationTest extends TestCase
             'role' => $role,
             'status' => 'active',
         ]);
+    }
+
+    protected function extractSidebarSection(string $content, string $sectionId): string
+    {
+        // Scope sidebar link assertions to one rendered section so later groups do not satisfy broad page-level regex checks.
+        preg_match('/<ul id="'.preg_quote($sectionId, '/').'"[^>]*>.*?<\/ul>/s', $content, $matches);
+
+        return $matches[0] ?? '';
+    }
+
+    protected function assertStringOrder(string $haystack, array $needles): void
+    {
+        $offset = 0;
+
+        foreach ($needles as $needle) {
+            $position = strpos($haystack, $needle, $offset);
+
+            $this->assertNotFalse($position, sprintf('Failed to find "%s" after offset %d.', $needle, $offset));
+
+            $offset = $position + strlen($needle);
+        }
     }
 }

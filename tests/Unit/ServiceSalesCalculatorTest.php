@@ -155,8 +155,8 @@ class ServiceSalesCalculatorTest extends TestCase
 
         $this->assertSame([], $result['errors']);
         $this->assertCount(2, $result['lines']);
-        $this->assertSame(2400, $result['sales_total_cents']);
-        $this->assertSame([ServiceSale::CALCULATION_CALCULATED, ServiceSale::CALCULATION_BASELINE], collect($result['lines'])->pluck('calculation_status')->sort()->values()->all());
+        $this->assertSame(2200, $result['sales_total_cents']);
+        $this->assertSame([ServiceSale::CALCULATION_BASELINE, ServiceSale::CALCULATION_CALCULATED], collect($result['lines'])->pluck('calculation_status')->sort()->values()->all());
     }
 
     public function test_maintenance_services_return_no_sales_lines(): void

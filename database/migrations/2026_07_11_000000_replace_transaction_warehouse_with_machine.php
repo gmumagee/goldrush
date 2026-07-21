@@ -36,7 +36,14 @@ return new class extends Migration
                 ->references('id')
                 ->on('tbl_machines')
                 ->restrictOnDelete();
-            $table->dropConstrainedForeignId('warehouse_id');
+        });
+
+        // Drop the legacy warehouse relationship in discrete steps so SQLite
+        // can rebuild the table without leaving the old warehouse index behind.
+        Schema::table('tbl_transactions', function (Blueprint $table) {
+            $table->dropForeign(['warehouse_id']);
+            $table->dropIndex(['warehouse_id']);
+            $table->dropColumn('warehouse_id');
         });
     }
 

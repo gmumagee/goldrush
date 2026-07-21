@@ -20,11 +20,29 @@ return new class extends Migration
             $table->dateTime('transaction_at')->nullable()->after('quantity');
         });
 
-        DB::table('tbl_transactions')
-            ->leftJoin('tbl_services', 'tbl_services.id', '=', 'tbl_transactions.service_id')
-            ->update([
-                'tbl_transactions.transaction_at' => DB::raw('COALESCE(tbl_services.opened_at, tbl_services.service_date, NOW())'),
-            ]);
+        $fallbackTransactionTimestamp = now()->toDateTimeString();
+
+        // Backfill row-by-row so the migration stays portable across MySQL and
+        // the SQLite test database, both of which differ on joined UPDATE support.
+        foreach (
+            DB::table('tbl_transactions')
+                ->leftJoin('tbl_services', 'tbl_services.id', '=', 'tbl_transactions.service_id')
+                ->select([
+                    'tbl_transactions.id',
+                    'tbl_services.opened_at',
+                    'tbl_services.service_date',
+                ])
+                ->orderBy('tbl_transactions.id')
+                ->cursor() as $transaction
+        ) {
+            DB::table('tbl_transactions')
+                ->where('id', $transaction->id)
+                ->update([
+                    'transaction_at' => $transaction->opened_at
+                        ?? $transaction->service_date
+                        ?? $fallbackTransactionTimestamp,
+                ]);
+        }
 
         Schema::table('tbl_transactions', function (Blueprint $table) {
             $table->dateTime('transaction_at')->nullable(false)->change();

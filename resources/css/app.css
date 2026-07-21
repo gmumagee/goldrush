@@ -507,40 +507,22 @@
         white-space: nowrap;
     }
 
-    .service-accordion--maintenance > button {
-        background-color: #fff9db;
-        color: #6b5a00;
+    /* Preserve the default gray accordion treatment for location and unknown service types. */
+    .service-accordion--location {
     }
 
-    .service-accordion--maintenance > div {
-        background-color: #fffdf0;
+    /* Keep maintenance service headers visibly blue in every accordion state. */
+    .service-accordion--maintenance > button,
+    .service-accordion--maintenance > button:hover,
+    .service-accordion--maintenance > button:focus-visible {
+        background-color: rgb(219 234 254);
     }
 
-    .service-accordion--location > button {
-        background-color: #fff1e6;
-        color: #7a3e00;
-    }
-
-    .service-accordion--location > div {
-        background-color: #fff8f2;
-    }
-
-    .dark .service-accordion--maintenance > button {
-        background-color: rgb(133 77 14 / 0.2);
-        color: rgb(254 249 195);
-    }
-
-    .dark .service-accordion--maintenance > div {
-        background-color: rgb(69 39 6 / 0.22);
-    }
-
-    .dark .service-accordion--location > button {
-        background-color: rgb(124 45 18 / 0.18);
-        color: rgb(255 237 213);
-    }
-
-    .dark .service-accordion--location > div {
-        background-color: rgb(67 20 7 / 0.22);
+    /* Keep maintenance service headers readable when dark mode is active. */
+    .dark .service-accordion--maintenance > button,
+    .dark .service-accordion--maintenance > button:hover,
+    .dark .service-accordion--maintenance > button:focus-visible {
+        background-color: rgb(30 64 175 / 0.35);
     }
 
     .dark .service-detail-table th {

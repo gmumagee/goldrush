@@ -40,7 +40,7 @@ class VendingRouteController extends Controller
                         ->orWhere('description', 'like', '%'.$search.'%');
                 });
             })
-            ->orderByRaw($this->scheduledDayOrderSql($scheduledDayOptions))
+            ->when($scheduledDayOptions->isNotEmpty(), fn ($query) => $query->orderByRaw($this->scheduledDayOrderSql($scheduledDayOptions)))
             ->orderBy('route_name')
             ->paginate(25)
             ->withQueryString();
@@ -55,7 +55,7 @@ class VendingRouteController extends Controller
                         ->orWhere('description', 'like', '%'.$search.'%');
                 });
             })
-            ->orderByRaw($this->scheduledDayOrderSql($scheduledDayOptions))
+            ->when($scheduledDayOptions->isNotEmpty(), fn ($query) => $query->orderByRaw($this->scheduledDayOrderSql($scheduledDayOptions)))
             ->orderBy('route_name')
             ->get()
             ->groupBy('scheduled_day');

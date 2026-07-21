@@ -13,10 +13,21 @@ class DashboardSalesChartService
 {
     public function buildForAccount(int $accountId): array
     {
-        // Anchor every dashboard period to the configured app timezone so bucket labels stay stable.
+        return $this->build($accountId);
+    }
+
+    public function buildForLocation(int $accountId, int $locationId): array
+    {
+        // Filter by the persisted service-sales location snapshot so historical machine moves never erase this location's revenue history.
+        return $this->build($accountId, $locationId);
+    }
+
+    protected function build(int $accountId, ?int $locationId = null): array
+    {
+        // Anchor every chart period to the configured app timezone so bucket labels stay stable across dashboard and location detail views.
         $today = CarbonImmutable::now((string) config('app.timezone', 'UTC'))->startOfDay();
         $oneYearStart = $today->subYear();
-        $dailySales = $this->dailySalesTotals($accountId, $oneYearStart, $today);
+        $dailySales = $this->dailySalesTotals($accountId, $oneYearStart, $today, $locationId);
 
         return [
             'default_period' => '1m',
@@ -57,11 +68,12 @@ class DashboardSalesChartService
         ];
     }
 
-    protected function dailySalesTotals(int $accountId, CarbonImmutable $startDate, CarbonImmutable $endDate): Collection
+    protected function dailySalesTotals(int $accountId, CarbonImmutable $startDate, CarbonImmutable $endDate, ?int $locationId = null): Collection
     {
-        // Aggregate one year of daily revenue once so the dashboard can derive every chart period efficiently.
+        // Aggregate one year of daily revenue once so both the dashboard and location detail charts can derive every period efficiently.
         return ServiceSale::query()
             ->where('account_id', $accountId)
+            ->when($locationId !== null, fn ($query) => $query->where('location_id', $locationId))
             ->where('calculation_status', ServiceSale::CALCULATION_CALCULATED)
             ->whereNotNull('sales_amount')
             ->whereDate('sales_date', '>=', $startDate->toDateString())
@@ -96,7 +108,8 @@ class DashboardSalesChartService
         for ($date = $startDate; $date->lte($endDate); $date = $date->addDay()) {
             $cents = (int) ($dailySales->get($date->toDateString()) ?? 0);
 
-            $labels[] = AppDateTime::displayDate($date);
+            // Keep the x-axis labels machine-readable so the frontend can format them per selected period without losing chronology.
+            $labels[] = $date->toDateString();
             $tooltipLabels[] = AppDateTime::displayDate($date);
             $values[] = $this->centsToChartValue($cents);
             $hasSales = $hasSales || $cents !== 0;
@@ -133,7 +146,8 @@ class DashboardSalesChartService
             $rangeEnd = $weekEnd->lessThan($endDate) ? $weekEnd : $endDate;
             $cents = $this->sumDateRange($dailySales, $rangeStart, $rangeEnd);
 
-            $labels[] = AppDateTime::displayDate($weekStart);
+            // Preserve the week-start bucket date in ISO form so the SVG renderer can show compact MM-DD ticks without reparsing display text.
+            $labels[] = $weekStart->toDateString();
             $tooltipLabels[] = 'Week of '.AppDateTime::displayDate($weekStart);
             $values[] = $this->centsToChartValue($cents);
             $hasSales = $hasSales || $cents !== 0;
@@ -170,7 +184,8 @@ class DashboardSalesChartService
             $rangeEnd = $monthEnd->lessThan($endDate) ? $monthEnd : $endDate;
             $cents = $this->sumDateRange($dailySales, $rangeStart, $rangeEnd);
 
-            $labels[] = AppDateTime::displayDate($monthStart);
+            // Keep month buckets sortable by passing the month start date through as an ISO value instead of a long display string.
+            $labels[] = $monthStart->toDateString();
             $tooltipLabels[] = 'Month of '.AppDateTime::displayDate($monthStart);
             $values[] = $this->centsToChartValue($cents);
             $hasSales = $hasSales || $cents !== 0;

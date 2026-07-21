@@ -10,6 +10,7 @@ use App\Services\DataDictionaryService;
 use App\Services\InventoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -28,7 +29,11 @@ class MachineController extends Controller
 
         $machines = Machine::query()
             ->where('account_id', $accountId)
-            ->with('location')
+            ->with([
+                'location' => function ($query) use ($accountId) {
+                    $query->where('account_id', $accountId);
+                },
+            ])
             ->withCount('bins')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($machineQuery) use ($search) {
@@ -38,12 +43,19 @@ class MachineController extends Controller
                         ->orWhere('status', 'like', '%'.$search.'%');
                 });
             })
-            ->orderBy('id', 'desc')
+            // Order nonblank stored types together on the current page so grouping can use the raw tbl_machines.type value without scanning every account machine.
+            ->orderByRaw("CASE WHEN TRIM(COALESCE(type, '')) = '' THEN 1 ELSE 0 END")
+            ->orderByRaw("LOWER(TRIM(COALESCE(type, '')))")
+            // Use model as the closest available machine identity field before falling back to serial number and ID for deterministic ordering.
+            ->orderByRaw("LOWER(TRIM(COALESCE(model, '')))")
+            ->orderByRaw("LOWER(TRIM(COALESCE(serial_number, '')))")
+            ->orderBy('id')
             ->paginate(25)
             ->withQueryString();
 
         return view('machines.index', [
             'machines' => $machines,
+            'machineGroups' => $this->buildMachineGroups($machines->getCollection()),
             'search' => $search,
         ]);
     }
@@ -236,5 +248,74 @@ class MachineController extends Controller
             ->where('account_id', $accountId)
             ->with($with)
             ->findOrFail($machineId);
+    }
+
+    protected function buildMachineGroups(Collection $machines): Collection
+    {
+        // Group by the persisted tbl_machines.type value so valid nonblank legacy types stay visible without requiring a dictionary lookup.
+        $groups = $machines
+            ->groupBy(function (Machine $machine): string {
+                return $this->resolveMachineTypeGroup($machine->type)['key'];
+            })
+            ->map(function (Collection $groupedMachines, string $groupKey): array {
+                $resolvedGroup = $this->resolveMachineTypeGroup($groupedMachines->first()?->type);
+
+                return [
+                    'key' => $groupKey,
+                    'label' => $resolvedGroup['label'],
+                    'machines' => $groupedMachines
+                        ->sort(fn (Machine $left, Machine $right) => $this->compareMachinesForIndex($left, $right))
+                        ->values(),
+                    'count' => $groupedMachines->count(),
+                    'is_uncategorized' => $resolvedGroup['is_uncategorized'],
+                ];
+            })
+            ->values();
+
+        // Keep named machine types alphabetized while always pushing unresolved types into one final Uncategorized accordion.
+        return $groups
+            ->sort(function (array $left, array $right): int {
+                if ($left['is_uncategorized'] !== $right['is_uncategorized']) {
+                    return $left['is_uncategorized'] <=> $right['is_uncategorized'];
+                }
+
+                return strcasecmp($left['label'], $right['label']);
+            })
+            ->values();
+    }
+
+    protected function resolveMachineTypeGroup(?string $type): array
+    {
+        $storedType = trim((string) $type);
+
+        if ($storedType === '') {
+            return [
+                'key' => 'uncategorized',
+                'label' => 'Uncategorized',
+                'is_uncategorized' => true,
+            ];
+        }
+
+        return [
+            'key' => $storedType,
+            'label' => $storedType,
+            'is_uncategorized' => false,
+        ];
+    }
+
+    protected function compareMachinesForIndex(Machine $left, Machine $right): int
+    {
+        // Sort each accordion consistently even when machines share the same type on a paginated page.
+        foreach ([
+            mb_strtolower(trim((string) $left->model)) <=> mb_strtolower(trim((string) $right->model)),
+            mb_strtolower(trim((string) $left->serial_number)) <=> mb_strtolower(trim((string) $right->serial_number)),
+            $left->id <=> $right->id,
+        ] as $comparison) {
+            if ($comparison !== 0) {
+                return $comparison;
+            }
+        }
+
+        return 0;
     }
 }

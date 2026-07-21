@@ -91,6 +91,14 @@
                 };
             @endphp
 
+            <x-sales-chart
+                chart-id="location-sales-chart"
+                title="Location Sales"
+                :chart-data="$locationSalesChart"
+                empty-message="No calculated sales were recorded for this location during this period."
+                accessible-label-prefix="Location sales"
+            />
+
             <section class="panel">
                 <div class="panel-header">
                     <div>

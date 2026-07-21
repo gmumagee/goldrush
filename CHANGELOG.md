@@ -6,6 +6,43 @@
 
 
 
+
+
+
+
+
+2026-07-21, Color Location Detail service accordions by stored service type, Kept the Location Detail service accordion classifier tied to the persisted tbl_services.service_type value, removed the old location and maintenance color overrides so location_service and unknown service types fall back to the existing gray accordion styling, added a light blue maintenance_service header treatment with a dark-mode variant, and extended location-detail coverage for service-type class mapping accessibility markup non-service accordion isolation and the stylesheet color contract.
+
+
+
+2026-07-21, Render Machine List statuses as pill badges, Updated the grouped Machines index so status values now render as rounded pill badges with the required blue Active and green Inactive mappings, normalize casing and surrounding whitespace only at display time, preserve unknown or blank statuses with neutral gray fallback pills, and extend machine-list coverage so the new badge styles do not affect grouping or stored database values.
+
+
+
+2026-07-21, Group the Machine List by machine type with accordions, Reworked the account-scoped Machines index so the current paginated result set is ordered by the persisted tbl_machines.type value and grouped into collapsed Alpine accordion sections with accurate counts, kept every nonblank stored type as its own visible accordion label, moved only null or blank type values into a final Uncategorized group, removed the redundant Type column from the nested tables while preserving the existing machine actions and pagination links, and added feature coverage for grouping search filtering query-string pagination and the no-results state.
+
+
+
+2026-07-20, Move the Location Sales graph above the Location Summary card, Reordered the Location Detail page so the shared Location Sales graph now appears before the Location Summary card while preserving the reused sales-chart component behavior and updating the location feature coverage to assert the new section order.
+
+
+
+2026-07-20, Add a shared Location Sales line graph to the Location Detail page, Extracted the dashboard sales SVG into a reusable sales-chart component backed by the shared sales-chart Alpine state, reused the existing one month three month six month and one year revenue bucket builder for account and location charts, and added a Location Sales card after the summary section that filters finalized calculated service sales by the persisted service-sales location snapshot so historical machine moves do not erase the location's revenue history.
+
+
+
+2026-07-20, Add selected-state styling to weekly calendar navigation, Updated the shared weekly calendar selector so Previous Week Current Week and Next Week now derive their selected state from the rendered Sunday-through-Saturday week instead of leaving Current Week visually hard-coded, reused the existing violet selected-button styling with separate keyboard focus treatment, and extended both calendar and dashboard coverage so exactly one week selector stays active after past current and future week navigations.
+
+
+
+2026-07-20, Shorten the dashboard Sales yearly x-axis labels, Kept the Sales graph on the existing Alpine SVG renderer but switched its underlying chart labels to ISO date values so the one year view can render compact MM-YY ticks while the one month three month and six month views continue rendering MM-DD bucket-start ticks, preserved the existing tooltip detail and aggregation windows, and extended dashboard coverage so period switching now asserts the renderer-specific x-axis formatter behavior.
+
+
+
+2026-07-20, Repair the dashboard Sales SVG axis tick rendering, Reworked the live Alpine SVG sales renderer so it now explicitly generates visible U.S.-dollar y-axis labels and horizontal grid lines from a dynamic five-interval scale, renders real date week and month x-axis tick values with period-specific selection limits, keeps exactly one date-range button visually active through the shared setSalesPeriod path, and updates dashboard coverage to assert the SVG-driven tick and button behavior instead of relying on a non-existent Chart.js implementation.
+
+
+
 2026-07-20, Display the dashboard Sales axis in explicit U.S. dollars, Updated the existing Alpine-driven Sales line graph so the visible y-axis label now reads Sales (USD), y-axis ticks render as whole-number U.S. currency values with dollar signs and comma separators, hover tooltips keep two decimal places in U.S. dollars, and dashboard coverage now asserts the USD formatter contract without changing the chart data, layout, or sales aggregation.
 
 
@@ -144,6 +181,9 @@
 
 
 2026-07-11, Redesign the Services index page, Replaced the flat filtered Services table with grouped Pending Services and All Services cards, removed the index filter UI, grouped service rows by location with collapsible sections, standardized pending-service display for legacy lowercase statuses, and preserved account-scoped service workflow actions.
+
+
+2026-07-21, Fix SQLite-compatible test regressions after service accordion styling, Added a safe fallback for empty route scheduled-day ordering, made service lifecycle backfills and warehouse-column migration steps SQLite-safe, restored model factory support on users, and tightened stale feature-test assertions to match current dashboard and sidebar markup.
 
 
 2026-07-10, Update the machine detail page summary and bins layout, Changed the machine detail page to use horizontal summary cards, renamed the bins card to Bins, grouped bins into collapsible row sections labeled by row letter, sized row bin cards to fit on a single line, and updated row labels to display as "Row: X".

@@ -1,6 +1,21 @@
 @php
     $calendarTitle = $title ?? 'Weekly Calendar';
     $emptyDayText = $emptyDayText ?? 'No scheduled events.';
+    // Normalize the displayed and current weeks once so exactly one navigation button can reflect the rendered calendar range.
+    $currentWeekStart = \Carbon\CarbonImmutable::now((string) config('app.timezone', 'UTC'))
+        ->startOfWeek(\Carbon\CarbonInterface::SUNDAY)
+        ->startOfDay();
+    $selectedWeekStart = $weekStart instanceof \Carbon\CarbonInterface
+        ? $weekStart->toImmutable()->startOfWeek(\Carbon\CarbonInterface::SUNDAY)->startOfDay()
+        : \Carbon\CarbonImmutable::parse($weekStart, (string) config('app.timezone', 'UTC'))
+            ->startOfWeek(\Carbon\CarbonInterface::SUNDAY)
+            ->startOfDay();
+    $isPreviousWeekSelected = $selectedWeekStart->lt($currentWeekStart);
+    $isCurrentWeekSelected = $selectedWeekStart->equalTo($currentWeekStart);
+    $isNextWeekSelected = $selectedWeekStart->gt($currentWeekStart);
+    // Reuse the application's selected-button palette so week navigation matches the existing option-button conventions.
+    $selectedWeekButtonClasses = 'active border-violet-600 bg-violet-600 text-white shadow-sm';
+    $unselectedWeekButtonClasses = 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700';
 @endphp
 
 <section class="weekly-calendar-card" aria-label="{{ $calendarTitle }}">
@@ -10,10 +25,25 @@
             {{-- Use the shared formatter so the weekly range follows the app-wide public date convention. --}}
             <div class="weekly-calendar-range">{{ \App\Support\AppDateTime::displayDate($weekStart) }} - {{ \App\Support\AppDateTime::displayDate($weekEnd) }}</div>
         </div>
-        <div class="weekly-calendar-navigation">
-            <a href="{{ $previousWeekUrl }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Previous Week</a>
-            <a href="{{ $currentWeekUrl }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Current Week</a>
-            <a href="{{ $nextWeekUrl }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Next Week</a>
+        <div class="weekly-calendar-navigation" role="group" aria-label="Select calendar week">
+            <a
+                href="{{ $previousWeekUrl }}"
+                data-week-selector="previous"
+                aria-pressed="{{ $isPreviousWeekSelected ? 'true' : 'false' }}"
+                class="inline-flex items-center rounded-xl border px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 {{ $isPreviousWeekSelected ? $selectedWeekButtonClasses : $unselectedWeekButtonClasses }}"
+            >Previous Week</a>
+            <a
+                href="{{ $currentWeekUrl }}"
+                data-week-selector="current"
+                aria-pressed="{{ $isCurrentWeekSelected ? 'true' : 'false' }}"
+                class="inline-flex items-center rounded-xl border px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 {{ $isCurrentWeekSelected ? $selectedWeekButtonClasses : $unselectedWeekButtonClasses }}"
+            >Current Week</a>
+            <a
+                href="{{ $nextWeekUrl }}"
+                data-week-selector="next"
+                aria-pressed="{{ $isNextWeekSelected ? 'true' : 'false' }}"
+                class="inline-flex items-center rounded-xl border px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 {{ $isNextWeekSelected ? $selectedWeekButtonClasses : $unselectedWeekButtonClasses }}"
+            >Next Week</a>
             @isset($createEventUrl)
                 <a href="{{ $createEventUrl }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Create Event</a>
             @endisset

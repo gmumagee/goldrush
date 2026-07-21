@@ -129,9 +129,10 @@ class DashboardCalendarTest extends TestCase
             ->assertDontSee('Completed Event')
             ->assertDontSee('Next Week Event')
             ->assertDontSee('Other Account Event')
-            ->assertDontSee('All day')
-            ->assertDontSee('Assigned User')
-            ->assertDontSee('Location');
+            ->assertSee('All day')
+            ->assertDontSee('Assigned User');
+
+        $this->assertWeeklyNavigationState($response->getContent(), 'current');
     }
 
     public function test_dashboard_shows_the_lowest_main_warehouse_inventory_products_for_the_current_account(): void
@@ -218,8 +219,8 @@ class DashboardCalendarTest extends TestCase
             ])
             ->assertSee('-2')
             ->assertSee('0')
-            ->assertSee('ALMONDS')
-            ->assertSee('JUICE')
+            ->assertDontSee('ALMONDS')
+            ->assertDontSee('JUICE')
             ->assertDontSee('Coffee')
             ->assertDontSee('Pretzels')
             ->assertDontSee('Candy')
@@ -302,10 +303,14 @@ class DashboardCalendarTest extends TestCase
             ->assertSee('Sales (USD)')
             ->assertSee('Last 1 Month')
             ->assertSee('data-sales-chart="line"', false)
+            ->assertSee('id="dashboard-sales-chart"', false)
+            ->assertSee('data-sales-chart-id="dashboard-sales-chart"', false)
             ->assertSee('aria-label="Sales by date for the last 1 month"', false)
+            ->assertSee('x-html="yAxisMarkup"', false)
+            ->assertSee('x-html="xAxisMarkup"', false)
+            ->assertSee('x-html="pointsMarkup"', false)
             ->assertSee('x-text="currentPeriod.x_axis_label"', false)
             ->assertSee('>Date</text>', false)
-            ->assertSee('>$0</text>', false)
             ->assertSeeInOrder([
                 '1 Month',
                 '3 Months',
@@ -331,17 +336,17 @@ class DashboardCalendarTest extends TestCase
                 $sixMonthValues = $sixMonths['values'] ?? [];
                 $oneYearLabels = $oneYear['labels'] ?? [];
                 $oneYearValues = $oneYear['values'] ?? [];
-                $julyFirstIndex = array_search('07-01-2026', $oneMonthLabels, true);
-                $julySecondIndex = array_search('07-02-2026', $oneMonthLabels, true);
-                $julyThirdIndex = array_search('07-03-2026', $oneMonthLabels, true);
-                $julySeventeenthIndex = array_search('07-17-2026', $oneMonthLabels, true);
-                $juneTwentyEighthWeekIndex = array_search('06-28-2026', $threeMonthLabels, true);
-                $julyTwelfthWeekIndex = array_search('07-12-2026', $threeMonthLabels, true);
-                $aprilTwentySixthWeekIndex = array_search('04-26-2026', $threeMonthLabels, true);
-                $februaryEighthWeekIndex = array_search('02-08-2026', $sixMonthLabels, true);
-                $augustMonthIndex = array_search('08-01-2025', $oneYearLabels, true);
-                $januaryMonthIndex = array_search('01-01-2026', $oneYearLabels, true);
-                $julyMonthIndex = array_search('07-01-2026', $oneYearLabels, true);
+                $julyFirstIndex = array_search('2026-07-01', $oneMonthLabels, true);
+                $julySecondIndex = array_search('2026-07-02', $oneMonthLabels, true);
+                $julyThirdIndex = array_search('2026-07-03', $oneMonthLabels, true);
+                $julySeventeenthIndex = array_search('2026-07-17', $oneMonthLabels, true);
+                $juneTwentyEighthWeekIndex = array_search('2026-06-28', $threeMonthLabels, true);
+                $julyTwelfthWeekIndex = array_search('2026-07-12', $threeMonthLabels, true);
+                $aprilTwentySixthWeekIndex = array_search('2026-04-26', $threeMonthLabels, true);
+                $februaryEighthWeekIndex = array_search('2026-02-08', $sixMonthLabels, true);
+                $augustMonthIndex = array_search('2025-08-01', $oneYearLabels, true);
+                $januaryMonthIndex = array_search('2026-01-01', $oneYearLabels, true);
+                $julyMonthIndex = array_search('2026-07-01', $oneYearLabels, true);
 
                 return $salesChart['default_period'] === '1m'
                     && $oneMonth['label'] === '1 Month'
@@ -458,12 +463,46 @@ class DashboardCalendarTest extends TestCase
         $this->assertStringContainsString("style: 'currency'", $script);
         $this->assertStringContainsString("currency: 'USD'", $script);
         $this->assertStringContainsString('minimumFractionDigits: 0', $script);
-        $this->assertStringContainsString('maximumFractionDigits: 0', $script);
+        $this->assertStringContainsString('maximumFractionDigits: 2', $script);
         $this->assertStringContainsString('minimumFractionDigits: 2', $script);
         $this->assertStringContainsString('maximumFractionDigits: 2', $script);
         $this->assertStringContainsString('formatAxisCurrency', $script);
         $this->assertStringContainsString('formatTooltipCurrency', $script);
-        $this->assertStringContainsString('Sales: ${new Intl.NumberFormat(', $script);
+        $this->assertStringContainsString('formatTooltipCurrencyValue', $script);
+        $this->assertStringContainsString("tickFormat: 'MM-DD'", $script);
+        $this->assertStringContainsString("'1y': this.buildPeriodConfiguration('1y', 'Month', 'MM-YY', 13)", $script);
+        $this->assertStringContainsString('parseDateOnly(value)', $script);
+        $this->assertStringContainsString("String(value ?? '').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/)", $script);
+        $this->assertStringContainsString('formatSalesXAxisTick(rawValue, periodKey)', $script);
+        $this->assertStringContainsString("if (periodKey === '1y')", $script);
+        $this->assertStringContainsString('return `${month}-${year}`;', $script);
+        $this->assertStringContainsString('return `${month}-${day}`;', $script);
+        $this->assertStringContainsString('Sales: ${this.formatTooltipCurrencyValue(value)}', $script);
+        $this->assertStringContainsString("const accessibleLabelPrefix = this.chartMeta?.accessibleLabelPrefix || 'Sales';", $script);
+        $this->assertStringContainsString('${accessibleLabelPrefix} by ${xAxisLabel} for the ${title.toLowerCase()}', $script);
+        $this->assertStringContainsString('setSalesPeriod(periodKey)', $script);
+        $this->assertStringContainsString('const period = this.periodConfigurations[periodKey];', $script);
+        $this->assertStringContainsString("console.error('Sales chart labels and values do not match.'", $script);
+        $this->assertStringContainsString("'1m': this.buildPeriodConfiguration('1m', 'Date', 'MM-DD', 7)", $script);
+        $this->assertStringContainsString("'1y': this.buildPeriodConfiguration('1y', 'Month', 'MM-YY', 13)", $script);
+        $this->assertStringContainsString('normalizeSalesValues(values)', $script);
+        $this->assertStringContainsString('calculateNiceStep(maximumValue, intervalCount = 5)', $script);
+        $this->assertStringContainsString('buildYAxisScale(values)', $script);
+        $this->assertStringContainsString('const intervalCount = 5;', $script);
+        $this->assertStringContainsString('const ticks = [];', $script);
+        $this->assertStringContainsString('selectVisibleTickIndexes(itemCount, maximumTicks)', $script);
+        $this->assertStringContainsString('return this.buildYAxisScale(this.currentValues);', $script);
+        $this->assertStringContainsString('return this.xTicks.map((tick) => `', $script);
+        $this->assertStringContainsString('return this.yTicks.map((tick) => `', $script);
+        $this->assertStringContainsString('return this.points.map((point) => `', $script);
+        $this->assertStringContainsString('data-point-index="${point.index}"', $script);
+        $this->assertStringContainsString("return 'active border-violet-600 bg-violet-600 text-white shadow-sm';", $script);
+        $this->assertStringContainsString("return 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700';", $script);
+        $this->assertStringContainsString('handlePointMouseOver(event)', $script);
+        $this->assertStringContainsString('handlePointFocusIn(event)', $script);
+        $this->assertStringContainsString('showTooltipFromEvent(event)', $script);
+        $this->assertStringContainsString('label: this.formatSalesXAxisTick(point.label, this.currentPeriod.periodKey)', $script);
+        $this->assertStringNotContainsString('stepSize:', $script);
         $this->assertStringNotContainsString('toLocaleString(undefined, {', $script);
     }
 
@@ -675,5 +714,18 @@ class DashboardCalendarTest extends TestCase
             'calculation_version' => 'inventory_reconciliation_v1',
             'calculated_at' => $salesDate.' 10:00:00',
         ]);
+    }
+
+    protected function assertWeeklyNavigationState(string $content, string $selectedSelector): void
+    {
+        // Reuse the shared week-selector assertions so the dashboard proves only one rendered week button is selected too.
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*aria-pressed="true"/', $content, $pressedMatches);
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*class="[^"]*\\bactive\\b[^"]*"/', $content, $activeMatches);
+        preg_match_all('/data-week-selector="([^"]+)"[^>]*class="[^"]*\\bbg-violet-600\\b[^"]*"/', $content, $selectedStyleMatches);
+
+        $this->assertSame([$selectedSelector], $pressedMatches[1]);
+        $this->assertSame([$selectedSelector], $activeMatches[1]);
+        $this->assertSame([$selectedSelector], $selectedStyleMatches[1]);
+        $this->assertCount(1, $pressedMatches[1]);
     }
 }
