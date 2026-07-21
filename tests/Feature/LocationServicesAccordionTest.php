@@ -11,6 +11,7 @@ use App\Models\LocationContact;
 use App\Models\LocationDocument;
 use App\Models\Machine;
 use App\Models\Product;
+use App\Models\RouteLocation;
 use App\Models\Service;
 use App\Models\ServiceSale;
 use App\Models\Transaction;
@@ -134,12 +135,73 @@ class LocationServicesAccordionTest extends TestCase
             ->assertSee('href="'.route('services.show', $newerService).'"', false)
             ->assertSee('href="'.route('services.show', $olderService).'"', false)
             ->assertSee('href="'.route('services.show', $maintenanceService).'"', false)
-            ->assertSee('service-accordion--maintenance', false)
+            ->assertSee('service-accordion-button--maintenance', false)
+            ->assertSee('data-service-type="maintenance_service"', false)
             ->assertDontSeeText('location_service')
             ->assertDontSeeText($otherLocation->location_name)
             ->assertDontSeeText($foreignLocation->location_name)
             ->assertDontSeeText('July 19, 2026')
             ->assertDontSeeText('July 21, 2026');
+    }
+
+    public function test_location_detail_renders_service_nine_as_a_maintenance_button_using_the_stored_service_type(): void
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE, 'name' => 'Owner User']);
+        $account = $this->createAccount('Service Nine Account');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
+
+        DataDictionary::create([
+            'account_id' => null,
+            'name' => 'service_type',
+            'value' => Service::TYPE_LOCATION_SERVICE,
+            'label' => 'Location Service',
+            'sort_order' => 10,
+            'is_active' => true,
+        ]);
+
+        DataDictionary::create([
+            'account_id' => null,
+            'name' => 'service_type',
+            'value' => Service::TYPE_MAINTENANCE,
+            'label' => 'Maintenance Service',
+            'sort_order' => 20,
+            'is_active' => true,
+        ]);
+
+        $route = $this->createRoute($account, 'Service Nine Route');
+        $location = $this->createLocation($account, $route, 'Service Nine Stop');
+        $warehouse = $this->createWarehouse($account, 'Service Nine Warehouse');
+
+        for ($index = 1; $index <= 8; $index++) {
+            $this->createService($account, $location, $warehouse, $user, [
+                'service_date' => '2026-07-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT),
+                'status' => Service::STATUS_SERVICE_OPEN,
+            ]);
+        }
+
+        $serviceNine = $this->createService($account, $location, null, $user, [
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'service_date' => '2026-07-09',
+            'status' => Service::STATUS_SERVICE_CLOSED,
+            'closed_at' => '2026-07-09 08:45:00',
+        ]);
+
+        $this->assertSame(9, $serviceNine->id);
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('locations.show', $location));
+
+        $response->assertOk()
+            ->assertSeeText('Service #9')
+            ->assertSeeText('Maintenance Service')
+            ->assertSeeText('Service Closed');
+
+        $serviceNineClasses = $this->serviceAccordionButtonClasses($response->getContent(), $serviceNine->id);
+
+        $this->assertStringContainsString('service-accordion-button--maintenance', $serviceNineClasses);
+        $this->assertStringNotContainsString('service-accordion-button--location', $serviceNineClasses);
+        $this->assertSame('maintenance_service', $this->serviceAccordionButtonDataServiceType($response->getContent(), $serviceNine->id));
     }
 
     public function test_location_detail_service_accordions_use_stored_service_type_classes_and_preserve_accessibility_markup(): void
@@ -241,26 +303,32 @@ class LocationServicesAccordionTest extends TestCase
                 ->assertSee(':aria-expanded="(openServiceId === '.$service->id.').toString()"', false);
         }
 
-        $openLocationClasses = $this->serviceAccordionContainerClasses($response->getContent(), $openLocationService->id);
-        $closedLocationClasses = $this->serviceAccordionContainerClasses($response->getContent(), $closedLocationService->id);
-        $openMaintenanceClasses = $this->serviceAccordionContainerClasses($response->getContent(), $openMaintenanceService->id);
-        $closedMaintenanceClasses = $this->serviceAccordionContainerClasses($response->getContent(), $closedMaintenanceService->id);
-        $unknownTypeClasses = $this->serviceAccordionContainerClasses($response->getContent(), $unknownTypeService->id);
+        $openLocationClasses = $this->serviceAccordionButtonClasses($response->getContent(), $openLocationService->id);
+        $closedLocationClasses = $this->serviceAccordionButtonClasses($response->getContent(), $closedLocationService->id);
+        $openMaintenanceClasses = $this->serviceAccordionButtonClasses($response->getContent(), $openMaintenanceService->id);
+        $closedMaintenanceClasses = $this->serviceAccordionButtonClasses($response->getContent(), $closedMaintenanceService->id);
+        $unknownTypeClasses = $this->serviceAccordionButtonClasses($response->getContent(), $unknownTypeService->id);
 
-        $this->assertStringContainsString('service-accordion--location', $openLocationClasses);
-        $this->assertStringContainsString('service-accordion--location', $closedLocationClasses);
-        $this->assertStringContainsString('service-accordion--maintenance', $openMaintenanceClasses);
-        $this->assertStringContainsString('service-accordion--maintenance', $closedMaintenanceClasses);
-        $this->assertStringContainsString('service-accordion--location', $unknownTypeClasses);
-        $this->assertStringNotContainsString('service-accordion--maintenance', $openLocationClasses);
-        $this->assertStringNotContainsString('service-accordion--maintenance', $closedLocationClasses);
-        $this->assertStringNotContainsString('service-accordion--maintenance', $unknownTypeClasses);
-        $this->assertStringNotContainsString('service-accordion--location', $openMaintenanceClasses);
-        $this->assertStringNotContainsString('service-accordion--location', $closedMaintenanceClasses);
+        $this->assertStringContainsString('service-accordion-button--location', $openLocationClasses);
+        $this->assertStringContainsString('service-accordion-button--location', $closedLocationClasses);
+        $this->assertStringContainsString('service-accordion-button--maintenance', $openMaintenanceClasses);
+        $this->assertStringContainsString('service-accordion-button--maintenance', $closedMaintenanceClasses);
+        $this->assertStringContainsString('service-accordion-button--location', $unknownTypeClasses);
+        $this->assertStringNotContainsString('service-accordion-button--maintenance', $openLocationClasses);
+        $this->assertStringNotContainsString('service-accordion-button--maintenance', $closedLocationClasses);
+        $this->assertStringNotContainsString('service-accordion-button--maintenance', $unknownTypeClasses);
+        $this->assertStringNotContainsString('service-accordion-button--location', $openMaintenanceClasses);
+        $this->assertStringNotContainsString('service-accordion-button--location', $closedMaintenanceClasses);
 
-        $this->assertStringNotContainsString('service-accordion--', $this->elementClassesById($response->getContent(), 'locationContactsAccordion'));
-        $this->assertStringNotContainsString('service-accordion--', $this->elementClassesById($response->getContent(), 'locationDocumentsAccordion'));
-        $this->assertStringNotContainsString('service-accordion--', $this->elementClassesById($response->getContent(), 'locationMachinesAccordion'));
+        $this->assertSame(Service::TYPE_LOCATION_SERVICE, $this->serviceAccordionButtonDataServiceType($response->getContent(), $openLocationService->id));
+        $this->assertSame(Service::TYPE_LOCATION_SERVICE, $this->serviceAccordionButtonDataServiceType($response->getContent(), $closedLocationService->id));
+        $this->assertSame(Service::TYPE_MAINTENANCE, $this->serviceAccordionButtonDataServiceType($response->getContent(), $openMaintenanceService->id));
+        $this->assertSame(Service::TYPE_MAINTENANCE, $this->serviceAccordionButtonDataServiceType($response->getContent(), $closedMaintenanceService->id));
+        $this->assertSame('mystery_service', $this->serviceAccordionButtonDataServiceType($response->getContent(), $unknownTypeService->id));
+
+        $this->assertStringNotContainsString('service-accordion-button--', $this->elementClassesById($response->getContent(), 'locationContactsAccordion'));
+        $this->assertStringNotContainsString('service-accordion-button--', $this->elementClassesById($response->getContent(), 'locationDocumentsAccordion'));
+        $this->assertStringNotContainsString('service-accordion-button--', $this->elementClassesById($response->getContent(), 'locationMachinesAccordion'));
     }
 
     public function test_service_accordion_styles_keep_location_defaults_and_define_maintenance_blue_rules(): void
@@ -269,13 +337,14 @@ class LocationServicesAccordionTest extends TestCase
         $css = file_get_contents(resource_path('css/app.css'));
 
         $this->assertNotFalse($css);
-        $this->assertStringContainsString('.service-accordion--location {', $css);
-        $this->assertStringNotContainsString('.service-accordion--location > button', $css);
-        $this->assertStringNotContainsString('.service-accordion--location > div', $css);
-        $this->assertStringContainsString('.service-accordion--maintenance > button,', $css);
-        $this->assertStringContainsString('background-color: rgb(219 234 254);', $css);
-        $this->assertStringContainsString('.dark .service-accordion--maintenance > button,', $css);
-        $this->assertStringContainsString('background-color: rgb(30 64 175 / 0.35);', $css);
+        $this->assertStringContainsString('.service-accordion-button--location {', $css);
+        $this->assertStringContainsString('.service-accordion-button--maintenance,', $css);
+        $this->assertStringContainsString(".service-accordion-button--maintenance[aria-expanded='false'],", $css);
+        $this->assertStringContainsString(".service-accordion-button--maintenance[aria-expanded='true'],", $css);
+        $this->assertStringContainsString('background-color: rgb(219 234 254) !important;', $css);
+        $this->assertStringContainsString('.dark .service-accordion-button--maintenance,', $css);
+        $this->assertStringContainsString('background-color: rgb(30 64 175 / 0.35) !important;', $css);
+        $this->assertStringContainsString('.service-accordion-button--maintenance .service-accordion-chevron {', $css);
         $this->assertStringNotContainsString('location_maintenance', $css);
     }
 
@@ -924,15 +993,27 @@ class LocationServicesAccordionTest extends TestCase
 
     protected function createLocation(Account $account, VendingRoute $route, string $name): Location
     {
-        return Location::create([
+        $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => $name,
             'address' => '123 Main Street',
             'city' => 'Arlington',
             'state' => 'VA',
             'zip_code' => '22201',
         ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
+        ]);
+
+        return $location;
     }
 
     protected function createWarehouse(Account $account, string $name): Warehouse
@@ -1046,19 +1127,35 @@ class LocationServicesAccordionTest extends TestCase
         ]);
     }
 
-    protected function serviceAccordionContainerClasses(string $html, int $serviceId): string
+    protected function serviceAccordionButtonClasses(string $html, int $serviceId): string
     {
-        // Parse the rendered HTML so the test validates the live accordion container classes for each service.
+        // Parse the rendered HTML so the test validates the live accordion button classes for each service.
+        $button = $this->serviceAccordionButtonElement($html, $serviceId);
+
+        return $button->getAttribute('class');
+    }
+
+    protected function serviceAccordionButtonDataServiceType(string $html, int $serviceId): string
+    {
+        // Read the rendered service type hook directly from the accordion button for regression coverage.
+        $button = $this->serviceAccordionButtonElement($html, $serviceId);
+
+        return $button->getAttribute('data-service-type');
+    }
+
+    protected function serviceAccordionButtonElement(string $html, int $serviceId): \DOMElement
+    {
+        // Parse the rendered HTML so button-level styling hooks are verified on the visible service header itself.
         $document = new \DOMDocument();
         @$document->loadHTML($html);
         $xpath = new \DOMXPath($document);
         $button = $xpath->query("//button[@aria-controls='location-service-{$serviceId}']")->item(0);
 
-        if (! $button instanceof \DOMElement || ! $button->parentNode instanceof \DOMElement) {
+        if (! $button instanceof \DOMElement) {
             $this->fail('Unable to locate the rendered service accordion for service '.$serviceId.'.');
         }
 
-        return $button->parentNode->getAttribute('class');
+        return $button;
     }
 
     protected function elementClassesById(string $html, string $id): string

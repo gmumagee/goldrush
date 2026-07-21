@@ -81,7 +81,7 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Service #{{ $service->id }}</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        {{ $service->location?->location_name ?? 'No location' }}{{ $service->location?->city ? ', '.$service->location->city : '' }} - {{ $service->location?->route?->route_name ?? 'No route' }}
+                        {{ $service->location?->location_name ?? 'No location' }}{{ $service->location?->city ? ', '.$service->location->city : '' }} - {{ $service->location?->primaryRouteLocation?->route?->route_name ?? 'No route' }}
                     </p>
                 </div>
 
@@ -90,12 +90,13 @@
                         Back to Services
                     </a>
 
-                    @if ($serviceCalendarEvent)
+                    @if ($serviceCalendarEvent && auth()->user()->can('view', $serviceCalendarEvent))
                         <a href="{{ route('calendar-events.show', $serviceCalendarEvent) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
                             View Calendar Event
                         </a>
                     @endif
 
+                    @can('update', $service)
                     @if ($service->isAwaitingService() && $service->isLocationService())
                         <form method="POST" action="{{ route('services.open', $service->id) }}">
                             @csrf
@@ -128,6 +129,7 @@
                             Enter Amount Collected
                         </a>
                     @endif
+                    @endcan
                 </div>
             </div>
 
@@ -628,17 +630,21 @@
                                                                         </a>
 
                                                                         @if ($service->isServiceOpen())
-                                                                            <a href="{{ route('transactions.edit', $transaction) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                                                                                Edit
-                                                                            </a>
+                                                                            @can('update', $transaction)
+                                                                                <a href="{{ route('transactions.edit', $transaction) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                                                                                    Edit
+                                                                                </a>
+                                                                            @endcan
 
-                                                                            <form method="POST" action="{{ route('transactions.destroy', $transaction) }}" onsubmit="return confirm('Delete this transaction?');">
-                                                                                @csrf
-                                                                                @method('DELETE')
-                                                                                <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">
-                                                                                    Delete
-                                                                                </button>
-                                                                            </form>
+                                                                            @can('delete', $transaction)
+                                                                                <form method="POST" action="{{ route('transactions.destroy', $transaction) }}" onsubmit="return confirm('Delete this transaction?');">
+                                                                                    @csrf
+                                                                                    @method('DELETE')
+                                                                                    <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">
+                                                                                        Delete
+                                                                                    </button>
+                                                                                </form>
+                                                                            @endcan
                                                                         @endif
                                                                     </div>
                                                                 </td>

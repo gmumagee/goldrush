@@ -58,12 +58,16 @@
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">{{ $location->location_name }}</h1>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $location->routes->pluck('route_name')->join(' · ') ?: ($location->route?->route_name ?? 'No route') }}</p>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $location->routes->pluck('route_name')->join(' · ') ?: 'No route' }}</p>
                 </div>
                 <div class="flex gap-3">
                     <a href="{{ route('locations.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Locations</a>
-                    <a href="{{ route('calendar-events.create', ['source_type' => 'location', 'source_id' => $location->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
-                    <a href="{{ route('locations.edit', $location) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Location</a>
+                    @can('create', \App\Models\CalendarEvent::class)
+                        <a href="{{ route('calendar-events.create', ['source_type' => 'location', 'source_id' => $location->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
+                    @endcan
+                    @can('update', $location)
+                        <a href="{{ route('locations.edit', $location) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Edit Location</a>
+                    @endcan
                 </div>
             </div>
 
@@ -204,10 +208,12 @@
                     <div class="space-y-4 p-4">
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <p class="text-sm text-gray-500 dark:text-gray-400">Attach reusable contacts to this location and manage location-specific roles.</p>
+                            @can('update', $location)
                             <div class="flex flex-wrap gap-3">
                                 <a href="{{ route('locations.contacts.create', $location) }}#attach-existing" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Attach Existing Contact</a>
                                 <a href="{{ route('locations.contacts.create', $location) }}#create-new" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Contact</a>
                             </div>
+                            @endcan
                         </div>
 
                         <div class="overflow-x-auto">
@@ -256,12 +262,16 @@
                                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $locationContact->notes ?: '—' }}</td>
                                             <td class="px-5 py-4">
                                                 <div class="flex flex-wrap gap-2">
-                                                    <a href="{{ route('locations.contacts.edit', [$location, $locationContact]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit Relationship</a>
-                                                    <form method="POST" action="{{ route('locations.contacts.destroy', [$location, $locationContact]) }}">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove From Location</button>
-                                                    </form>
+                                                    @can('update', $locationContact)
+                                                        <a href="{{ route('locations.contacts.edit', [$location, $locationContact]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Edit Relationship</a>
+                                                    @endcan
+                                                    @can('delete', $locationContact)
+                                                        <form method="POST" action="{{ route('locations.contacts.destroy', [$location, $locationContact]) }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Remove From Location</button>
+                                                        </form>
+                                                    @endcan
                                                 </div>
                                             </td>
                                         </tr>
@@ -303,9 +313,9 @@
                     <div class="space-y-4 p-4">
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <p class="text-sm text-gray-500 dark:text-gray-400">Store private location contracts, insurance records, photos, and other supporting files.</p>
-                            @if ($canManageDocuments)
+                            @can('update', $location)
                                 <a href="{{ route('locations.documents.create', $location) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Upload Document</a>
-                            @endif
+                            @endcan
                         </div>
 
                         <div class="overflow-x-auto">
@@ -342,13 +352,13 @@
                                             <td class="px-5 py-4">
                                                 <div class="flex flex-wrap gap-2">
                                                     <a href="{{ route('locations.documents.download', [$location, $document]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Download</a>
-                                                    @if ($canManageDocuments)
+                                                    @can('delete', $document)
                                                         <form method="POST" action="{{ route('locations.documents.destroy', [$location, $document]) }}">
                                                             @csrf
                                                             @method('DELETE')
                                                             <button type="submit" class="inline-flex items-center rounded-xl border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10">Delete</button>
                                                         </form>
-                                                    @endif
+                                                    @endcan
                                                 </div>
                                             </td>
                                         </tr>
@@ -392,7 +402,9 @@
                     <div class="space-y-4 p-4">
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <div class="text-sm text-gray-500 dark:text-gray-400">Review the machines currently assigned to this location and inspect the latest current inventory snapshot for each bin.</div>
-                            <a href="{{ route('machines.create', ['location_id' => $location->id]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
+                            @can('create', \App\Models\Machine::class)
+                                <a href="{{ route('machines.create', ['location_id' => $location->id]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
+                            @endcan
                         </div>
 
                         @if ($machineInventoryGroups->isEmpty())
@@ -569,7 +581,9 @@
                         <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Services</h2>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review every service visit created for this location.</p>
                     </div>
-                    <a href="{{ route('services.create', ['location_id' => $location->id]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Create Service</a>
+                    @can('create', \App\Models\Service::class)
+                        <a href="{{ route('services.create', ['location_id' => $location->id]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Create Service</a>
+                    @endcan
                 </div>
                 <div class="panel-body">
                     @if ($location->services->isEmpty())
@@ -581,18 +595,25 @@
                             @foreach ($location->services as $service)
                                 @php
                                     // Build the service header once so the accordion stays compact and consistent.
+                                    $serviceType = strtolower(trim((string) $service->service_type));
                                     $serviceHeaderDate = \App\Support\AppDateTime::displayDate($service->service_date) ?: 'No service date';
                                     $serviceStatusLabel = $displayServiceStatus($service->status);
-                                    $serviceTypeLabel = $serviceTypeLabels[strtolower(trim((string) $service->service_type))] ?? ($service->service_type ?: '—');
+                                    $serviceTypeLabel = $serviceTypeLabels[$serviceType] ?? ($service->service_type ?: '—');
+                                    $serviceAccordionButtonClass = match ($serviceType) {
+                                        \App\Models\Service::TYPE_MAINTENANCE => 'service-accordion-button--maintenance',
+                                        \App\Models\Service::TYPE_LOCATION_SERVICE => 'service-accordion-button--location',
+                                        default => 'service-accordion-button--location',
+                                    };
                                 @endphp
 
-                                <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60 {{ $service->accordion_color_class }}">
+                                <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
                                     <button
                                         type="button"
-                                        class="flex w-full items-center justify-between gap-4 bg-gray-50 px-4 py-3 text-left dark:bg-gray-800/80"
+                                        class="service-accordion-button {{ $serviceAccordionButtonClass }} flex w-full items-center justify-between gap-4 bg-gray-50 px-4 py-3 text-left dark:bg-gray-800/80"
                                         @click="openServiceId = openServiceId === {{ $service->id }} ? null : {{ $service->id }}"
                                         :aria-expanded="(openServiceId === {{ $service->id }}).toString()"
                                         aria-controls="location-service-{{ $service->id }}"
+                                        data-service-type="{{ $serviceType }}"
                                     >
                                         <div class="min-w-0">
                                             <div class="flex flex-wrap items-center gap-2">
@@ -607,7 +628,7 @@
                                                 Service #{{ $service->id }}
                                             </div>
                                         </div>
-                                        <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200" :class="openServiceId === {{ $service->id }} ? 'rotate-90' : ''" aria-hidden="true">›</span>
+                                        <span class="service-accordion-chevron inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200" :class="openServiceId === {{ $service->id }} ? 'rotate-90' : ''" aria-hidden="true">›</span>
                                     </button>
 
                                     <div
@@ -726,7 +747,7 @@
                 </div>
             </section>
 
-            @if ($canDeleteLocation)
+            @can('delete', $location)
                 <section class="panel border border-red-200 dark:border-red-500/40">
                     <div class="panel-header border-red-200 dark:border-red-500/40">
                         <div>
@@ -754,7 +775,7 @@
                         </form>
                     </div>
                 </section>
-            @endif
+            @endcan
         </div>
     </div>
 </x-app-layout>

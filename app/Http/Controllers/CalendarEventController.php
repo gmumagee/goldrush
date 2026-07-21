@@ -34,6 +34,8 @@ class CalendarEventController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', CalendarEvent::class);
+
         $accountId = $this->currentAccountId($request);
         $filters = $this->validateIndexFilters($request, $accountId);
         $selectedDate = $filters['date'] ?? CarbonImmutable::now();
@@ -91,6 +93,8 @@ class CalendarEventController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', CalendarEvent::class);
+
         $accountId = $this->currentAccountId($request);
         [$sourceType, $sourceRecord, $sourceDefaults] = $this->sourceContextFromRequest($request, $accountId);
 
@@ -112,6 +116,8 @@ class CalendarEventController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', CalendarEvent::class);
+
         $accountId = $this->currentAccountId($request);
         $payload = $this->validateEvent($request, $accountId);
 
@@ -146,6 +152,7 @@ class CalendarEventController extends Controller
             'reminders.assignedUser',
             'reminders.dismissedBy',
         ]);
+        $this->authorize('view', $event);
 
         return view('calendar-events.show', [
             'event' => $event,
@@ -159,9 +166,10 @@ class CalendarEventController extends Controller
     public function edit(Request $request, int $calendar_event): View
     {
         $event = $this->resolveCalendarEvent($request, $calendar_event, [
-            'location.route',
+            'location.primaryRouteLocation.route',
             'reminders',
         ]);
+        $this->authorize('update', $event);
 
         [$reminderOption, $customReminderAt] = $this->reminderFormState($event);
 
@@ -178,6 +186,7 @@ class CalendarEventController extends Controller
     public function update(Request $request, int $calendar_event): RedirectResponse
     {
         $event = $this->resolveCalendarEvent($request, $calendar_event);
+        $this->authorize('update', $event);
         $payload = $this->validateEvent($request, $event->account_id);
 
         DB::transaction(function () use ($event, $payload, $request) {
@@ -200,6 +209,7 @@ class CalendarEventController extends Controller
     public function destroy(Request $request, int $calendar_event): RedirectResponse
     {
         $event = $this->resolveCalendarEvent($request, $calendar_event);
+        $this->authorize('delete', $event);
         $event->delete();
 
         return redirect()
@@ -210,6 +220,7 @@ class CalendarEventController extends Controller
     public function complete(Request $request, int $calendarEvent): RedirectResponse
     {
         $event = $this->resolveCalendarEvent($request, $calendarEvent);
+        $this->authorize('update', $event);
         $this->calendarService->completeEvent($event, (int) $request->user()->id);
 
         return redirect()
@@ -220,6 +231,7 @@ class CalendarEventController extends Controller
     public function cancel(Request $request, int $calendarEvent): RedirectResponse
     {
         $event = $this->resolveCalendarEvent($request, $calendarEvent);
+        $this->authorize('update', $event);
         $this->calendarService->cancelEvent($event, (int) $request->user()->id);
 
         return redirect()
@@ -462,7 +474,7 @@ class CalendarEventController extends Controller
     {
         return Location::query()
             ->where('account_id', $accountId)
-            ->with('route')
+            ->with('primaryRouteLocation.route')
             ->orderBy('location_name')
             ->get();
     }
@@ -513,7 +525,7 @@ class CalendarEventController extends Controller
         return match ($sourceType) {
             CalendarEvent::SOURCE_TYPE_SERVICE => Service::query()
                 ->where('account_id', $accountId)
-                ->with('location.route')
+                ->with('location.primaryRouteLocation.route')
                 ->find($sourceId),
             CalendarEvent::SOURCE_TYPE_PURCHASE => Purchase::query()
                 ->where('account_id', $accountId)
@@ -524,7 +536,7 @@ class CalendarEventController extends Controller
                 ->find($sourceId),
             CalendarEvent::SOURCE_TYPE_LOCATION => Location::query()
                 ->where('account_id', $accountId)
-                ->with('route')
+                ->with('primaryRouteLocation.route')
                 ->find($sourceId),
             CalendarEvent::SOURCE_TYPE_WAREHOUSE => Warehouse::query()
                 ->where('account_id', $accountId)
@@ -548,7 +560,7 @@ class CalendarEventController extends Controller
                 'assigned_user_id' => $sourceRecord->user_id,
                 'location_id' => $sourceRecord->location_id,
                 'warehouse_id' => $sourceRecord->warehouse_id,
-                'route_id' => $sourceRecord->location?->route_id,
+                'route_id' => $sourceRecord->location?->primaryRouteLocation?->route_id,
                 'start_at' => CarbonImmutable::instance($sourceRecord->service_date)->startOfDay(),
                 'end_at' => CarbonImmutable::instance($sourceRecord->service_date)->endOfDay(),
                 'all_day' => true,
@@ -573,7 +585,7 @@ class CalendarEventController extends Controller
                 'event_type' => 'General',
                 'title' => $sourceRecord->location_name,
                 'location_id' => $sourceRecord->id,
-                'route_id' => $sourceRecord->route_id,
+                'route_id' => $sourceRecord->primaryRouteLocation?->route_id,
                 'source_type' => $sourceType,
                 'source_id' => $sourceRecord->id,
             ],

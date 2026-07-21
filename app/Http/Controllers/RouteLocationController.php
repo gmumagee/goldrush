@@ -17,6 +17,7 @@ class RouteLocationController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $route = $this->routeForAccount($accountId, $route);
+        $this->authorize('update', $route);
 
         $data = $request->validate([
             'location_id' => ['required', 'integer'],
@@ -44,18 +45,18 @@ class RouteLocationController extends Controller
                 ->where('route_id', $route->id)
                 ->max('stop_order') + 1;
 
+            $hasPrimaryRoute = $location->routeLocations()
+                ->where('account_id', $accountId)
+                ->where('is_primary', true)
+                ->exists();
+
             RouteLocation::create([
                 'account_id' => $accountId,
                 'route_id' => $route->id,
                 'location_id' => $location->id,
                 'stop_order' => $nextStopOrder,
+                'is_primary' => ! $hasPrimaryRoute,
             ]);
-
-            if (! $location->route_id) {
-                $location->update([
-                    'route_id' => $route->id,
-                ]);
-            }
         });
 
         return redirect()
@@ -68,23 +69,29 @@ class RouteLocationController extends Controller
         $accountId = $this->currentAccountId($request);
         $route = $this->routeForAccount($accountId, $route);
         $routeLocation = $this->routeLocationForRoute($accountId, $route->id, $routeLocation, ['location.routeLocations']);
+        $this->authorize('delete', $routeLocation);
 
         DB::transaction(function () use ($accountId, $route, $routeLocation) {
             $location = $routeLocation->location;
+            $wasPrimary = (bool) $routeLocation->is_primary;
 
             $routeLocation->delete();
             $this->renumberStops($accountId, $route->id);
 
-            if ($location && (int) $location->route_id === (int) $route->id) {
-                $replacementRouteId = $location->routeLocations()
+            if ($location && $wasPrimary) {
+                $replacementPrimaryId = $location->routeLocations()
                     ->where('account_id', $accountId)
                     ->orderBy('stop_order')
                     ->orderBy('id')
-                    ->value('route_id');
+                    ->value('id');
 
-                $location->update([
-                    'route_id' => $replacementRouteId,
-                ]);
+                if ($replacementPrimaryId !== null) {
+                    RouteLocation::query()
+                        ->where('id', $replacementPrimaryId)
+                        ->update([
+                            'is_primary' => true,
+                        ]);
+                }
             }
         });
 
@@ -98,6 +105,7 @@ class RouteLocationController extends Controller
         $accountId = $this->currentAccountId($request);
         $route = $this->routeForAccount($accountId, $route);
         $routeLocation = $this->routeLocationForRoute($accountId, $route->id, $routeLocation);
+        $this->authorize('update', $routeLocation);
 
         DB::transaction(function () use ($accountId, $route, $routeLocation) {
             $stops = $this->orderedStops($accountId, $route->id);
@@ -123,6 +131,7 @@ class RouteLocationController extends Controller
         $accountId = $this->currentAccountId($request);
         $route = $this->routeForAccount($accountId, $route);
         $routeLocation = $this->routeLocationForRoute($accountId, $route->id, $routeLocation);
+        $this->authorize('update', $routeLocation);
 
         DB::transaction(function () use ($accountId, $route, $routeLocation) {
             $stops = $this->orderedStops($accountId, $route->id);

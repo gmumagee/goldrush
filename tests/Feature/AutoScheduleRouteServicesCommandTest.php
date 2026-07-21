@@ -206,9 +206,8 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
 
     protected function createLocation(Account $account, VendingRoute $route, string $name): Location
     {
-        return Location::create([
+        $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => $name,
             'address' => '123 Service Road',
             'city' => 'Toronto',
@@ -216,16 +215,38 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
             'zip_code' => 'M1M1M1',
             'contact_name' => 'Casey Tech',
         ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
+        ]);
+
+        return $location;
     }
 
     protected function attachLocationToRoute(Account $account, VendingRoute $route, Location $location, int $stopOrder): RouteLocation
     {
-        return RouteLocation::create([
+        $routeLocation = RouteLocation::query()->firstOrNew([
             'account_id' => $account->id,
             'route_id' => $route->id,
             'location_id' => $location->id,
-            'stop_order' => $stopOrder,
         ]);
+
+        $routeLocation->stop_order = $stopOrder;
+
+        if (! $routeLocation->exists) {
+            $routeLocation->is_primary = false;
+        }
+
+        $routeLocation->save();
+
+        return $routeLocation;
     }
 
     protected function createWarehouse(Account $account, string $name): Warehouse

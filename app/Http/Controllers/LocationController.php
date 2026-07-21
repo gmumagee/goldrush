@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AccountUser;
 use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\RouteLocation;
@@ -29,12 +28,14 @@ class LocationController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Location::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
 
         $locations = Location::query()
             ->where('account_id', $accountId)
-            ->with('route')
+            ->with('primaryRouteLocation.route')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($locationQuery) use ($search) {
                     $locationQuery
@@ -52,6 +53,8 @@ class LocationController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Location::class);
+
         $accountId = $this->currentAccountId($request);
 
         $routes = $this->routesForAccount($accountId);
@@ -61,6 +64,8 @@ class LocationController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Location::class);
+
         $accountId = $this->currentAccountId($request);
 
         $data = $request->validate([
@@ -82,8 +87,11 @@ class LocationController extends Controller
         $data['account_id'] = $accountId;
 
         DB::transaction(function () use ($data, $accountId) {
+            $primaryRouteId = isset($data['route_id']) && $data['route_id'] !== null ? (int) $data['route_id'] : null;
+            unset($data['route_id']);
+
             $location = Location::create($data);
-            $this->syncPrimaryRouteMembership($accountId, $location, null, $location->route_id ? (int) $location->route_id : null);
+            $this->syncPrimaryRouteMembership($accountId, $location, $primaryRouteId);
         });
 
         return redirect()->route('locations.index')->with('status', 'Location created successfully.');
@@ -95,7 +103,7 @@ class LocationController extends Controller
 
         // Load every location detail relationship inside the current account to avoid cross-tenant leaks.
         $location = $this->locationForAccount($accountId, $location, [
-            'route',
+            'primaryRouteLocation.route',
             'routes',
             'locationContacts' => fn ($query) => $query
                 ->where('account_id', $accountId)
@@ -137,6 +145,7 @@ class LocationController extends Controller
                 ->orderByDesc('service_date')
                 ->orderByDesc('id'),
         ]);
+        $this->authorize('view', $location);
 
         // Build one summary payload so the view does not have to reconstruct contact fallbacks.
         $primaryContact = $location->primaryLocationContact?->contact;
@@ -153,14 +162,6 @@ class LocationController extends Controller
             ? ($primaryContact->phone ?: $primaryContact->mobile_phone)
             : ($location->contact_phone ?: null);
         $primaryContactEmail = $primaryContact?->email ?: ($primaryContact ? null : ($location->contact_email ?: null));
-
-        $membership = AccountUser::query()
-            ->where('account_id', $accountId)
-            ->where('user_id', $request->user()->id)
-            ->where('status', AccountUser::STATUS_ACTIVE)
-            ->first();
-
-        abort_if(! $membership, 403);
 
         // Prepare machine inventory rows once so the view can stay query-free and tenant-safe.
         $machineInventoryGroups = $this->buildMachineInventoryGroups($location, $accountId);
@@ -179,10 +180,6 @@ class LocationController extends Controller
             'serviceStatusLabels' => $this->dataDictionaryService->labels(DataDictionary::GROUP_SERVICE_STATUS, $accountId, true),
             'serviceTypeLabels' => $this->dataDictionaryService->labels('service_type', $accountId, true),
             'locationSalesChart' => $locationSalesChart,
-            'canManageDocuments' => $membership->roleMatches(AccountUser::ROLE_OWNER)
-                || $membership->roleMatches(AccountUser::ROLE_ADMIN)
-                || $membership->roleMatches(AccountUser::ROLE_MANAGER),
-            'canDeleteLocation' => $this->canDeleteLocation($membership),
         ]);
     }
 
@@ -190,10 +187,12 @@ class LocationController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
+        $this->authorize('update', $location);
 
         return view('locations.edit', [
             'location' => $location,
             'routes' => $this->routesForAccount($accountId),
+            'selectedRouteId' => $location->primaryRouteLocation()->value('route_id'),
         ]);
     }
 
@@ -201,6 +200,7 @@ class LocationController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location);
+        $this->authorize('update', $location);
 
         $data = $request->validate([
             'route_id' => [
@@ -219,9 +219,11 @@ class LocationController extends Controller
         ]);
 
         DB::transaction(function () use ($location, $data, $accountId) {
-            $previousRouteId = $location->route_id ? (int) $location->route_id : null;
+            $primaryRouteId = isset($data['route_id']) && $data['route_id'] !== null ? (int) $data['route_id'] : null;
+            unset($data['route_id']);
+
             $location->update($data);
-            $this->syncPrimaryRouteMembership($accountId, $location, $previousRouteId, $location->route_id ? (int) $location->route_id : null);
+            $this->syncPrimaryRouteMembership($accountId, $location, $primaryRouteId);
         });
 
         return redirect()->route('locations.show', $location)->with('status', 'Location updated successfully.');
@@ -230,15 +232,8 @@ class LocationController extends Controller
     public function destroy(Request $request, int $location): RedirectResponse
     {
         $accountId = $this->currentAccountId($request);
-        $membership = AccountUser::query()
-            ->where('account_id', $accountId)
-            ->where('user_id', $request->user()->id)
-            ->where('status', AccountUser::STATUS_ACTIVE)
-            ->first();
-
-        abort_if(! $membership || ! $this->canDeleteLocation($membership), 403);
-
         $location = $this->locationForAccount($accountId, $location, ['machines', 'services', 'routeLocations', 'documents']);
+        $this->authorize('delete', $location);
 
         if ($location->machines()->exists() || $location->services()->exists()) {
             return back()->withErrors([
@@ -409,43 +404,52 @@ class LocationController extends Controller
             ->get();
     }
 
-    protected function syncPrimaryRouteMembership(int $accountId, Location $location, ?int $previousRouteId, ?int $newRouteId): void
+    protected function syncPrimaryRouteMembership(int $accountId, Location $location, ?int $newRouteId): void
     {
-        if ($previousRouteId !== null && $previousRouteId !== $newRouteId) {
+        if ($newRouteId === null) {
             RouteLocation::query()
                 ->where('account_id', $accountId)
-                ->where('route_id', $previousRouteId)
                 ->where('location_id', $location->id)
-                ->delete();
+                ->update([
+                    'is_primary' => false,
+                ]);
 
-            $this->renumberStops($accountId, $previousRouteId);
-        }
-
-        if ($newRouteId === null) {
             return;
         }
 
-        $alreadyExists = RouteLocation::query()
+        $routeLocation = RouteLocation::query()
             ->where('account_id', $accountId)
             ->where('route_id', $newRouteId)
             ->where('location_id', $location->id)
-            ->exists();
+            ->first();
 
-        if ($alreadyExists) {
-            return;
+        if (! $routeLocation) {
+            $nextStopOrder = (int) RouteLocation::query()
+                ->where('account_id', $accountId)
+                ->where('route_id', $newRouteId)
+                ->max('stop_order') + 1;
+
+            $routeLocation = RouteLocation::create([
+                'account_id' => $accountId,
+                'route_id' => $newRouteId,
+                'location_id' => $location->id,
+                'stop_order' => $nextStopOrder,
+                'is_primary' => false,
+            ]);
         }
 
-        $nextStopOrder = (int) RouteLocation::query()
+        RouteLocation::query()
             ->where('account_id', $accountId)
-            ->where('route_id', $newRouteId)
-            ->max('stop_order') + 1;
+            ->where('location_id', $location->id)
+            ->update([
+                'is_primary' => false,
+            ]);
 
-        RouteLocation::create([
-            'account_id' => $accountId,
-            'route_id' => $newRouteId,
-            'location_id' => $location->id,
-            'stop_order' => $nextStopOrder,
-        ]);
+        RouteLocation::query()
+            ->where('id', $routeLocation->id)
+            ->update([
+                'is_primary' => true,
+            ]);
     }
 
     protected function renumberStops(int $accountId, int $routeId): void
@@ -474,11 +478,5 @@ class LocationController extends Controller
                     'stop_order' => $index + 1,
                 ]);
         }
-    }
-
-    protected function canDeleteLocation(AccountUser $membership): bool
-    {
-        return $membership->roleMatches(AccountUser::ROLE_OWNER)
-            || $membership->roleMatches(AccountUser::ROLE_ADMIN);
     }
 }

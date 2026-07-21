@@ -6,7 +6,9 @@
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Locations</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage locations for the selected account.</p>
                 </div>
-                <a href="{{ route('locations.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Location</a>
+                @can('create', \App\Models\Location::class)
+                    <a href="{{ route('locations.create') }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Location</a>
+                @endcan
             </div>
 
             @if (session('status'))
@@ -48,7 +50,7 @@
                                             {{ $location->location_name }}
                                         </a>
                                     </td>
-                                    <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->route?->route_name ?? '—' }}</td>
+                                    <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->primaryRouteLocation?->route?->route_name ?? '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->address ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->city ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $location->state ?: '—' }}</td>

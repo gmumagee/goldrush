@@ -7,6 +7,7 @@ use App\Models\AccountUser;
 use App\Models\CalendarEvent;
 use App\Models\CalendarReminder;
 use App\Models\Location;
+use App\Models\RouteLocation;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\VendingRoute;
@@ -383,9 +384,8 @@ class CalendarWorkflowTest extends TestCase
 
     protected function createLocation(Account $account, VendingRoute $route, string $name): Location
     {
-        return Location::create([
+        $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => $name,
             'address' => '123 Calendar Road',
             'city' => 'Toronto',
@@ -393,6 +393,19 @@ class CalendarWorkflowTest extends TestCase
             'zip_code' => 'M1M1M1',
             'contact_name' => 'Jamie Admin',
         ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
+        ]);
+
+        return $location;
     }
 
     protected function createWarehouse(Account $account, string $name): Warehouse

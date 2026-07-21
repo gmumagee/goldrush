@@ -51,7 +51,7 @@ class VendingRoute extends Model
     public function locations()
     {
         return $this->belongsToMany(Location::class, 'tbl_route_locations', 'route_id', 'location_id')
-            ->withPivot(['id', 'account_id', 'stop_order'])
+            ->withPivot(['id', 'account_id', 'stop_order', 'is_primary'])
             ->orderBy('tbl_route_locations.stop_order')
             ->orderBy('tbl_route_locations.id');
     }

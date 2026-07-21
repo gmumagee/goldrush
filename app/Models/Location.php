@@ -12,7 +12,6 @@ class Location extends Model
 
     protected $fillable = [
         'account_id',
-        'route_id',
         'location_name',
         'address',
         'city',
@@ -28,20 +27,24 @@ class Location extends Model
         return $this->belongsTo(Account::class, 'account_id');
     }
 
-    public function route()
-    {
-        return $this->belongsTo(VendingRoute::class, 'route_id');
-    }
-
     public function routeLocations()
     {
         return $this->hasMany(RouteLocation::class, 'location_id');
     }
 
+    public function primaryRouteLocation()
+    {
+        return $this->hasOne(RouteLocation::class, 'location_id')
+            ->where('is_primary', true)
+            ->orderBy('id');
+    }
+
     public function routes()
     {
         return $this->belongsToMany(VendingRoute::class, 'tbl_route_locations', 'location_id', 'route_id')
-            ->withPivot(['id', 'account_id', 'stop_order']);
+            ->withPivot(['id', 'account_id', 'stop_order', 'is_primary'])
+            ->orderBy('tbl_route_locations.stop_order')
+            ->orderBy('tbl_route_locations.id');
     }
 
     public function machines()

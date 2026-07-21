@@ -233,7 +233,7 @@ class CalendarService
         ?int $dismissedByUserId = null
     ): CalendarEvent
     {
-        $service->loadMissing(['location.route']);
+        $service->loadMissing(['location.primaryRouteLocation.route']);
 
         $event = CalendarEvent::query()
             ->forAccount($service->account_id)
@@ -244,6 +244,8 @@ class CalendarService
         $isMaintenanceService = $service->isMaintenanceService();
         $eventType = $isMaintenanceService ? 'Maintenance' : 'Service';
         $titlePrefix = $isMaintenanceService ? 'Maintenance' : 'Service';
+
+        $service->loadMissing('location.primaryRouteLocation.route');
 
         $data = [
             'account_id' => $service->account_id,
@@ -260,7 +262,7 @@ class CalendarService
             'assigned_user_id' => $service->user_id,
             'location_id' => $service->location_id,
             'warehouse_id' => $service->warehouse_id,
-            'route_id' => $service->location?->route_id,
+            'route_id' => $service->location?->primaryRouteLocation?->route_id,
             'source_type' => CalendarEvent::SOURCE_TYPE_SERVICE,
             'source_id' => $service->id,
             'created_by_user_id' => $event?->created_by_user_id ?? $createdByUserId,

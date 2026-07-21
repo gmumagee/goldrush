@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\Machine;
+use App\Models\RouteLocation;
 use App\Models\VendingRoute;
 use App\Services\DataDictionaryService;
 use App\Services\InventoryService;
@@ -24,6 +25,8 @@ class MachineController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Machine::class);
+
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
 
@@ -73,6 +76,7 @@ class MachineController extends Controller
                 ])
                 ->orderBy('bin_code'),
         ]);
+        $this->authorize('view', $machine);
 
         $inventoryByBin = $inventoryService->getCurrentInventoryForMachine($machine);
 
@@ -84,6 +88,8 @@ class MachineController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Machine::class);
+
         $accountId = $this->currentAccountId($request);
         $locations = $this->locationsForAccount($accountId);
         $requestedLocationId = $request->integer('location_id');
@@ -101,6 +107,8 @@ class MachineController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Machine::class);
+
         $accountId = $this->currentAccountId($request);
         $data = $this->validateMachine($request, $accountId);
 
@@ -118,6 +126,7 @@ class MachineController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $machine = $this->machineForAccount($accountId, $machine);
+        $this->authorize('update', $machine);
 
         return view('machines.edit', [
             'machine' => $machine,
@@ -132,6 +141,7 @@ class MachineController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $machine = $this->machineForAccount($accountId, $machine);
+        $this->authorize('update', $machine);
         $data = $this->validateMachine($request, $accountId, $machine);
 
         $data['location_id'] = $data['location_id'] ?? $this->ensureDefaultLocation($accountId)->id;
@@ -147,6 +157,7 @@ class MachineController extends Controller
     {
         $accountId = $this->currentAccountId($request);
         $machine = $this->machineForAccount($accountId, $machine);
+        $this->authorize('delete', $machine);
 
         if ($machine->bins()->exists() || $machine->services()->exists() || $machine->transactions()->exists()) {
             return back()->withErrors([
@@ -222,10 +233,9 @@ class MachineController extends Controller
             ]
         );
 
-        return Location::query()->firstOrCreate(
+        $location = Location::query()->firstOrCreate(
             [
                 'account_id' => $accountId,
-                'route_id' => $route->id,
                 'location_name' => 'Default Location',
             ],
             [
@@ -238,6 +248,38 @@ class MachineController extends Controller
                 'contact_email' => null,
             ]
         );
+
+        $routeLocation = RouteLocation::query()->firstOrCreate(
+            [
+                'account_id' => $accountId,
+                'route_id' => $route->id,
+                'location_id' => $location->id,
+            ],
+            [
+                'stop_order' => (int) RouteLocation::query()
+                    ->where('account_id', $accountId)
+                    ->where('route_id', $route->id)
+                    ->max('stop_order') + 1,
+                'is_primary' => false,
+            ]
+        );
+
+        $hasPrimaryRoute = $location->routeLocations()
+            ->where('account_id', $accountId)
+            ->where('is_primary', true)
+            ->exists();
+
+        if (! $hasPrimaryRoute) {
+            $location->routeLocations()
+                ->where('account_id', $accountId)
+                ->update(['is_primary' => false]);
+
+            RouteLocation::query()
+                ->where('id', $routeLocation->id)
+                ->update(['is_primary' => true]);
+        }
+
+        return $location;
     }
 
     protected function machineForAccount(int $accountId, int $machineId, array $with = []): Machine

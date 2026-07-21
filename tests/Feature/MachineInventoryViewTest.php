@@ -8,6 +8,7 @@ use App\Models\Bin;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Product;
+use App\Models\RouteLocation;
 use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
@@ -127,9 +128,8 @@ class MachineInventoryViewTest extends TestCase
 
     protected function createLocation(Account $account, VendingRoute $route, string $name): Location
     {
-        return Location::create([
+        $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => $name,
             'address' => '123 Service Road',
             'city' => 'Toronto',
@@ -137,6 +137,19 @@ class MachineInventoryViewTest extends TestCase
             'zip_code' => 'M1M1M1',
             'contact_name' => 'Casey Tech',
         ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
+        ]);
+
+        return $location;
     }
 
     protected function createMachine(Account $account, Location $location, string $type): Machine

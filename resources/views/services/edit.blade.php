@@ -23,7 +23,7 @@
                             <x-label for="location_id" value="Location" />
                             <select id="location_id" name="location_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>
                                 @foreach ($locations as $location)
-                                    <option value="{{ $location->id }}" @selected(old('location_id', $service->location_id) == $location->id)>{{ $location->location_name }}{{ $location->route?->route_name ? ' · '.$location->route->route_name : '' }}</option>
+                                    <option value="{{ $location->id }}" @selected(old('location_id', $service->location_id) == $location->id)>{{ $location->location_name }}{{ $location->primaryRouteLocation?->route?->route_name ? ' · '.$location->primaryRouteLocation->route->route_name : '' }}</option>
                                 @endforeach
                             </select>
                         </div>

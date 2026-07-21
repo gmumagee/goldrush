@@ -21,7 +21,6 @@ class DemoLocationSeeder extends DemoSeeder
                     'location_name' => $location['location_name'],
                 ],
                 [
-                    'route_id' => $route->id,
                     'address' => $location['address'],
                     'city' => $location['city'],
                     'state' => $location['state'],
@@ -54,6 +53,9 @@ class DemoLocationSeeder extends DemoSeeder
                     ]);
 
                 foreach ($locationIds as $index => $locationId) {
+                    $locationName = $locationNames[$index];
+                    $isPrimary = $this->primaryRouteNameForLocation($locationName) === $routeName;
+
                     RouteLocation::query()->updateOrCreate(
                         [
                             'account_id' => $accountId,
@@ -62,6 +64,7 @@ class DemoLocationSeeder extends DemoSeeder
                         ],
                         [
                             'stop_order' => $index + 1,
+                            'is_primary' => $isPrimary,
                         ],
                     );
                 }
@@ -145,5 +148,11 @@ class DemoLocationSeeder extends DemoSeeder
                 'Medical Plaza',
             ],
         ];
+    }
+
+    protected function primaryRouteNameForLocation(string $locationName): ?string
+    {
+        return collect($this->locations())
+            ->firstWhere('location_name', $locationName)['route_name'] ?? null;
     }
 }

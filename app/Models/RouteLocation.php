@@ -17,6 +17,7 @@ class RouteLocation extends Model
         'route_id',
         'location_id',
         'stop_order',
+        'is_primary',
     ];
 
     protected $casts = [
@@ -24,6 +25,7 @@ class RouteLocation extends Model
         'route_id' => 'integer',
         'location_id' => 'integer',
         'stop_order' => 'integer',
+        'is_primary' => 'boolean',
         'created_at' => 'datetime',
     ];
 

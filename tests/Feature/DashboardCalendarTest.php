@@ -10,6 +10,7 @@ use App\Models\InventoryLedger;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Product;
+use App\Models\RouteLocation;
 use App\Models\Service;
 use App\Models\ServiceSale;
 use App\Models\Transaction;
@@ -573,8 +574,18 @@ class DashboardCalendarTest extends TestCase
 
         $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => 'Machine Inventory Location',
+        ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
         ]);
 
         $machine = Machine::create([
@@ -632,8 +643,18 @@ class DashboardCalendarTest extends TestCase
 
         $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => 'Sales Location '.uniqid(),
+        ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
         ]);
 
         $machine = Machine::create([

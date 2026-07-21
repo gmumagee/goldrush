@@ -7,6 +7,7 @@ use App\Models\AccountUser;
 use App\Models\Contact;
 use App\Models\Location;
 use App\Models\LocationContact;
+use App\Models\RouteLocation;
 use App\Models\User;
 use App\Models\VendingRoute;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -108,9 +109,8 @@ class LocationSummaryCardTest extends TestCase
             'description' => $name.' route description',
         ]);
 
-        return Location::create([
+        $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => $name,
             'address' => '123 Main Street',
             'city' => 'Arlington',
@@ -120,5 +120,18 @@ class LocationSummaryCardTest extends TestCase
             'contact_phone' => '555-999-1000',
             'contact_email' => 'legacy@example.com',
         ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
+        ]);
+
+        return $location;
     }
 }

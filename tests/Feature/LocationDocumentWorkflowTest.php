@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AccountUser;
 use App\Models\Location;
 use App\Models\LocationDocument;
+use App\Models\RouteLocation;
 use App\Models\User;
 use App\Models\VendingRoute;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -166,9 +167,8 @@ class LocationDocumentWorkflowTest extends TestCase
             'description' => $name.' route description',
         ]);
 
-        return Location::create([
+        $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => $name,
             'address' => '123 Service Road',
             'city' => 'Toronto',
@@ -176,6 +176,19 @@ class LocationDocumentWorkflowTest extends TestCase
             'zip_code' => 'M1M1M1',
             'contact_name' => 'Casey Tech',
         ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
+        ]);
+
+        return $location;
     }
 
     protected function createDocument(Account $account, Location $location, string $originalFilename): LocationDocument

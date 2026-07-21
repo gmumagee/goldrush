@@ -37,11 +37,13 @@ class ServiceController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Service::class);
+
         $accountId = $this->currentAccountId($request);
 
         $pendingServices = Service::query()
             ->where('account_id', $accountId)
-            ->with(['location.route', 'warehouse', 'user', 'closedBy'])
+            ->with(['location.primaryRouteLocation.route', 'warehouse', 'user', 'closedBy'])
             ->whereIn('status', [Service::STATUS_AWAITING, 'awaiting service'])
             ->orderBy('service_date')
             ->orderBy('id')
@@ -50,7 +52,7 @@ class ServiceController extends Controller
         $completedServicesAwaitingMoney = Service::query()
             ->where('account_id', $accountId)
             ->where('service_type', Service::TYPE_LOCATION)
-            ->with(['location.route', 'warehouse', 'user', 'closedBy'])
+            ->with(['location.primaryRouteLocation.route', 'warehouse', 'user', 'closedBy'])
             ->where('status', Service::STATUS_COMPLETED)
             ->whereNull('amount_collected')
             ->orderByDesc('completed_at')
@@ -59,7 +61,7 @@ class ServiceController extends Controller
 
         $allServices = Service::query()
             ->where('account_id', $accountId)
-            ->with(['location.route', 'warehouse', 'user', 'closedBy'])
+            ->with(['location.primaryRouteLocation.route', 'warehouse', 'user', 'closedBy'])
             ->orderByDesc('service_date')
             ->orderByDesc('id')
             ->get();
@@ -78,6 +80,8 @@ class ServiceController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Service::class);
+
         $accountId = $this->currentAccountId($request);
         $locations = $this->locationsForAccount($accountId);
         $requestedLocationId = $request->integer('location_id');
@@ -95,6 +99,8 @@ class ServiceController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Service::class);
+
         $accountId = $this->currentAccountId($request);
         $data = $this->validateService($request, $accountId);
 
@@ -139,7 +145,7 @@ class ServiceController extends Controller
         $accountId = $this->currentAccountId($request);
 
         $service = $this->resolveService($request, $service, [
-            'location.route',
+            'location.primaryRouteLocation.route',
             'warehouse',
             'location.machines' => fn ($query) => $query->orderBy('type')->orderBy('id'),
             'location.machines.bins',
@@ -155,6 +161,7 @@ class ServiceController extends Controller
                 ->orderBy('product_id')
                 ->orderBy('id'),
         ]);
+        $this->authorize('view', $service);
         $service->loadSum('calculatedSales as sales_total', 'sales_amount');
         $service->loadCount(['calculatedSales', 'baselineSales']);
 
@@ -174,6 +181,7 @@ class ServiceController extends Controller
     public function edit(Request $request, int $service): View|RedirectResponse
     {
         $service = $this->resolveService($request, $service, ['location', 'user']);
+        $this->authorize('update', $service);
 
         if ($service->isServiceClosed()) {
             return redirect()
@@ -194,6 +202,7 @@ class ServiceController extends Controller
     public function update(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
 
         if ($service->isServiceClosed()) {
             return back()->withErrors(['service' => 'Closed services are read-only.']);
@@ -253,6 +262,7 @@ class ServiceController extends Controller
     public function destroy(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('delete', $service);
 
         if ($service->transactions()->exists()) {
             return back()->withErrors([
@@ -273,6 +283,7 @@ class ServiceController extends Controller
     public function open(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
         $this->ensureLocationService($service, 'This action is only valid for location services.');
         $this->ensureAwaitingService($service);
 
@@ -293,6 +304,7 @@ class ServiceController extends Controller
     public function openMaintenance(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
         $this->ensureMaintenanceService($service, 'This action is only valid for maintenance services.');
         $this->ensureAwaitingService($service);
 
@@ -313,6 +325,7 @@ class ServiceController extends Controller
     public function complete(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
         $this->ensureLocationService($service, 'This action is only valid for location services.');
         $this->ensureServiceOpen($service);
 
@@ -352,6 +365,7 @@ class ServiceController extends Controller
     public function closeMaintenance(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
         $this->ensureMaintenanceService($service, 'This action is only valid for maintenance services.');
         $this->ensureServiceOpen($service);
         $data = $request->validate([
@@ -378,7 +392,8 @@ class ServiceController extends Controller
 
     public function editAmountCollected(Request $request, int $service): View
     {
-        $service = $this->resolveService($request, $service, ['location.route', 'user', 'closedBy']);
+        $service = $this->resolveService($request, $service, ['location.primaryRouteLocation.route', 'user', 'closedBy']);
+        $this->authorize('update', $service);
         $service->loadSum('calculatedSales as sales_total', 'sales_amount');
         $service->loadCount(['calculatedSales', 'baselineSales']);
         $this->ensureLocationService($service, 'Amount collected is only available for location services.');
@@ -392,6 +407,7 @@ class ServiceController extends Controller
     public function updateAmountCollected(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service, ['location.machines.bins']);
+        $this->authorize('update', $service);
         $this->ensureLocationService($service, 'Amount collected is only available for location services.');
         $this->ensureAwaitingAmountCollected($service);
         $data = $request->validate([
@@ -427,6 +443,7 @@ class ServiceController extends Controller
     public function countMachine(Request $request, int $service, int $machine): View
     {
         $service = $this->resolveService($request, $service, ['location', 'user']);
+        $this->authorize('update', $service);
         $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
@@ -457,6 +474,7 @@ class ServiceController extends Controller
     public function storeCount(Request $request, int $service, int $machine, InventoryCostService $inventoryCostService): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
         $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
@@ -502,6 +520,7 @@ class ServiceController extends Controller
     public function fillMachine(Request $request, int $service, int $machine): View
     {
         $service = $this->resolveService($request, $service, ['location', 'user']);
+        $this->authorize('update', $service);
         $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
@@ -519,6 +538,7 @@ class ServiceController extends Controller
     public function storeFill(Request $request, int $service, int $machine, WarehouseInventoryService $warehouseInventoryService): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
+        $this->authorize('update', $service);
         $this->ensureSupportsInventoryTransactions($service);
         $this->ensureServiceOpen($service);
 
@@ -607,7 +627,7 @@ class ServiceController extends Controller
     {
         return Location::query()
             ->where('account_id', $accountId)
-            ->with('route')
+            ->with('primaryRouteLocation.route')
             ->orderBy('location_name')
             ->get();
     }

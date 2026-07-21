@@ -7,6 +7,7 @@ use App\Models\Bin;
 use App\Models\Location;
 use App\Models\Machine;
 use App\Models\Product;
+use App\Models\RouteLocation;
 use App\Models\Service;
 use App\Models\ServiceSale;
 use App\Models\Transaction;
@@ -188,13 +189,23 @@ class ServiceSalesCalculatorTest extends TestCase
 
         $location = Location::create([
             'account_id' => $account->id,
-            'route_id' => $route->id,
             'location_name' => 'Campus Center',
             'address' => '123 Service Road',
             'city' => 'Toronto',
             'state' => 'ON',
             'zip_code' => 'M1M1M1',
             'contact_name' => 'Casey Tech',
+        ]);
+
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $location->id,
+            'stop_order' => (int) RouteLocation::query()
+                ->where('account_id', $account->id)
+                ->where('route_id', $route->id)
+                ->max('stop_order') + 1,
+            'is_primary' => true,
         ]);
 
         $warehouse = Warehouse::create([
