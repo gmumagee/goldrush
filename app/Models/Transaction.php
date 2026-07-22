@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
+    use Auditable;
+
     // Reuse canonical transaction types so reconciliation does not depend on literal strings.
     public const TYPE_CURRENT_INVENTORY = 'current_inventory';
     public const TYPE_COUNT = 'count';

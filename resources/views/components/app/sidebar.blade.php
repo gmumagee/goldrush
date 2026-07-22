@@ -21,11 +21,12 @@
     $canViewContacts = $currentUser?->can('viewAny', \App\Models\Contact::class) ?? false;
     $canViewDictionary = $currentUser?->can('viewAny', \App\Models\DataDictionary::class) ?? false;
     $canViewAccountUsers = $currentUser?->can('viewAny', \App\Models\AccountUser::class) ?? false;
+    $canViewAuditLog = $currentUser?->can('viewAny', \App\Models\AuditLog::class) ?? false;
 
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
     $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');
     $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*') || request()->routeIs('transactions.*');
-    $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('data-dictionary.*') || request()->is('users*') || request()->is('settings*');
+    $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('data-dictionary.*') || request()->routeIs('audit-log.*') || request()->is('users*') || request()->is('settings*');
 
     $sectionButtonClasses = 'flex w-full min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition';
     $sectionButtonStateClasses = 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60';
@@ -276,6 +277,9 @@
                     @endif
                     @if ($canViewDictionary)
                         <li><a href="{{ route('data-dictionary.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('data-dictionary.*') ? $activeChildClasses : $inactiveChildClasses }}">Data Dictionary</a></li>
+                    @endif
+                    @if ($canViewAuditLog)
+                        <li><a href="{{ route('audit-log.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('audit-log.*') ? $activeChildClasses : $inactiveChildClasses }}">Audit Log</a></li>
                     @endif
                     <li><span class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500">Settings<span class="ml-auto text-xs">Soon</span></span></li>
                     <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>

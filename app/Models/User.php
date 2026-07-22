@@ -62,4 +62,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(CalendarReminder::class, 'assigned_user_id');
     }
+
+    public function isSuperAdmin(): bool
+    {
+        // Stub only: platform-wide audit visibility stays disabled until a real super-admin capability exists.
+        return false;
+    }
 }

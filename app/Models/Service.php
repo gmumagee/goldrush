@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
+    use Auditable;
+
     // Keep workflow and type checks on stable internal values instead of labels.
     public const STATUS_AWAITING = 'Awaiting Service';
     public const STATUS_OPEN = 'Service Open';

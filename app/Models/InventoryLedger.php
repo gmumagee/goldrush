@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 
 class InventoryLedger extends Model
 {
+    use Auditable;
+
     public const MOVEMENT_TYPE_PURCHASE = 'purchase';
     public const MOVEMENT_TYPE_PURCHASE_VOID = 'purchase_void';
     public const MOVEMENT_TYPE_SERVICE_FILL = 'service_fill';
@@ -51,5 +54,10 @@ class InventoryLedger extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    protected function shouldAuditEvent(string $event): bool
+    {
+        return $event !== AuditLog::EVENT_UPDATED;
     }
 }

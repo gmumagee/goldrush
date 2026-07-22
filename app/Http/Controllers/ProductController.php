@@ -31,11 +31,15 @@ class ProductController extends Controller
                         ->orWhere('barcode', 'like', '%'.$search.'%');
                 });
             })
-            ->orderBy('id', 'desc')
-            ->paginate(25)
-            ->withQueryString();
+            ->orderBy('category')
+            ->orderBy('product_name')
+            ->get();
 
-        return view('products.index', compact('products', 'search'));
+        $productsByCategory = $products
+            ->groupBy(fn (Product $product) => trim((string) $product->category) !== '' ? $product->category : 'Uncategorized')
+            ->sortKeys();
+
+        return view('products.index', compact('productsByCategory', 'search'));
     }
 
     public function create(Request $request): View

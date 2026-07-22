@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 
 class Purchase extends Model
 {
+    use Auditable;
+
     public const STATUS_POSTED = 'Posted';
     public const STATUS_VOIDED = 'Voided';
 

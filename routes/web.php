@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountSelectionController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AccountUserPasswordController;
 use App\Http\Controllers\AccountUserController;
 use App\Http\Controllers\Auth\LoginController;
@@ -89,6 +90,9 @@ Route::middleware('auth')->group(function () {
             ->name('data-dictionary.deactivate');
         Route::post('/data-dictionary/{dataDictionary}/activate', [DataDictionaryController::class, 'activate'])
             ->name('data-dictionary.activate');
+
+        Route::get('/audit-log', [AuditLogController::class, 'index'])
+            ->name('audit-log.index');
 
         Route::resource('warehouses', WarehouseController::class);
         Route::resource('vendors', VendorController::class);
