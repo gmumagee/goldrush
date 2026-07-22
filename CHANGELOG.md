@@ -8,6 +8,30 @@
 
 
 
+2026-07-22, Seed new accounts from an editable default product catalog CSV, Extracted the existing CSV import and idempotent updateOrCreate product-loading logic into a reusable ProductCatalogImporter service, pointed the default catalog at a configurable storage-backed path, added queued after-commit default-catalog imports for newly created accounts plus CSV validation tooling, and extended coverage for job dispatch importer idempotency malformed-row handling and validation-only checks.
+
+
+
+2026-07-22, Group the Products list by category with accordions, Reworked the account-scoped Products index so search behavior stays unchanged while results now load as a category-sorted collection grouped into Alpine accordion sections with Expand all and Collapse all controls, moved null and blank categories into an explicit Uncategorized bucket, removed the redundant Category column from the inner table, and extended feature coverage for grouping filtering empty states and pagination-free rendering.
+
+
+
+2026-07-22, Add financial and inventory audit logging, Added a general tbl_audit_log table plus an AuditLog model and reusable Auditable trait, wired created updated and deleted accountability logging for Service Transaction Purchase PurchaseItem and append-only InventoryLedger records with compact per-field change payloads and nullable account and user support for future system-wide use, and added coverage for event creation null-user contexts no-op updates and changed-field-only payloads.
+
+
+
+2026-07-22, Add an account-scoped Audit Log screen, Added a paginated /audit-log index with event and entity filters newest-first sorting compact rendered change summaries System fallback labeling for unauthenticated actions and admin-only navigation visibility, scoped account admins to the current account while leaving the super-admin all-accounts branch feature-gated, and extended feature coverage for account isolation role-based 403 handling filter persistence pagination and system-row rendering.
+
+
+
+2026-07-22, Add runtime single-tenant mode without changing account-scoped data modeling, Added a centralized tenancy helper and config-driven multi-versus-single mode switch that keeps account_id on every table and query while auto-pinning current_account_id to one configured account in single mode, hid account-switching and account-creation friction from the shared auth and navigation flows, added an idempotent tenancy:init-single installer command, and covered single-mode auto-selection registration policy UI hiding and multi-tenant regression behavior.
+
+
+
+2026-07-22, Add a global super-admin capability with platform-account access and audit logging, Added persisted is_super_admin support on users, console-only grant and revoke commands, a platform-admin route group with a minimal all-accounts index, policy and membership-middleware bypasses that allow cross-account access without AccountUser rows, lightweight tbl_super_admin_audit_log entries for cross-account bypass requests, and feature coverage for access denial bypass auditing platform-route gating and the new Artisan commands.
+
+
+
 
 2026-07-21, Move Location Detail service-type styling onto the visible header button, Reworked the Location Detail services accordion so the stored tbl_services.service_type value now maps directly to button-level service-accordion-button classes and a rendered data-service-type hook, replaced the wrapper-only maintenance background override with button-specific light-blue and dark-mode rules that keep the chevron readable across collapsed expanded hover and focus states, and extended location-detail coverage to verify Service #9 style mapping button attributes non-service accordion isolation and the updated stylesheet contract.
 
