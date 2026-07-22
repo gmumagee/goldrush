@@ -13,12 +13,14 @@ class DataDictionaryManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_owner_can_view_dictionary_management_page_with_global_and_account_values(): void
+    public function test_super_admin_can_view_dictionary_management_page_with_global_and_account_values(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Alpha Vending');
         $otherAccount = $this->createAccount('Beta Vending');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
 
         $globalEntry = $this->createDictionaryEntry(null, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'site_contact', 'Site Contact');
         $accountEntry = $this->createDictionaryEntry($account->id, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'emergency_contact', 'Emergency Contact');
@@ -37,11 +39,13 @@ class DataDictionaryManagementTest extends TestCase
             ->assertDontSeeText('Private Role');
     }
 
-    public function test_admin_can_open_dictionary_management_page(): void
+    public function test_super_admin_can_open_dictionary_management_page(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Admin Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_ADMIN);
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -49,32 +53,67 @@ class DataDictionaryManagementTest extends TestCase
             ->assertOk();
     }
 
-    public function test_non_admin_user_cannot_manage_dictionary_values(): void
+    public function test_owner_admin_manager_technician_and_viewer_cannot_manage_dictionary_values(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
-        $account = $this->createAccount('Viewer Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_VIEWER);
+        $account = $this->createAccount('Restricted Dictionary Account');
+        $entry = $this->createDictionaryEntry($account->id, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'private_role', 'Private Role');
 
-        $this->actingAs($user)
-            ->withSession(['current_account_id' => $account->id])
-            ->get(route('data-dictionary.index'))
-            ->assertForbidden();
+        foreach ([
+            AccountUser::ROLE_OWNER,
+            AccountUser::ROLE_ADMIN,
+            AccountUser::ROLE_MANAGER,
+            AccountUser::ROLE_TECHNICIAN,
+            AccountUser::ROLE_VIEWER,
+        ] as $role) {
+            $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+            $this->attachUserToAccount($user, $account, $role);
 
-        $this->actingAs($user)
-            ->withSession(['current_account_id' => $account->id])
-            ->post(route('data-dictionary.store'), [
-                'name' => DataDictionary::GROUP_LOCATION_CONTACT_ROLE,
-                'value' => 'Emergency Contact',
-                'display_name' => 'Emergency Contact',
-            ])
-            ->assertForbidden();
+            $session = ['current_account_id' => $account->id];
+
+            $this->actingAs($user)->withSession($session)
+                ->get(route('data-dictionary.index'))
+                ->assertForbidden();
+
+            $this->actingAs($user)->withSession($session)
+                ->get(route('data-dictionary.create'))
+                ->assertForbidden();
+
+            $this->actingAs($user)->withSession($session)
+                ->post(route('data-dictionary.store'), [
+                    'name' => DataDictionary::GROUP_LOCATION_CONTACT_ROLE,
+                    'value' => 'Emergency Contact',
+                    'display_name' => 'Emergency Contact',
+                ])
+                ->assertForbidden();
+
+            $this->actingAs($user)->withSession($session)
+                ->get(route('data-dictionary.edit', $entry))
+                ->assertForbidden();
+
+            $this->actingAs($user)->withSession($session)
+                ->put(route('data-dictionary.update', $entry), [
+                    'value' => 'Updated Role',
+                    'display_name' => 'Updated Role',
+                ])
+                ->assertForbidden();
+
+            $this->actingAs($user)->withSession($session)
+                ->post(route('data-dictionary.deactivate', $entry))
+                ->assertForbidden();
+
+            $this->actingAs($user)->withSession($session)
+                ->post(route('data-dictionary.activate', $entry))
+                ->assertForbidden();
+        }
     }
 
     public function test_create_form_only_shows_name_value_and_display_name_inputs(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Form Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
         $this->createDictionaryEntry(null, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'site_contact', 'Site Contact');
 
         $this->actingAs($user)
@@ -89,11 +128,13 @@ class DataDictionaryManagementTest extends TestCase
             ->assertSeeText(DataDictionary::GROUP_LOCATION_CONTACT_ROLE);
     }
 
-    public function test_owner_can_create_account_specific_dictionary_value_with_next_sort_order(): void
+    public function test_super_admin_can_create_account_specific_dictionary_value_with_next_sort_order(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Create Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
         $this->createDictionaryEntry(null, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'site_contact', 'Site Contact', 10);
         $this->createDictionaryEntry($account->id, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'manager', 'Manager', 20);
 
@@ -119,9 +160,11 @@ class DataDictionaryManagementTest extends TestCase
 
     public function test_duplicate_value_is_blocked_across_global_and_account_scope(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Duplicate Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
         $this->createDictionaryEntry(null, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'regional_manager', 'Regional Manager');
 
         $this->actingAs($user)
@@ -147,11 +190,13 @@ class DataDictionaryManagementTest extends TestCase
         );
     }
 
-    public function test_owner_can_edit_activate_and_deactivate_account_specific_dictionary_values(): void
+    public function test_super_admin_can_edit_activate_and_deactivate_account_specific_dictionary_values(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Lifecycle Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
         $entry = $this->createDictionaryEntry($account->id, DataDictionary::GROUP_LOCATION_DOCUMENT_TYPE, 'photo_id', 'Photo ID');
 
         $this->actingAs($user)
@@ -191,9 +236,11 @@ class DataDictionaryManagementTest extends TestCase
 
     public function test_global_dictionary_values_cannot_be_edited_from_account_tool(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Read Only Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
         $globalEntry = $this->createDictionaryEntry(null, DataDictionary::GROUP_SERVICE_STATUS, 'service_completed', 'Service Completed');
 
         $this->actingAs($user)
@@ -218,10 +265,12 @@ class DataDictionaryManagementTest extends TestCase
 
     public function test_dictionary_values_cannot_be_managed_across_accounts(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $accountA = $this->createAccount('Account A');
         $accountB = $this->createAccount('Account B');
-        $this->attachUserToAccount($user, $accountA, AccountUser::ROLE_OWNER);
         $entry = $this->createDictionaryEntry($accountB->id, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'private_role', 'Private Role');
 
         $this->actingAs($user)
@@ -265,9 +314,11 @@ class DataDictionaryManagementTest extends TestCase
 
     public function test_store_rejects_a_name_not_present_in_the_dropdown(): void
     {
-        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
         $account = $this->createAccount('Validation Account');
-        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
         $this->createDictionaryEntry(null, DataDictionary::GROUP_LOCATION_CONTACT_ROLE, 'site_contact', 'Site Contact');
 
         $this->actingAs($user)

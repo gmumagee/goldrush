@@ -60,7 +60,10 @@ class ServicePolicy extends BaseAccountPolicy
         $membership = $this->membership($user);
 
         return $membership !== null
-            && $membership->canDelete()
-            && $this->belongsToCurrentAccount($membership, $service);
+            && $this->belongsToCurrentAccount($membership, $service)
+            && (
+                (int) $service->created_by_user_id === (int) $user->id
+                || $membership->canManageAccountUsers()
+            );
     }
 }

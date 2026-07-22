@@ -8,6 +8,15 @@
 
 
 
+2026-07-22, Add safe service deletion with creator tracking and password confirmation, Added a nullable created_by_user_id foreign key to services with a backfill from the legacy assigned user, now persist the real creator during service creation without changing assignee behavior, exposed a creator-or-admin-only Delete Service action on the service detail page behind Laravel's password.confirm flow, kept the hard block on deleting services that already have transactions while still removing linked calendar events for valid deletions, and added feature coverage for creator tracking migration backfill password gating authorization button visibility and calendar cleanup.
+
+
+
+
+
+
+
+
 2026-07-22, Seed new accounts from an editable default product catalog CSV, Extracted the existing CSV import and idempotent updateOrCreate product-loading logic into a reusable ProductCatalogImporter service, pointed the default catalog at a configurable storage-backed path, added queued after-commit default-catalog imports for newly created accounts plus CSV validation tooling, and extended coverage for job dispatch importer idempotency malformed-row handling and validation-only checks.
 
 

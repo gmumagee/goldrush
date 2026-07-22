@@ -118,6 +118,7 @@ class ServiceController extends Controller
                 'location_id' => (int) $data['location_id'],
                 'warehouse_id' => $isLocationService ? (int) $data['warehouse_id'] : null,
                 'user_id' => $assignedUserId,
+                'created_by_user_id' => (int) $request->user()->id,
                 'closed_by_user_id' => null,
                 'service_type' => $data['service_type'],
                 'notes' => $data['notes'] ?? null,
@@ -150,6 +151,7 @@ class ServiceController extends Controller
             'location.machines' => fn ($query) => $query->orderBy('type')->orderBy('id'),
             'location.machines.bins',
             'user',
+            'createdBy',
             'closedBy',
             'calendarEvents',
             // Keep the sales breakdown inside one account-scoped eager load to avoid Blade-side queries.
@@ -164,6 +166,7 @@ class ServiceController extends Controller
         $this->authorize('view', $service);
         $service->loadSum('calculatedSales as sales_total', 'sales_amount');
         $service->loadCount(['calculatedSales', 'baselineSales']);
+        $service->loadCount('transactions');
 
         $transactionsByDateAndType = $this->groupTransactionsForService($service);
         $machineSalesGroups = $this->groupSalesByMachine($service);

@@ -37,6 +37,7 @@ class Service extends Model
         'location_id',
         'warehouse_id',
         'user_id',
+        'created_by_user_id',
         'closed_by_user_id',
         'service_type',
         'notes',
@@ -76,6 +77,11 @@ class Service extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     public function closedBy()

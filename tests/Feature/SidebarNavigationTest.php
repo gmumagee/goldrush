@@ -41,7 +41,7 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringOrder($operationsSection, ['Calendar', 'Services']);
         $this->assertStringOrder($routeManagementSection, ['Locations', 'Machines', 'Routes']);
         $this->assertStringOrder($inventorySection, ['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
-        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Data Dictionary', 'Audit Log', 'Settings', 'Switch Account', 'Users']);
+        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Audit Log', 'Settings', 'Switch Account', 'Users']);
 
         $this->assertSame(1, substr_count($content, 'Route Management'));
         $this->assertSame(1, substr_count($content, route('routes.index')));
@@ -62,11 +62,32 @@ class SidebarNavigationTest extends TestCase
             'href="'.route('routes.index').'"',
             $routeManagementSection
         );
+        $this->assertStringNotContainsString('Data Dictionary', $accountSection);
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
             ->get(route('bins.index'))
             ->assertOk();
+    }
+
+    public function test_super_admin_sees_data_dictionary_link_in_the_sidebar(): void
+    {
+        $user = User::factory()->create([
+            'status' => User::STATUS_ACTIVE,
+            'is_super_admin' => true,
+        ]);
+        $account = $this->createAccount('Super Admin Sidebar Account');
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('dashboard'));
+
+        $response->assertOk();
+
+        $accountSection = $this->extractSidebarSection($response->getContent(), 'sidebar-account');
+
+        $this->assertStringContainsString('Data Dictionary', $accountSection);
+        $this->assertStringContainsString('href="'.route('data-dictionary.index').'"', $accountSection);
     }
 
     public function test_route_pages_expand_route_management_without_expanding_operations(): void

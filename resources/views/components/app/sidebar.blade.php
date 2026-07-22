@@ -320,7 +320,7 @@
                     @if ($canViewContacts)
                         <li><a href="{{ route('contacts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('contacts.*') ? $activeChildClasses : $inactiveChildClasses }}">Contacts</a></li>
                     @endif
-                    @if ($canViewDictionary)
+                    @if ($isSuperAdmin)
                         <li><a href="{{ route('data-dictionary.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('data-dictionary.*') ? $activeChildClasses : $inactiveChildClasses }}">Data Dictionary</a></li>
                     @endif
                     @if ($canViewAuditLog)

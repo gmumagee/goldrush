@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AccountUserPasswordController;
 use App\Http\Controllers\AccountUserController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -46,6 +47,11 @@ Route::post('/logout', LogoutController::class)
     ->name('logout');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/confirm-password', [ConfirmablePasswordController::class, 'show'])
+        ->name('password.confirm');
+    Route::post('/confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->name('password.confirm.store');
+
     Route::middleware('super.admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/accounts', [AdminAccountController::class, 'index'])
             ->name('accounts.index');
@@ -53,6 +59,23 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/accounts/select', [AccountSelectionController::class, 'edit'])->name('accounts.select');
     Route::post('/accounts/select', [AccountSelectionController::class, 'update']);
+
+    Route::middleware(['account.selected', 'account.member', 'super.admin'])->group(function () {
+        Route::get('/data-dictionary', [DataDictionaryController::class, 'index'])
+            ->name('data-dictionary.index');
+        Route::get('/data-dictionary/create', [DataDictionaryController::class, 'create'])
+            ->name('data-dictionary.create');
+        Route::post('/data-dictionary', [DataDictionaryController::class, 'store'])
+            ->name('data-dictionary.store');
+        Route::get('/data-dictionary/{dataDictionary}/edit', [DataDictionaryController::class, 'edit'])
+            ->name('data-dictionary.edit');
+        Route::put('/data-dictionary/{dataDictionary}', [DataDictionaryController::class, 'update'])
+            ->name('data-dictionary.update');
+        Route::post('/data-dictionary/{dataDictionary}/deactivate', [DataDictionaryController::class, 'deactivate'])
+            ->name('data-dictionary.deactivate');
+        Route::post('/data-dictionary/{dataDictionary}/activate', [DataDictionaryController::class, 'activate'])
+            ->name('data-dictionary.activate');
+    });
 
     Route::middleware(['account.selected', 'account.member', 'technician.services'])->group(function () {
         Route::get('/dashboard', DashboardController::class)
@@ -81,21 +104,6 @@ Route::middleware('auth')->group(function () {
             ->name('account-users.deactivate');
         Route::delete('/account/users/{accountUser}', [AccountUserController::class, 'destroy'])
             ->name('account-users.destroy');
-
-        Route::get('/data-dictionary', [DataDictionaryController::class, 'index'])
-            ->name('data-dictionary.index');
-        Route::get('/data-dictionary/create', [DataDictionaryController::class, 'create'])
-            ->name('data-dictionary.create');
-        Route::post('/data-dictionary', [DataDictionaryController::class, 'store'])
-            ->name('data-dictionary.store');
-        Route::get('/data-dictionary/{dataDictionary}/edit', [DataDictionaryController::class, 'edit'])
-            ->name('data-dictionary.edit');
-        Route::put('/data-dictionary/{dataDictionary}', [DataDictionaryController::class, 'update'])
-            ->name('data-dictionary.update');
-        Route::post('/data-dictionary/{dataDictionary}/deactivate', [DataDictionaryController::class, 'deactivate'])
-            ->name('data-dictionary.deactivate');
-        Route::post('/data-dictionary/{dataDictionary}/activate', [DataDictionaryController::class, 'activate'])
-            ->name('data-dictionary.activate');
 
         Route::get('/audit-log', [AuditLogController::class, 'index'])
             ->name('audit-log.index');
@@ -144,7 +152,7 @@ Route::middleware('auth')->group(function () {
             ->name('locations.documents.destroy');
         Route::resource('machines', MachineController::class);
         Route::resource('bins', BinController::class);
-        Route::resource('services', ServiceController::class)->except(['show']);
+        Route::resource('services', ServiceController::class)->except(['show', 'destroy']);
         Route::resource('transactions', TransactionController::class);
 
         Route::get('/machines/{machine}/bins/create', [MachineBinController::class, 'create'])
@@ -158,6 +166,9 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/services/{service}', [ServiceController::class, 'show'])
             ->name('services.show');
+        Route::delete('/services/{service}', [ServiceController::class, 'destroy'])
+            ->middleware('password.confirm')
+            ->name('services.destroy');
         Route::post('/services/{service}/open', [ServiceController::class, 'open'])
             ->name('services.open');
         Route::post('/services/{service}/maintenance/open', [ServiceController::class, 'openMaintenance'])

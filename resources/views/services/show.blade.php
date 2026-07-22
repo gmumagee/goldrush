@@ -130,6 +130,23 @@
                         </a>
                     @endif
                     @endcan
+
+                    @can('delete', $service)
+                        @if ((int) $service->transactions_count === 0)
+                            <form method="POST" action="{{ route('services.destroy', $service->id) }}" onsubmit="return confirm('Delete this service? This cannot be undone.');">
+                                @csrf
+                                @method('DELETE')
+
+                                <button type="submit" class="inline-flex items-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-500">
+                                    Delete Service
+                                </button>
+                            </form>
+                        @else
+                            <span class="inline-flex items-center rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                                Service has transactions and cannot be deleted
+                            </span>
+                        @endif
+                    @endcan
                 </div>
             </div>
 
@@ -165,6 +182,7 @@
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Completed At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Closed At</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Closed By</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Created By</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Sales</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Amount Collected</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Difference</th>
@@ -238,6 +256,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->closedBy?->name ?? 'Not closed yet' }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $service->createdBy?->name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
                                     @if ($service->isMaintenanceService())
                                         N/A

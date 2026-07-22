@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AccountUser;
 use App\Models\DataDictionary;
 use App\Services\DataDictionaryService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +14,11 @@ class DataDictionaryController extends Controller
 {
     public function __construct(protected DataDictionaryService $dataDictionaryService)
     {
+        $this->middleware(function (Request $request, \Closure $next) {
+            $this->ensureCanManageDataDictionary($request);
+
+            return $next($request);
+        });
     }
 
     public function index(Request $request): View
@@ -234,5 +238,10 @@ class DataDictionaryController extends Controller
         return redirect()
             ->route('data-dictionary.index')
             ->withErrors(['data_dictionary' => 'Global dictionary values cannot be edited here.']);
+    }
+
+    protected function ensureCanManageDataDictionary(Request $request): void
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
     }
 }
