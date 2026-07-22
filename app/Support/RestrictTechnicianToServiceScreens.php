@@ -20,7 +20,7 @@ class RestrictTechnicianToServiceScreens
             return $next($request);
         }
 
-        if ($request->routeIs('services.*', 'password.*', 'accounts.*')) {
+        if ($request->routeIs('services.*', 'password.*', 'accounts.*', 'audit-log.*')) {
             return $next($request);
         }
 

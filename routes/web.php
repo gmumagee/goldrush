@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountSelectionController;
+use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AccountUserPasswordController;
 use App\Http\Controllers\AccountUserController;
@@ -45,6 +46,11 @@ Route::post('/logout', LogoutController::class)
     ->name('logout');
 
 Route::middleware('auth')->group(function () {
+    Route::middleware('super.admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/accounts', [AdminAccountController::class, 'index'])
+            ->name('accounts.index');
+    });
+
     Route::get('/accounts/select', [AccountSelectionController::class, 'edit'])->name('accounts.select');
     Route::post('/accounts/select', [AccountSelectionController::class, 'update']);
 

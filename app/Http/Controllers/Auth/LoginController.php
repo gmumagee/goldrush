@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AccountUser;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,6 +51,24 @@ class LoginController extends Controller
                 ->onlyInput('email');
         }
 
+        if (Tenancy::isSingle()) {
+            $singleAccount = $accounts->firstWhere('id', Tenancy::singleAccountId());
+
+            if (! $singleAccount) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()
+                    ->withErrors(['email' => 'Your user does not have access to the configured account.'])
+                    ->onlyInput('email');
+            }
+
+            Tenancy::pinSingleAccountInSession($request);
+
+            return redirect()->intended('/dashboard');
+        }
+
         if ($accounts->count() === 1) {
             $request->session()->put('current_account_id', $accounts->first()->id);
 
@@ -61,6 +80,13 @@ class LoginController extends Controller
 
     private function activeAccountsFor(User $user)
     {
+        if ($user->isSuperAdmin()) {
+            return Account::query()
+                ->where('status', Account::STATUS_ACTIVE)
+                ->orderBy('account_name')
+                ->get();
+        }
+
         return $user->accounts()
             ->where('tbl_accounts.status', Account::STATUS_ACTIVE)
             ->wherePivot('status', AccountUser::STATUS_ACTIVE)

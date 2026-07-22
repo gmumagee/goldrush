@@ -41,7 +41,7 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringOrder($operationsSection, ['Calendar', 'Services']);
         $this->assertStringOrder($routeManagementSection, ['Locations', 'Machines', 'Routes']);
         $this->assertStringOrder($inventorySection, ['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
-        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Data Dictionary', 'Settings', 'Switch Account', 'Users']);
+        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Data Dictionary', 'Audit Log', 'Settings', 'Switch Account', 'Users']);
 
         $this->assertSame(1, substr_count($content, 'Route Management'));
         $this->assertSame(1, substr_count($content, route('routes.index')));

@@ -3,9 +3,11 @@
     $currentMembership = $currentUser
         ? app(\App\Support\CurrentAccountMembershipResolver::class)->forUser($currentUser)
         : null;
-    $currentAccount = session('current_account_id')
-        ? \App\Models\Account::query()->select(['id', 'account_name', 'slug'])->find(session('current_account_id'))
+    $currentAccountId = \App\Support\Tenancy::currentAccountId(request());
+    $currentAccount = $currentAccountId
+        ? \App\Models\Account::query()->select(['id', 'account_name', 'slug'])->find($currentAccountId)
         : null;
+    $isMultiTenant = \App\Support\Tenancy::isMulti();
     $isTechnician = $currentMembership?->isTechnician() ?? false;
     $workspaceRoute = $isTechnician ? route('services.index') : route('dashboard');
     $canViewCalendar = $currentUser?->can('viewAny', \App\Models\CalendarEvent::class) ?? false;
@@ -22,11 +24,13 @@
     $canViewDictionary = $currentUser?->can('viewAny', \App\Models\DataDictionary::class) ?? false;
     $canViewAccountUsers = $currentUser?->can('viewAny', \App\Models\AccountUser::class) ?? false;
     $canViewAuditLog = $currentUser?->can('viewAny', \App\Models\AuditLog::class) ?? false;
+    $isSuperAdmin = $currentUser?->isSuperAdmin() ?? false;
 
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
     $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');
     $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*') || request()->routeIs('transactions.*');
     $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('data-dictionary.*') || request()->routeIs('audit-log.*') || request()->is('users*') || request()->is('settings*');
+    $platformOpen = request()->routeIs('admin.*');
 
     $sectionButtonClasses = 'flex w-full min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition';
     $sectionButtonStateClasses = 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/60';
@@ -74,7 +78,9 @@
                 @if ($currentAccount?->slug)
                     <div class="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
                         <div class="font-medium text-gray-700 dark:text-gray-200">{{ $currentAccount->account_name }}</div>
-                        <div class="mt-1 font-mono">{{ $currentAccount->slug }}</div>
+                        @if ($isMultiTenant)
+                            <div class="mt-1 font-mono">{{ $currentAccount->slug }}</div>
+                        @endif
                     </div>
                 @endif
 
@@ -238,6 +244,45 @@
             </div>
             @endif
 
+            @if ($isSuperAdmin)
+            <div
+                x-data="{
+                    open: {{ $platformOpen ? 'true' : 'false' }},
+                    init() {
+                        const saved = localStorage.getItem('sidebar-platform-open');
+                        this.open = {{ $platformOpen ? 'true' : 'false' }} || saved === 'true';
+                        this.$watch('open', value => localStorage.setItem('sidebar-platform-open', value));
+                    }
+                }"
+            >
+                <button
+                    type="button"
+                    class="{{ $sectionButtonClasses }} {{ $sectionButtonStateClasses }}"
+                    @click="open = !open"
+                    :aria-expanded="open.toString()"
+                    aria-controls="sidebar-platform"
+                >
+                    <span class="flex min-w-0 items-center gap-3">
+                        <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M2 3h12v10H2zm2 2v1h8V5zm0 3h5v1H4zm0 3h8v1H4z" />
+                        </svg>
+                        <span class="truncate leading-5">Platform</span>
+                    </span>
+                    <span
+                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200"
+                        :class="open ? 'rotate-90' : ''"
+                        aria-hidden="true"
+                    >
+                        ›
+                    </span>
+                </button>
+
+                <ul id="sidebar-platform" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
+                    <li><a href="{{ route('admin.accounts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('admin.accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Accounts</a></li>
+                </ul>
+            </div>
+            @endif
+
             <div
                 x-data="{
                     open: {{ $accountOpen ? 'true' : 'false' }},
@@ -282,7 +327,9 @@
                         <li><a href="{{ route('audit-log.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('audit-log.*') ? $activeChildClasses : $inactiveChildClasses }}">Audit Log</a></li>
                     @endif
                     <li><span class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500">Settings<span class="ml-auto text-xs">Soon</span></span></li>
-                    <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
+                    @if ($isMultiTenant)
+                        <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
+                    @endif
                     @if ($canViewAccountUsers)
                         <li><a href="{{ route('account-users.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('account-users.*') ? $activeChildClasses : $inactiveChildClasses }}">Users</a></li>
                     @endif

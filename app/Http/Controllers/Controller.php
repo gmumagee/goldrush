@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AccountUser;
 use App\Support\AppDateTime;
 use App\Support\CurrentAccountMembershipResolver;
+use App\Support\Tenancy;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Routing\Controller as BaseController;
@@ -18,7 +19,7 @@ abstract class Controller extends BaseController
 
     protected function currentAccountId(Request $request): int
     {
-        return (int) $request->session()->get('current_account_id');
+        return (int) (Tenancy::currentAccountId($request) ?? 0);
     }
 
     protected function currentMembership(Request $request): AccountUser

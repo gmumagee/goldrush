@@ -17,10 +17,12 @@
             <x-input id="email" name="email" type="email" :value="old('email')" required autocomplete="email" />
         </div>
 
-        <div>
-            <x-label for="account_name" value="Business / account name" />
-            <x-input id="account_name" name="account_name" type="text" :value="old('account_name')" required autocomplete="organization" />
-        </div>
+        @if (\App\Support\Tenancy::isMulti())
+            <div>
+                <x-label for="account_name" value="Business / account name" />
+                <x-input id="account_name" name="account_name" type="text" :value="old('account_name')" required autocomplete="organization" />
+            </div>
+        @endif
 
         <div>
             <x-label for="password" value="Password" />

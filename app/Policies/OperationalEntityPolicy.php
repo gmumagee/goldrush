@@ -8,11 +8,19 @@ class OperationalEntityPolicy extends BaseAccountPolicy
 {
     public function viewAny(User $user): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         return $this->membership($user)?->canAccessOperationalRecords() ?? false;
     }
 
     public function view(User $user, mixed $model): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $membership = $this->membership($user);
 
         return $membership !== null
@@ -22,11 +30,19 @@ class OperationalEntityPolicy extends BaseAccountPolicy
 
     public function create(User $user): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         return $this->membership($user)?->canManage() ?? false;
     }
 
     public function update(User $user, mixed $model): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $membership = $this->membership($user);
 
         return $membership !== null
@@ -36,6 +52,10 @@ class OperationalEntityPolicy extends BaseAccountPolicy
 
     public function delete(User $user, mixed $model): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $membership = $this->membership($user);
 
         return $membership !== null

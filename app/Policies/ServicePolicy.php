@@ -9,11 +9,19 @@ class ServicePolicy extends BaseAccountPolicy
 {
     public function viewAny(User $user): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         return $this->membership($user)?->canViewServiceRecords() ?? false;
     }
 
     public function view(User $user, Service $service): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $membership = $this->membership($user);
 
         return $membership !== null
@@ -23,11 +31,19 @@ class ServicePolicy extends BaseAccountPolicy
 
     public function create(User $user): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         return $this->membership($user)?->canManage() ?? false;
     }
 
     public function update(User $user, Service $service): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $membership = $this->membership($user);
 
         return $membership !== null
@@ -37,6 +53,10 @@ class ServicePolicy extends BaseAccountPolicy
 
     public function delete(User $user, Service $service): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $membership = $this->membership($user);
 
         return $membership !== null

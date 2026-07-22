@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AuditLogController extends Controller
@@ -14,8 +15,8 @@ class AuditLogController extends Controller
 
         $showAllAccounts = $request->user()?->isSuperAdmin() ?? false;
         $filters = $request->validate([
-            'event' => ['nullable', 'in:'.implode(',', AuditLog::eventOptions())],
-            'entity_type' => ['nullable', 'in:'.implode(',', array_keys(AuditLog::entityTypeOptions()))],
+            'event' => ['nullable', Rule::in(AuditLog::eventOptions())],
+            'entity_type' => ['nullable', Rule::in(array_keys(AuditLog::entityTypeOptions()))],
         ]);
 
         $auditEntries = AuditLog::query()

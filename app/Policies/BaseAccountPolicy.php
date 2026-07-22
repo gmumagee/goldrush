@@ -17,6 +17,11 @@ abstract class BaseAccountPolicy
         return $this->membershipResolver->forUser($user);
     }
 
+    protected function isSuperAdmin(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
     protected function belongsToCurrentAccount(AccountUser $membership, mixed $model): bool
     {
         return isset($model->account_id) && (int) $model->account_id === (int) $membership->account_id;

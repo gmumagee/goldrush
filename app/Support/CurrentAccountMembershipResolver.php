@@ -21,7 +21,7 @@ class CurrentAccountMembershipResolver
             return null;
         }
 
-        $accountId = (int) $request->session()->get('current_account_id');
+        $accountId = (int) (Tenancy::currentAccountId($request) ?? 0);
 
         if ($accountId <= 0) {
             return null;

@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'password',
         'status',
+        'is_super_admin',
         'email_verified_at',
         'remember_token',
     ];
@@ -30,6 +31,10 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+    ];
+
+    protected $casts = [
+        'is_super_admin' => 'boolean',
     ];
 
     public function accounts()
@@ -65,7 +70,6 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        // Stub only: platform-wide audit visibility stays disabled until a real super-admin capability exists.
-        return false;
+        return (bool) $this->is_super_admin;
     }
 }

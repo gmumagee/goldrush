@@ -4,8 +4,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use App\Http\Middleware\EnsureAccountSelected;
 use App\Support\EnsureActiveCurrentAccountMember;
+use App\Support\EnsureCurrentAccountSelected;
+use App\Support\EnsureUserIsSuperAdmin;
 use App\Support\RestrictTechnicianToServiceScreens;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -16,8 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'account.selected' => EnsureAccountSelected::class,
+            'account.selected' => EnsureCurrentAccountSelected::class,
             'account.member' => EnsureActiveCurrentAccountMember::class,
+            'super.admin' => EnsureUserIsSuperAdmin::class,
             'technician.services' => RestrictTechnicianToServiceScreens::class,
         ]);
     })

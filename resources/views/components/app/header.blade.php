@@ -1,3 +1,10 @@
+@php
+    $currentAccountId = \App\Support\Tenancy::currentAccountId(request());
+    $currentAccount = $currentAccountId
+        ? \App\Models\Account::query()->select(['id', 'account_name'])->find($currentAccountId)
+        : null;
+@endphp
+
 <header class="sticky top-0 z-30 before:absolute before:inset-0 before:-z-10 before:bg-gray-100/90 before:backdrop-blur-md dark:before:bg-gray-900/90">
     <div class="px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-700/60">
@@ -18,7 +25,7 @@
 
                 <div>
                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ auth()->user()?->name ?? 'User' }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ session('current_account_id') ? 'Account '.session('current_account_id') : 'Workspace navigation' }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $currentAccount?->account_name ?? 'Workspace navigation' }}</p>
                 </div>
             </div>
 

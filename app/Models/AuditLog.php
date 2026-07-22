@@ -94,7 +94,7 @@ class AuditLog extends Model
      */
     public function changeLines(): array
     {
-        $changes = is_array($this->changes) ? $this->changes : [];
+        $changes = $this->auditChangePayload();
         $lines = [];
 
         foreach ($changes as $field => $value) {
@@ -132,7 +132,7 @@ class AuditLog extends Model
 
     public function changeSummaryLabel(): string
     {
-        $fieldCount = count(is_array($this->changes) ? $this->changes : []);
+        $fieldCount = count($this->auditChangePayload());
 
         return match ($this->event) {
             self::EVENT_CREATED => 'Initial values captured'.($fieldCount > 0 ? " ({$fieldCount} fields)" : '.'),
@@ -158,5 +158,18 @@ class AuditLog extends Model
         }
 
         return (string) $value;
+    }
+
+    /**
+     * The audit table column is also named "changes", which would otherwise
+     * collide with Eloquent's internal dirty-tracking property.
+     *
+     * @return array<string, mixed>
+     */
+    protected function auditChangePayload(): array
+    {
+        $changes = $this->getAttribute('changes');
+
+        return is_array($changes) ? $changes : [];
     }
 }

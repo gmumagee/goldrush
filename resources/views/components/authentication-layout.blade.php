@@ -26,7 +26,7 @@
         <div class="relative flex min-h-screen">
             <div class="flex w-full flex-col md:w-1/2">
                 <div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-                    <a class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-600 dark:text-violet-300" href="{{ auth()->check() ? route('accounts.select') : url('/') }}">
+                    <a class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-600 dark:text-violet-300" href="{{ auth()->check() ? (\App\Support\Tenancy::isSingle() ? route('dashboard') : route('accounts.select')) : url('/') }}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="fill-current">
                             <path d="M27.961 12.95C27.45 6.055 21.945.55 15.05.04v5.001a7.91 7.91 0 0 0 7.91 7.91h5ZM12.95 22.96v5c-6.895-.51-12.4-6.014-12.91-12.91h5a7.91 7.91 0 0 1 7.91 7.91Zm10.01-7.91h5c-.51 6.895-6.015 12.4-12.91 12.91v-5a7.91 7.91 0 0 1 7.91-7.91ZM.04 12.95C.55 6.055 6.055.55 12.95.04v5.001a7.91 7.91 0 0 1-7.91 7.91h-5Z"/>
                         </svg>
@@ -51,7 +51,7 @@
                     <div class="rounded-2xl bg-white/10 p-6 backdrop-blur">
                         <ul class="space-y-3 text-sm text-violet-50/90">
                             <li>Track machines, products, routes, and services</li>
-                            <li>Switch safely between tenant accounts</li>
+                            <li>{{ \App\Support\Tenancy::isSingle() ? 'Operate within one account-scoped workspace' : 'Switch safely between tenant accounts' }}</li>
                             <li>Use a responsive dashboard adapted from Cruip Mosaic</li>
                         </ul>
                     </div>
