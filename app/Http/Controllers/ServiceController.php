@@ -15,12 +15,14 @@ use App\Services\DataDictionaryService;
 use App\Services\FinalizeServiceSales;
 use App\Services\InventoryCostService;
 use App\Services\WarehouseInventoryService;
+use App\Support\CurrentAccountMembershipResolver;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -40,6 +42,10 @@ class ServiceController extends Controller
         $this->authorize('viewAny', Service::class);
 
         $accountId = $this->currentAccountId($request);
+        $currentMembership = app(CurrentAccountMembershipResolver::class)->forUser($request->user());
+        $technicianUserId = $currentMembership?->isTechnician()
+            ? (int) $request->user()->id
+            : null;
 
         $pendingServices = Service::query()
             ->where('account_id', $accountId)
@@ -61,6 +67,7 @@ class ServiceController extends Controller
 
         $allServices = Service::query()
             ->where('account_id', $accountId)
+            ->when($technicianUserId !== null, fn ($query) => $query->where('user_id', $technicianUserId))
             ->with(['location.primaryRouteLocation.route', 'warehouse', 'user', 'closedBy'])
             ->orderByDesc('service_date')
             ->orderByDesc('id')
@@ -87,9 +94,13 @@ class ServiceController extends Controller
         $requestedLocationId = $request->integer('location_id');
         $selectedLocationId = $locations->contains('id', $requestedLocationId) ? $requestedLocationId : null;
 
+        $serviceTypes = collect($this->serviceTypesForAccount($accountId))
+            ->filter(fn (string $label, string $value) => Gate::forUser($request->user())->allows('create', [Service::class, $value]))
+            ->all();
+
         return view('services.create', [
             'locations' => $locations,
-            'serviceTypes' => $this->serviceTypesForAccount($accountId),
+            'serviceTypes' => $serviceTypes,
             'warehouses' => $this->warehousesForAccount($accountId),
             'users' => $this->assignableUsersForAccount($accountId)->get(),
             'currentUser' => $request->user(),
@@ -99,10 +110,9 @@ class ServiceController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->authorize('create', Service::class);
-
         $accountId = $this->currentAccountId($request);
         $data = $this->validateService($request, $accountId);
+        $this->authorize('create', [Service::class, $data['service_type']]);
 
         $assignedUserId = isset($data['user_id']) && $data['user_id'] !== null
             ? (int) $data['user_id']
@@ -265,7 +275,17 @@ class ServiceController extends Controller
     public function destroy(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
-        $this->authorize('delete', $service);
+        $authorization = Gate::inspect('delete', $service);
+
+        if ($authorization->denied()) {
+            if ($service->isMaintenanceService() && $service->isServiceClosed()) {
+                return back()->withErrors([
+                    'service' => $authorization->message() ?: 'Closed maintenance services cannot be deleted.',
+                ]);
+            }
+
+            abort(403, $authorization->message() ?: 'This action is unauthorized.');
+        }
 
         if ($service->transactions()->exists()) {
             return back()->withErrors([
@@ -328,7 +348,7 @@ class ServiceController extends Controller
     public function complete(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
-        $this->authorize('update', $service);
+        $this->authorize('finalize', $service);
         $this->ensureLocationService($service, 'This action is only valid for location services.');
         $this->ensureServiceOpen($service);
 
@@ -368,7 +388,7 @@ class ServiceController extends Controller
     public function closeMaintenance(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service);
-        $this->authorize('update', $service);
+        $this->authorize('finalize', $service);
         $this->ensureMaintenanceService($service, 'This action is only valid for maintenance services.');
         $this->ensureServiceOpen($service);
         $data = $request->validate([
@@ -396,7 +416,7 @@ class ServiceController extends Controller
     public function editAmountCollected(Request $request, int $service): View
     {
         $service = $this->resolveService($request, $service, ['location.primaryRouteLocation.route', 'user', 'closedBy']);
-        $this->authorize('update', $service);
+        $this->authorize('finalize', $service);
         $service->loadSum('calculatedSales as sales_total', 'sales_amount');
         $service->loadCount(['calculatedSales', 'baselineSales']);
         $this->ensureLocationService($service, 'Amount collected is only available for location services.');
@@ -410,7 +430,7 @@ class ServiceController extends Controller
     public function updateAmountCollected(Request $request, int $service): RedirectResponse
     {
         $service = $this->resolveService($request, $service, ['location.machines.bins']);
-        $this->authorize('update', $service);
+        $this->authorize('finalize', $service);
         $this->ensureLocationService($service, 'Amount collected is only available for location services.');
         $this->ensureAwaitingAmountCollected($service);
         $data = $request->validate([

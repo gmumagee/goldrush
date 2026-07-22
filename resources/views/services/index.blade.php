@@ -72,7 +72,15 @@
                                 :aria-expanded="open.toString()"
                             >
                                 <div class="min-w-0">
-                                    <div class="font-medium text-gray-800 dark:text-gray-100">{{ $locationName }}</div>
+                                    <div class="font-medium text-gray-800 dark:text-gray-100">
+                                        @if ($location)
+                                            <a href="{{ route('locations.show', $location->id) }}" @click.stop class="text-violet-700 transition hover:underline dark:text-violet-300">
+                                                {{ $locationName }}
+                                            </a>
+                                        @else
+                                            {{ $locationName }}
+                                        @endif
+                                    </div>
                                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                         {{ $services->count() }} pending {{ \Illuminate\Support\Str::plural('service', $services->count()) }}
                                     </div>
@@ -173,7 +181,15 @@
                                 :aria-expanded="open.toString()"
                             >
                                 <div class="min-w-0">
-                                    <div class="font-medium text-gray-800 dark:text-gray-100">{{ $locationName }}</div>
+                                    <div class="font-medium text-gray-800 dark:text-gray-100">
+                                        @if ($location)
+                                            <a href="{{ route('locations.show', $location->id) }}" @click.stop class="text-violet-700 transition hover:underline dark:text-violet-300">
+                                                {{ $locationName }}
+                                            </a>
+                                        @else
+                                            {{ $locationName }}
+                                        @endif
+                                    </div>
                                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                         {{ $services->count() }} {{ \Illuminate\Support\Str::plural('service', $services->count()) }}
                                     </div>
@@ -215,7 +231,7 @@
                                                             <a href="{{ route('services.show', $service) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
                                                                 View
                                                             </a>
-                                                            @can('update', $service)
+                                                            @can('finalize', $service)
                                                                 <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
                                                                     Enter Amount Collected
                                                                 </a>
@@ -263,7 +279,15 @@
                                 :aria-expanded="open.toString()"
                             >
                                 <div class="min-w-0">
-                                    <div class="font-medium text-gray-800 dark:text-gray-100">{{ $locationName }}</div>
+                                    <div class="font-medium text-gray-800 dark:text-gray-100">
+                                        @if ($location)
+                                            <a href="{{ route('locations.show', $location->id) }}" @click.stop class="text-violet-700 transition hover:underline dark:text-violet-300">
+                                                {{ $locationName }}
+                                            </a>
+                                        @else
+                                            {{ $locationName }}
+                                        @endif
+                                    </div>
                                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                         {{ $services->count() }} {{ \Illuminate\Support\Str::plural('service', $services->count()) }}
                                     </div>
@@ -356,11 +380,13 @@
                                                                     </a>
                                                                 @endif
 
-                                                                @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
-                                                                    <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
-                                                                        Enter Amount Collected
-                                                                    </a>
-                                                                @endif
+                                                                @can('finalize', $service)
+                                                                    @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
+                                                                        <a href="{{ route('services.amount-collected.edit', $service) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
+                                                                            Enter Amount Collected
+                                                                        </a>
+                                                                    @endif
+                                                                @endcan
                                                             @endcan
                                                         </div>
                                                     </td>

@@ -15,10 +15,6 @@
                         <div class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-900/60 dark:bg-yellow-500/10 dark:text-yellow-300">You need at least one location before creating a service visit.</div>
                     @endif
 
-                    @if ($warehouses->isEmpty())
-                        <div class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-900/60 dark:bg-yellow-500/10 dark:text-yellow-300">No warehouses are configured. Location services require a warehouse, but maintenance services can still be created.</div>
-                    @endif
-
                     @if (empty($serviceTypes))
                         <div class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-900/60 dark:bg-yellow-500/10 dark:text-yellow-300">No active service types are configured. Add a service type in the Data Dictionary before creating a service.</div>
                     @endif

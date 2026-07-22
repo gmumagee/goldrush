@@ -225,6 +225,113 @@ class ServiceDeletionTest extends TestCase
         $this->assertDatabaseHas('tbl_services', ['id' => $service->id]);
     }
 
+    public function test_closed_maintenance_services_cannot_be_deleted_even_by_admin_tier_users_without_transactions(): void
+    {
+        $account = $this->createAccount('Closed Maintenance Guard Account');
+        $creator = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $admin = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $owner = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+
+        $this->attachUserToAccount($creator, $account, AccountUser::ROLE_MANAGER);
+        $this->attachUserToAccount($admin, $account, AccountUser::ROLE_ADMIN);
+        $this->attachUserToAccount($owner, $account, AccountUser::ROLE_OWNER);
+
+        $route = $this->createRoute($account, 'Closed Maintenance Route');
+        $location = $this->createLocation($account, $route, 'Closed Maintenance Stop');
+        $service = $this->createService($account, $location, null, [
+            'user_id' => $creator->id,
+            'created_by_user_id' => $creator->id,
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'closed_at' => '2026-07-22 16:00:00',
+            'status' => Service::STATUS_CLOSED,
+        ]);
+
+        foreach ([$admin, $owner] as $user) {
+            $this->actingAs($user)
+                ->withSession([
+                    'current_account_id' => $account->id,
+                    'auth.password_confirmed_at' => now()->unix(),
+                ])
+                ->from(route('services.show', $service))
+                ->delete(route('services.destroy', $service))
+                ->assertRedirect(route('services.show', $service))
+                ->assertSessionHasErrors([
+                    'service' => 'Closed maintenance services cannot be deleted.',
+                ]);
+
+            $this->assertDatabaseHas('tbl_services', ['id' => $service->id]);
+        }
+    }
+
+    public function test_closed_location_services_still_follow_the_existing_delete_rules(): void
+    {
+        $owner = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Closed Location Delete Account');
+
+        $this->attachUserToAccount($owner, $account, AccountUser::ROLE_OWNER);
+
+        $route = $this->createRoute($account, 'Closed Location Route');
+        $location = $this->createLocation($account, $route, 'Closed Location Stop');
+        $warehouse = $this->createWarehouse($account, 'Closed Location Warehouse');
+        $service = $this->createService($account, $location, $warehouse, [
+            'user_id' => $owner->id,
+            'created_by_user_id' => $owner->id,
+            'service_type' => Service::TYPE_LOCATION,
+            'closed_at' => '2026-07-22 16:00:00',
+            'status' => Service::STATUS_CLOSED,
+        ]);
+
+        $this->actingAs($owner)
+            ->withSession([
+                'current_account_id' => $account->id,
+                'auth.password_confirmed_at' => now()->unix(),
+            ])
+            ->delete(route('services.destroy', $service))
+            ->assertRedirect(route('services.index'));
+
+        $this->assertDatabaseMissing('tbl_services', ['id' => $service->id]);
+    }
+
+    public function test_open_and_awaiting_maintenance_services_still_follow_the_existing_delete_rules(): void
+    {
+        $owner = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Active Maintenance Delete Account');
+
+        $this->attachUserToAccount($owner, $account, AccountUser::ROLE_OWNER);
+
+        $route = $this->createRoute($account, 'Active Maintenance Route');
+        $location = $this->createLocation($account, $route, 'Active Maintenance Stop');
+
+        $awaitingService = $this->createService($account, $location, null, [
+            'user_id' => $owner->id,
+            'created_by_user_id' => $owner->id,
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'status' => Service::STATUS_AWAITING,
+            'service_date' => '2026-07-22',
+        ]);
+
+        $openService = $this->createService($account, $location, null, [
+            'user_id' => $owner->id,
+            'created_by_user_id' => $owner->id,
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'opened_at' => '2026-07-22 08:00:00',
+            'status' => Service::STATUS_OPEN,
+            'service_date' => '2026-07-23',
+        ]);
+
+        foreach ([$awaitingService, $openService] as $service) {
+            $this->actingAs($owner)
+                ->withSession([
+                    'current_account_id' => $account->id,
+                    'auth.password_confirmed_at' => now()->unix(),
+                ])
+                ->delete(route('services.destroy', $service))
+                ->assertRedirect(route('services.index'));
+
+            $this->assertDatabaseMissing('tbl_services', ['id' => $service->id]);
+        }
+    }
+
     public function test_delete_button_only_renders_for_authorized_users_and_hides_when_transactions_exist(): void
     {
         $creator = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -268,8 +375,33 @@ class ServiceDeletionTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->get(route('services.show', $service))
             ->assertOk()
-            ->assertDontSeeText('Delete Service')
+            ->assertSeeText('Delete Service')
             ->assertSeeText('Service has transactions and cannot be deleted');
+    }
+
+    public function test_delete_card_does_not_render_for_closed_maintenance_services(): void
+    {
+        $owner = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Closed Maintenance Card Account');
+
+        $this->attachUserToAccount($owner, $account, AccountUser::ROLE_OWNER);
+
+        $route = $this->createRoute($account, 'Closed Maintenance Card Route');
+        $location = $this->createLocation($account, $route, 'Closed Maintenance Card Stop');
+        $service = $this->createService($account, $location, null, [
+            'user_id' => $owner->id,
+            'created_by_user_id' => $owner->id,
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'closed_at' => '2026-07-22 16:00:00',
+            'status' => Service::STATUS_CLOSED,
+        ]);
+
+        $this->actingAs($owner)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.show', $service))
+            ->assertOk()
+            ->assertDontSee('action="'.route('services.destroy', $service->id).'"', false)
+            ->assertSeeText('Closed maintenance services cannot be deleted.');
     }
 
     private function createAccount(string $name): Account

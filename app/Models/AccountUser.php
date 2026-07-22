@@ -91,6 +91,21 @@ class AccountUser extends Model
         return $this->canManage() || $this->isTechnician();
     }
 
+    public function canFinalizeServices(): bool
+    {
+        return $this->canManage();
+    }
+
+    public function canCreateMaintenanceServices(): bool
+    {
+        return $this->canManage() || $this->isTechnician();
+    }
+
+    public function canCreateLocationServices(): bool
+    {
+        return $this->canManage();
+    }
+
     public function canAccessOperationalRecords(): bool
     {
         return $this->canManage() || $this->isViewer();

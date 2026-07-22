@@ -1,5 +1,25 @@
+2026-07-22, Split service finalization from general service work, Added a dedicated Service finalize ability gated to the manage tier so technicians can still open services and record count and fill work while no longer being allowed to complete location services close maintenance services or enter amount collected, updated the service detail actions to hide those finalize-only controls for technicians, and added focused feature coverage for technician denial preserved work actions manage-tier finalize access and viewer behavior.
 
 
+
+
+
+
+
+
+
+
+
+2026-07-22, Allow technicians to create maintenance services only, Broadened the generic service-create ability so technicians can reach the create flow while adding a type-aware policy check that still blocks technician creation of location services, filtered the create-service form and existing Create Service button so technicians only see maintenance-capable options, kept Admin Owner and Manager creation rights unchanged for both service types, and extended account-role coverage for technician maintenance creates tampered location-service rejection unchanged manager and owner behavior and viewer denial.
+
+
+
+
+
+
+
+
+2026-07-22, Preserve closed maintenance services as finalized records, Tightened service deletion so any maintenance service in the closed state is now treated as an immutable finalized record regardless of creator or admin role, surfaced a specific closed-maintenance protection message on the service detail page and destroy flow, kept the existing no-transactions and creator-or-admin delete rules for all other services intact, and extended service-deletion coverage for blocked closed maintenance deletes allowed closed location deletes allowed non-closed maintenance deletes and the hidden delete UI state.
 
 
 

@@ -90,6 +90,12 @@
                         Back to Services
                     </a>
 
+                    @if ($service->location && auth()->user()->can('view', $service->location))
+                        <a href="{{ route('locations.show', $service->location_id) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                            View Location
+                        </a>
+                    @endif
+
                     @if ($serviceCalendarEvent && auth()->user()->can('view', $serviceCalendarEvent))
                         <a href="{{ route('calendar-events.show', $serviceCalendarEvent) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">
                             View Calendar Event
@@ -115,36 +121,22 @@
                         </form>
                     @endif
 
-                    @if ($service->isServiceOpen() && $service->isLocationService())
-                        <form method="POST" action="{{ route('services.complete', $service->id) }}">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">
-                                Complete Service
-                            </button>
-                        </form>
-                    @endif
-
-                    @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
-                        <a href="{{ route('services.amount-collected.edit', $service->id) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
-                            Enter Amount Collected
-                        </a>
-                    @endif
                     @endcan
 
-                    @can('delete', $service)
-                        @if ((int) $service->transactions_count === 0)
-                            <form method="POST" action="{{ route('services.destroy', $service->id) }}" onsubmit="return confirm('Delete this service? This cannot be undone.');">
+                    @can('finalize', $service)
+                        @if ($service->isServiceOpen() && $service->isLocationService())
+                            <form method="POST" action="{{ route('services.complete', $service->id) }}">
                                 @csrf
-                                @method('DELETE')
-
-                                <button type="submit" class="inline-flex items-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-500">
-                                    Delete Service
+                                <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">
+                                    Complete Service
                                 </button>
                             </form>
-                        @else
-                            <span class="inline-flex items-center rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-                                Service has transactions and cannot be deleted
-                            </span>
+                        @endif
+
+                        @if ($service->isServiceCompleted() && $service->amount_collected === null && $service->isLocationService())
+                            <a href="{{ route('services.amount-collected.edit', $service->id) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
+                                Enter Amount Collected
+                            </a>
                         @endif
                     @endcan
                 </div>
@@ -163,6 +155,12 @@
             @endif
 
             <x-validation-errors />
+
+            @if ($service->isMaintenanceService() && $service->isServiceClosed())
+                <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                    Closed maintenance services cannot be deleted.
+                </div>
+            @endif
 
             <section class="panel">
                 <div class="panel-header">
@@ -441,19 +439,25 @@
                 </div>
                 <div class="panel-body">
                     @if ($service->isMaintenanceService() && $service->isServiceOpen())
-                        <form method="POST" action="{{ route('services.maintenance.close', $service) }}" class="space-y-4">
-                            @csrf
-                            @method('PUT')
+                        @can('finalize', $service)
+                            <form method="POST" action="{{ route('services.maintenance.close', $service) }}" class="space-y-4">
+                                @csrf
+                                @method('PUT')
 
-                            <div>
-                                <x-label for="notes" value="Maintenance Notes" />
-                                <textarea id="notes" name="notes" rows="5" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">{{ old('notes', $service->notes) }}</textarea>
+                                <div>
+                                    <x-label for="notes" value="Maintenance Notes" />
+                                    <textarea id="notes" name="notes" rows="5" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">{{ old('notes', $service->notes) }}</textarea>
+                                </div>
+
+                                <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">
+                                    Close Maintenance Service
+                                </button>
+                            </form>
+                        @else
+                            <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 dark:border-gray-700/60 dark:text-gray-300">
+                                {{ $service->notes ?: 'No notes have been recorded for this service.' }}
                             </div>
-
-                            <button type="submit" class="inline-flex items-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500">
-                                Close Maintenance Service
-                            </button>
-                        </form>
+                        @endcan
                     @else
                         <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 dark:border-gray-700/60 dark:text-gray-300">
                             {{ $service->notes ?: 'No notes have been recorded for this service.' }}
@@ -685,6 +689,33 @@
                 </div>
             </section>
             @endif
+
+            @can('delete', $service)
+                <section class="panel border-red-200 dark:border-red-500/30">
+                    <div class="panel-header border-b border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10">
+                        <div>
+                            <h2 class="text-lg font-semibold text-red-700 dark:text-red-300">Delete Service</h2>
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-200">Permanently deletes this service. This action cannot be undone.</p>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        @if ((int) $service->transactions_count === 0)
+                            <form method="POST" action="{{ route('services.destroy', $service->id) }}" onsubmit="return confirm('Delete this service? This cannot be undone.');">
+                                @csrf
+                                @method('DELETE')
+
+                                <button type="submit" class="inline-flex items-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-500">
+                                    Delete Service
+                                </button>
+                            </form>
+                        @else
+                            <div class="inline-flex items-center rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                                Service has transactions and cannot be deleted
+                            </div>
+                        @endif
+                    </div>
+                </section>
+            @endcan
         </div>
     </div>
 </x-app-layout>

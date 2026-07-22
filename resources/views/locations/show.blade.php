@@ -61,7 +61,11 @@
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $location->routes->pluck('route_name')->join(' · ') ?: 'No route' }}</p>
                 </div>
                 <div class="flex gap-3">
-                    <a href="{{ route('locations.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Locations</a>
+                    @can('viewAny', \App\Models\Location::class)
+                        <a href="{{ route('locations.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Locations</a>
+                    @elsecan('viewAny', \App\Models\Service::class)
+                        <a href="{{ route('services.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Back to Services</a>
+                    @endcan
                     @can('create', \App\Models\CalendarEvent::class)
                         <a href="{{ route('calendar-events.create', ['source_type' => 'location', 'source_id' => $location->id]) }}" class="inline-flex items-center rounded-xl border border-violet-300 px-4 py-2 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Schedule Event</a>
                     @endcan
@@ -241,7 +245,11 @@
                                         <tr class="bg-white dark:bg-gray-800">
                                             <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">
                                                 @if ($contact)
-                                                    <a href="{{ route('contacts.show', $contact) }}" class="hover:text-violet-600 dark:hover:text-violet-300">{{ $contact->display_name }}</a>
+                                                    @can('view', $contact)
+                                                        <a href="{{ route('contacts.show', $contact) }}" class="hover:text-violet-600 dark:hover:text-violet-300">{{ $contact->display_name }}</a>
+                                                    @else
+                                                        {{ $contact->display_name }}
+                                                    @endcan
                                                 @else
                                                     Unknown Contact
                                                 @endif
@@ -339,7 +347,11 @@
                                         @endphp
                                         <tr class="bg-white dark:bg-gray-800">
                                             <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">
-                                                <a href="{{ route('locations.documents.show', [$location, $document]) }}" class="hover:text-violet-600 dark:hover:text-violet-300">{{ $document->title ?: $document->original_filename }}</a>
+                                                @can('view', $document)
+                                                    <a href="{{ route('locations.documents.show', [$location, $document]) }}" class="hover:text-violet-600 dark:hover:text-violet-300">{{ $document->title ?: $document->original_filename }}</a>
+                                                @else
+                                                    {{ $document->title ?: $document->original_filename }}
+                                                @endcan
                                             </td>
                                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $locationDocumentTypeLabels[$documentTypeKey] ?? ($document->document_type ?: '—') }}</td>
                                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $document->original_filename }}</td>
@@ -351,7 +363,9 @@
                                             </td>
                                             <td class="px-5 py-4">
                                                 <div class="flex flex-wrap gap-2">
-                                                    <a href="{{ route('locations.documents.download', [$location, $document]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Download</a>
+                                                    @can('view', $document)
+                                                        <a href="{{ route('locations.documents.download', [$location, $document]) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Download</a>
+                                                    @endcan
                                                     @can('delete', $document)
                                                         <form method="POST" action="{{ route('locations.documents.destroy', [$location, $document]) }}">
                                                             @csrf
@@ -487,9 +501,11 @@
                                                         Review the latest current inventory snapshot for each bin on this machine.
                                                     </div>
                                                     {{-- Keep the direct machine detail link while removing edit and bin-management actions from this page. --}}
-                                                    <div class="flex flex-wrap gap-3">
-                                                        <a href="{{ route('machines.show', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View Machine</a>
-                                                    </div>
+                                                    @can('view', $machine)
+                                                        <div class="flex flex-wrap gap-3">
+                                                            <a href="{{ route('machines.show', $machine) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View Machine</a>
+                                                        </div>
+                                                    @endcan
                                                 </div>
 
                                                 @if ($group['bins']->isEmpty())

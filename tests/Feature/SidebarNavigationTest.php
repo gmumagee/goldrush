@@ -41,7 +41,7 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringOrder($operationsSection, ['Calendar', 'Services']);
         $this->assertStringOrder($routeManagementSection, ['Locations', 'Machines', 'Routes']);
         $this->assertStringOrder($inventorySection, ['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
-        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Audit Log', 'Settings', 'Switch Account', 'Users']);
+        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Audit Log', 'Switch Account', 'Users']);
 
         $this->assertSame(1, substr_count($content, 'Route Management'));
         $this->assertSame(1, substr_count($content, route('routes.index')));
@@ -63,6 +63,7 @@ class SidebarNavigationTest extends TestCase
             $routeManagementSection
         );
         $this->assertStringNotContainsString('Data Dictionary', $accountSection);
+        $this->assertStringNotContainsString('Soon', $accountSection);
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -162,6 +163,31 @@ class SidebarNavigationTest extends TestCase
             'href="'.route('transactions.index').'"',
             $this->extractSidebarSection($content, 'sidebar-operations')
         );
+    }
+
+    public function test_technician_sidebar_only_shows_workspace_services_link_and_settings_section(): void
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Technician Sidebar Account');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_TECHNICIAN);
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('services.index'));
+
+        $response->assertOk();
+
+        $content = $response->getContent();
+        $accountSection = $this->extractSidebarSection($content, 'sidebar-account');
+
+        $this->assertStringNotContainsString('aria-controls="sidebar-operations"', $content);
+        $this->assertStringNotContainsString('aria-controls="sidebar-route-management"', $content);
+        $this->assertStringNotContainsString('aria-controls="sidebar-inventory"', $content);
+        $this->assertStringContainsString('href="'.route('services.index').'"', $content);
+        $this->assertStringContainsString('<span class="opacity-100">Services</span>', $content);
+        $this->assertStringContainsString('aria-controls="sidebar-account"', $content);
+        $this->assertStringContainsString('Change Password', $accountSection);
+        $this->assertStringContainsString('Switch Account', $accountSection);
     }
 
     protected function createAccount(string $name): Account

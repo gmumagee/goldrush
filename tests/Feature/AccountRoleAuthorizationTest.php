@@ -84,7 +84,7 @@ class AccountRoleAuthorizationTest extends TestCase
         ]);
     }
 
-    public function test_technician_is_redirected_to_services_and_can_only_update_service_records(): void
+    public function test_technician_is_redirected_to_services_and_can_only_create_maintenance_services_and_update_service_records(): void
     {
         $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
         $account = $this->createAccount('Technician Authorization Account');
@@ -107,6 +107,37 @@ class AccountRoleAuthorizationTest extends TestCase
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
             ->get(route('services.create'))
+            ->assertOk()
+            ->assertSee('Create Service')
+            ->assertSee('value="'.Service::TYPE_MAINTENANCE.'"', false)
+            ->assertDontSee('value="'.Service::TYPE_LOCATION.'"', false);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.store'), [
+                'location_id' => $location->id,
+                'service_type' => Service::TYPE_MAINTENANCE,
+                'service_date' => '2026-07-20',
+                'notes' => 'Technician maintenance service',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('tbl_services', [
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'service_type' => Service::TYPE_MAINTENANCE,
+            'notes' => 'Technician maintenance service',
+            'created_by_user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('services.store'), [
+                'location_id' => $location->id,
+                'warehouse_id' => $warehouse->id,
+                'service_type' => Service::TYPE_LOCATION,
+                'service_date' => '2026-07-20',
+            ])
             ->assertForbidden();
 
         $this->actingAs($user)
@@ -135,6 +166,81 @@ class AccountRoleAuthorizationTest extends TestCase
         ]);
     }
 
+    public function test_technician_can_view_a_single_location_read_only_but_cannot_browse_or_modify_locations(): void
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Technician Location View Account');
+        $foreignAccount = $this->createAccount('Foreign Technician Location Account');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_TECHNICIAN);
+        $this->seedServiceTypes($account);
+
+        $route = $this->createRoute($account, 'Tech View Route');
+        $location = $this->createLocation($account, $route, 'Tech View Stop');
+        $foreignRoute = $this->createRoute($foreignAccount, 'Foreign Route');
+        $foreignLocation = $this->createLocation($foreignAccount, $foreignRoute, 'Foreign Stop');
+        $warehouse = $this->createWarehouse($account, 'Tech View Warehouse');
+        $service = $this->createService($account, $location, $warehouse, $user, [
+            'service_type' => Service::TYPE_MAINTENANCE,
+        ]);
+
+        $this->createMachine($account, $location, 'snack');
+
+        $session = ['current_account_id' => $account->id];
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->get(route('services.show', $service))
+            ->assertOk()
+            ->assertSee('href="'.route('locations.show', $location).'"', false)
+            ->assertSeeText('View Location');
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->get(route('locations.show', $location))
+            ->assertOk()
+            ->assertSeeText('Tech View Stop')
+            ->assertSeeText('Back to Services')
+            ->assertDontSeeText('Back to Locations')
+            ->assertDontSeeText('Edit Location')
+            ->assertDontSeeText('Delete Location')
+            ->assertDontSeeText('Attach Existing Contact')
+            ->assertDontSeeText('Add Contact')
+            ->assertDontSeeText('Upload Document')
+            ->assertDontSeeText('View Machine');
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->get(route('locations.index'))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->get(route('locations.edit', $location))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->put(route('locations.update', $location), [
+                'route_id' => null,
+                'location_name' => 'Blocked Technician Update',
+                'address' => '123 Main St',
+                'city' => 'Toronto',
+                'state' => 'ON',
+                'zip_code' => 'A1A1A1',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->delete(route('locations.destroy', $location))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->get(route('locations.show', $foreignLocation))
+            ->assertNotFound();
+    }
+
     public function test_viewer_gets_forbidden_on_writes(): void
     {
         $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
@@ -150,6 +256,11 @@ class AccountRoleAuthorizationTest extends TestCase
         ]);
 
         $session = ['current_account_id' => $account->id];
+
+        $this->actingAs($user)
+            ->withSession($session)
+            ->get(route('services.create'))
+            ->assertForbidden();
 
         $this->actingAs($user)->withSession($session)->post(route('locations.store'), [
             'location_name' => 'Nope',
@@ -174,6 +285,62 @@ class AccountRoleAuthorizationTest extends TestCase
             'service_type' => Service::TYPE_MAINTENANCE,
             'notes' => 'Blocked viewer update',
         ])->assertForbidden();
+    }
+
+    public function test_manager_and_owner_can_still_create_both_location_and_maintenance_services(): void
+    {
+        foreach ([AccountUser::ROLE_MANAGER, AccountUser::ROLE_OWNER] as $role) {
+            $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+            $account = $this->createAccount('Create Services '.strtolower($role).' Account');
+            $this->attachUserToAccount($user, $account, $role);
+            $this->seedServiceTypes($account);
+
+            $route = $this->createRoute($account, $role.' Route');
+            $location = $this->createLocation($account, $route, $role.' Stop');
+            $warehouse = $this->createWarehouse($account, $role.' Warehouse');
+
+            $this->actingAs($user)
+                ->withSession(['current_account_id' => $account->id])
+                ->get(route('services.create'))
+                ->assertOk()
+                ->assertSee('value="'.Service::TYPE_MAINTENANCE.'"', false)
+                ->assertSee('value="'.Service::TYPE_LOCATION.'"', false);
+
+            $this->actingAs($user)
+                ->withSession(['current_account_id' => $account->id])
+                ->post(route('services.store'), [
+                    'location_id' => $location->id,
+                    'service_type' => Service::TYPE_MAINTENANCE,
+                    'service_date' => '2026-07-20',
+                    'notes' => $role.' maintenance service',
+                ])
+                ->assertRedirect();
+
+            $this->actingAs($user)
+                ->withSession(['current_account_id' => $account->id])
+                ->post(route('services.store'), [
+                    'location_id' => $location->id,
+                    'warehouse_id' => $warehouse->id,
+                    'service_type' => Service::TYPE_LOCATION,
+                    'service_date' => '2026-07-21',
+                    'notes' => $role.' location service',
+                ])
+                ->assertRedirect();
+
+            $this->assertDatabaseHas('tbl_services', [
+                'account_id' => $account->id,
+                'service_type' => Service::TYPE_MAINTENANCE,
+                'notes' => $role.' maintenance service',
+                'created_by_user_id' => $user->id,
+            ]);
+
+            $this->assertDatabaseHas('tbl_services', [
+                'account_id' => $account->id,
+                'service_type' => Service::TYPE_LOCATION,
+                'notes' => $role.' location service',
+                'created_by_user_id' => $user->id,
+            ]);
+        }
     }
 
     protected function createAccount(string $name): Account

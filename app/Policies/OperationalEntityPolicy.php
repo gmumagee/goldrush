@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Location;
 use App\Models\User;
 
 class OperationalEntityPolicy extends BaseAccountPolicy
@@ -24,7 +25,10 @@ class OperationalEntityPolicy extends BaseAccountPolicy
         $membership = $this->membership($user);
 
         return $membership !== null
-            && $membership->canAccessOperationalRecords()
+            && (
+                $membership->canAccessOperationalRecords()
+                || ($membership->isTechnician() && $model instanceof Location)
+            )
             && $this->belongsToCurrentAccount($membership, $model);
     }
 

@@ -9,6 +9,7 @@
         : null;
     $isMultiTenant = \App\Support\Tenancy::isMulti();
     $isTechnician = $currentMembership?->isTechnician() ?? false;
+    $showOperationalNav = ! $isTechnician;
     $workspaceRoute = $isTechnician ? route('services.index') : route('dashboard');
     $canViewCalendar = $currentUser?->can('viewAny', \App\Models\CalendarEvent::class) ?? false;
     $canViewServices = $currentUser?->can('viewAny', \App\Models\Service::class) ?? false;
@@ -100,7 +101,7 @@
                 </ul>
             </div>
 
-            @if ($canViewCalendar || $canViewServices)
+            @if ($showOperationalNav && ($canViewCalendar || $canViewServices))
             <div
                 x-data="{
                     open: {{ $operationsOpen ? 'true' : 'false' }},
@@ -144,7 +145,7 @@
             </div>
             @endif
 
-            @if ($canViewLocations || $canViewMachines || $canViewRoutes)
+            @if ($showOperationalNav && ($canViewLocations || $canViewMachines || $canViewRoutes))
             <div
                 x-data="{
                     open: {{ $routeManagementOpen ? 'true' : 'false' }},
@@ -191,7 +192,7 @@
             </div>
             @endif
 
-            @if ($canViewProducts || $canViewPurchases || $canViewTransactions || $canViewVendors || $canViewWarehouses)
+            @if ($showOperationalNav && ($canViewProducts || $canViewPurchases || $canViewTransactions || $canViewVendors || $canViewWarehouses))
             <div
                 x-data="{
                     open: {{ $inventoryOpen ? 'true' : 'false' }},
@@ -326,7 +327,6 @@
                     @if ($canViewAuditLog)
                         <li><a href="{{ route('audit-log.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('audit-log.*') ? $activeChildClasses : $inactiveChildClasses }}">Audit Log</a></li>
                     @endif
-                    <li><span class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500">Settings<span class="ml-auto text-xs">Soon</span></span></li>
                     @if ($isMultiTenant)
                         <li><a href="{{ route('accounts.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('accounts.*') ? $activeChildClasses : $inactiveChildClasses }}">Switch Account</a></li>
                     @endif
