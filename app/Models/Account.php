@@ -57,6 +57,11 @@ class Account extends Model
         return $this->hasMany(Location::class, 'account_id');
     }
 
+    public function inventoryLocation()
+    {
+        return $this->hasOne(Location::class, 'account_id')->inventory();
+    }
+
     public function contacts()
     {
         return $this->hasMany(Contact::class, 'account_id');

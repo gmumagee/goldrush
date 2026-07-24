@@ -522,7 +522,7 @@ class LocationServicesAccordionTest extends TestCase
             ->assertSeeText('Upload Document')
             ->assertSeeText('Download')
             ->assertSeeText('Add Machine')
-            ->assertSee('href="'.route('machines.create', ['location_id' => $location->id]).'"', false)
+            ->assertSee('href="'.route('locations.machines.attach', $location).'"', false)
             ->assertSee(':aria-expanded="open.toString()"', false)
             ->assertSee('x-data="{ open: false }"', false);
     }

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\CalendarEvent;
 use App\Models\CalendarReminder;
+use App\Models\Location;
+use App\Models\Machine;
 use App\Models\Service;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -87,6 +89,42 @@ class CalendarService
     public function createServiceEvent(Service $service, ?int $createdByUserId = null): CalendarEvent
     {
         return $this->persistServiceEvent($service, $createdByUserId);
+    }
+
+    public function createMachineInstallationEvent(
+        Machine $machine,
+        Location $location,
+        CarbonImmutable $installationDate,
+        ?int $createdByUserId = null,
+    ): CalendarEvent {
+        $machine->loadMissing(['location.primaryRouteLocation.route']);
+        $location->loadMissing('primaryRouteLocation.route');
+
+        $machineLabel = trim(collect([
+            $machine->type,
+            $machine->model,
+            $machine->serial_number,
+        ])->filter(fn (?string $value) => trim((string) $value) !== '')->implode(' · '));
+
+        return $this->createEvent([
+            'account_id' => $machine->account_id,
+            'event_type' => CalendarEvent::EVENT_TYPE_MACHINE_INSTALLATION,
+            'title' => 'Machine Installation: '.($machineLabel !== '' ? $machineLabel : 'Machine #'.$machine->id).' at '.$location->location_name,
+            'description' => 'Machine installed at '.$location->location_name.'.',
+            'start_at' => $installationDate->startOfDay(),
+            'end_at' => $installationDate->endOfDay(),
+            'all_day' => true,
+            'status' => CalendarEvent::STATUS_SCHEDULED,
+            'priority' => null,
+            'assigned_user_id' => $createdByUserId,
+            'location_id' => $location->id,
+            'warehouse_id' => null,
+            'route_id' => $location->primaryRouteLocation?->route_id,
+            'source_type' => CalendarEvent::SOURCE_TYPE_MACHINE,
+            'source_id' => $machine->id,
+            'created_by_user_id' => $createdByUserId,
+            'completed_at' => null,
+        ]);
     }
 
     public function updateServiceEvent(Service $service, ?int $dismissedByUserId = null): void

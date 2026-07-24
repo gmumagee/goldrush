@@ -16,8 +16,13 @@
             <x-validation-errors />
             <section class="panel">
                 <div class="panel-body border-b border-gray-200 dark:border-gray-700/60">
-                    <form method="GET" action="{{ route('machines.index') }}" class="grid gap-4 md:grid-cols-[1fr_auto]">
+                    <form method="GET" action="{{ route('machines.index') }}" class="grid gap-4 lg:grid-cols-[1fr_220px_auto]">
                         <x-input name="search" type="text" :value="$search" placeholder="Search serial number, model, or status" />
+                        <select name="location_scope" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="">All machine locations</option>
+                            <option value="in_inventory" @selected($locationScope === 'in_inventory')>In Inventory</option>
+                            <option value="deployed" @selected($locationScope === 'deployed')>Deployed</option>
+                        </select>
                         <div class="flex gap-3">
                             <x-button>Search</x-button>
                             <a href="{{ route('machines.index') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Reset</a>
@@ -84,7 +89,14 @@
                                                     <tr class="bg-white dark:bg-gray-800">
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->serial_number ?: '—' }}</td>
                                                         <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->model ?: '—' }}</td>
-                                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->location?->location_name ?? '—' }}</td>
+                                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                                            <div class="flex flex-wrap items-center gap-2">
+                                                                <span>{{ $machine->location?->location_name ?? '—' }}</span>
+                                                                @if ($machine->location?->isInventory())
+                                                                    <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Inventory</span>
+                                                                @endif
+                                                            </div>
+                                                        </td>
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
                                                             @if ($machineStatus === 'active')
                                                                 <span class="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">Active</span>

@@ -5,7 +5,7 @@
                 $initialRows = old('items', [['product_id' => '', 'quantity' => '', 'line_total' => '']]);
                 $productOptions = $products->map(fn ($product) => [
                     'id' => $product->id,
-                    'label' => trim(($product->sku ? $product->sku.' · ' : '').$product->product_name),
+                    'label' => $product->display_name,
                 ])->values();
             @endphp
 

@@ -622,6 +622,18 @@ class ServiceController extends Controller
         $data['service_date'] = CarbonImmutable::parse($data['service_date'])->toDateString();
         $data['warehouse_id'] = $isLocationService ? (int) ($data['warehouse_id'] ?? 0) : null;
 
+        if ($isLocationService) {
+            $location = Location::query()
+                ->where('account_id', $accountId)
+                ->findOrFail((int) $data['location_id']);
+
+            if ($location->isInventory()) {
+                throw ValidationException::withMessages([
+                    'location_id' => 'Inventory locations cannot be used for location services.',
+                ]);
+            }
+        }
+
         return $data;
     }
 
@@ -650,6 +662,7 @@ class ServiceController extends Controller
     {
         return Location::query()
             ->where('account_id', $accountId)
+            ->notInventory()
             ->with('primaryRouteLocation.route')
             ->orderBy('location_name')
             ->get();

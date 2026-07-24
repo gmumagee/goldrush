@@ -47,7 +47,7 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400">Only users with update access can change route stops.</p>
                     @else
                     @if ($availableLocations->isEmpty())
-                        <p class="text-sm text-gray-500 dark:text-gray-400">All current-account locations are already assigned to this route.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">All current-account non-inventory locations are already assigned to this route.</p>
                     @else
                         <form method="POST" action="{{ route('routes.locations.store', $route) }}" class="grid gap-4 md:grid-cols-[1fr_auto]">
                             @csrf

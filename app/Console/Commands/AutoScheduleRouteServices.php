@@ -173,14 +173,15 @@ class AutoScheduleRouteServices extends Command
 
     protected function resolveToday(): ?CarbonImmutable
     {
+        $timezone = (string) config('app.schedule_timezone', config('app.timezone', 'UTC'));
         $dateOption = $this->option('date');
 
         if (! $dateOption) {
-            return CarbonImmutable::now()->startOfDay();
+            return CarbonImmutable::now($timezone)->startOfDay();
         }
 
         try {
-            return CarbonImmutable::parse((string) $dateOption)->startOfDay();
+            return CarbonImmutable::parse((string) $dateOption, $timezone)->startOfDay();
         } catch (\Throwable) {
             $this->error('The --date option must be a valid date string.');
 

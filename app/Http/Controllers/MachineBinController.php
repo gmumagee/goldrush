@@ -43,7 +43,7 @@ class MachineBinController extends Controller
 
         $products = Product::query()
             ->where('account_id', $accountId)
-            ->orderBy('product_name')
+            ->orderedForDropdown()
             ->get();
 
         return view('machines.bins.edit', [

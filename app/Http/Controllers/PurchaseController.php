@@ -163,7 +163,7 @@ class PurchaseController extends Controller
     {
         return Product::query()
             ->where('account_id', $accountId)
-            ->orderBy('product_name')
+            ->orderedForDropdown()
             ->get();
     }
 }

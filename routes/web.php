@@ -20,6 +20,7 @@ use App\Http\Controllers\MachineController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\LocationContactController;
 use App\Http\Controllers\LocationDocumentController;
+use App\Http\Controllers\LocationMachineController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
@@ -150,6 +151,10 @@ Route::middleware('auth')->group(function () {
             ->name('locations.documents.download');
         Route::delete('/locations/{location}/documents/{document}', [LocationDocumentController::class, 'destroy'])
             ->name('locations.documents.destroy');
+        Route::get('/locations/{location}/machines/attach', [LocationMachineController::class, 'create'])
+            ->name('locations.machines.attach');
+        Route::post('/locations/{location}/machines/attach', [LocationMachineController::class, 'store'])
+            ->name('locations.machines.attach.store');
         Route::resource('machines', MachineController::class);
         Route::resource('bins', BinController::class);
         Route::resource('services', ServiceController::class)->except(['show', 'destroy']);

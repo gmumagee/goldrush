@@ -47,9 +47,9 @@ class MachineIndexGroupingTest extends TestCase
             ->assertSeeText('Machines')
             ->assertSeeText('Beverage Machine')
             ->assertSeeText('Snack Machine')
-            ->assertSeeText('legacy_type')
+            ->assertSeeText('Legacy_type')
             ->assertSeeText('Uncategorized')
-            ->assertSeeTextInOrder(['Beverage Machine', 'legacy_type', 'Snack Machine', 'Uncategorized'])
+            ->assertSeeTextInOrder(['Beverage Machine', 'Legacy_type', 'Snack Machine', 'Uncategorized'])
             ->assertSee('id="machine-type-group-0-heading"', false)
             ->assertSee('id="machine-type-group-0-collapse"', false)
             ->assertSee('id="machine-type-group-1-heading"', false)
@@ -87,16 +87,20 @@ class MachineIndexGroupingTest extends TestCase
             ) {
                 $labels = $machineGroups->pluck('label')->all();
 
-                if ($labels !== ['Beverage Machine', 'legacy_type', 'Snack Machine', 'Uncategorized']) {
+                if ($labels !== ['Beverage Machine', 'Legacy_type', 'Snack Machine', 'Uncategorized']) {
                     return false;
                 }
 
-                    return $machineGroups->pluck('count')->all() === [1, 1, 2, 2]
-                        && $machineGroups[0]['machines']->pluck('id')->all() === [$beverageMachine->id]
-                        && $machineGroups[1]['machines']->pluck('id')->all() === [$legacyMachine->id]
-                        && $machineGroups[2]['machines']->pluck('id')->all() === [$snackMachineB->id, $snackMachineA->id]
-                        && $machineGroups[3]['machines']->pluck('id')->all() === [$whitespaceTypeMachine->id, $blankTypeMachine->id]
-                        && $machineGroups[3]['is_uncategorized'] === true;
+                return $machineGroups->pluck('count')->all() === [1, 1, 2, 2]
+                    && $machineGroups[0]['key'] === 'Beverage Machine'
+                    && $machineGroups[1]['key'] === 'legacy_type'
+                    && $machineGroups[2]['key'] === 'Snack Machine'
+                    && $machineGroups[3]['key'] === ''
+                    && $machineGroups[0]['machines']->pluck('id')->all() === [$beverageMachine->id]
+                    && $machineGroups[1]['machines']->pluck('id')->all() === [$legacyMachine->id]
+                    && $machineGroups[2]['machines']->pluck('id')->all() === [$snackMachineB->id, $snackMachineA->id]
+                    && $machineGroups[3]['machines']->pluck('id')->all() === [$whitespaceTypeMachine->id, $blankTypeMachine->id]
+                    && $machineGroups[3]['is_uncategorized'] === true;
             });
 
         $locationQueries = collect(DB::getQueryLog())
@@ -135,12 +139,13 @@ class MachineIndexGroupingTest extends TestCase
             ->get(route('machines.index', ['search' => 'MATCH']));
 
         $response->assertOk()
-            ->assertSeeText('snack')
-            ->assertDontSeeText('combo')
+            ->assertSeeText('Snack')
+            ->assertDontSeeText('Combo')
             ->assertSee('href="http://localhost/machines?search=MATCH&amp;page=2"', false)
             ->assertViewHas('machineGroups', function (Collection $machineGroups) {
                 return $machineGroups->count() === 1
-                    && $machineGroups->first()['label'] === 'snack'
+                    && $machineGroups->first()['key'] === 'snack'
+                    && $machineGroups->first()['label'] === 'Snack'
                     && $machineGroups->first()['count'] === 25;
             });
     }

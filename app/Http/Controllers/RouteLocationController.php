@@ -28,6 +28,12 @@ class RouteLocationController extends Controller
                 ->where('account_id', $accountId)
                 ->findOrFail((int) $data['location_id']);
 
+            if ($location->isInventory()) {
+                throw ValidationException::withMessages([
+                    'location_id' => 'Inventory locations cannot be assigned to routes.',
+                ]);
+            }
+
             $alreadyExists = RouteLocation::query()
                 ->where('account_id', $accountId)
                 ->where('route_id', $route->id)

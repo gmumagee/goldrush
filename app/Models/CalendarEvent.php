@@ -12,12 +12,14 @@ class CalendarEvent extends Model
     public const STATUS_SCHEDULED = 'Scheduled';
     public const STATUS_COMPLETED = 'Completed';
     public const STATUS_CANCELLED = 'Cancelled';
+    public const EVENT_TYPE_MACHINE_INSTALLATION = 'Machine Installation';
 
     public const SOURCE_TYPE_SERVICE = 'service';
     public const SOURCE_TYPE_PURCHASE = 'purchase';
     public const SOURCE_TYPE_ROUTE = 'route';
     public const SOURCE_TYPE_LOCATION = 'location';
     public const SOURCE_TYPE_WAREHOUSE = 'warehouse';
+    public const SOURCE_TYPE_MACHINE = 'machine';
 
     protected $table = 'tbl_calendar_events';
 
@@ -114,7 +116,7 @@ class CalendarEvent extends Model
         return $value === '' ? null : strtolower($value);
     }
 
-    public function sourceRecord(): Service|Purchase|Location|Warehouse|VendingRoute|null
+    public function sourceRecord(): Service|Purchase|Location|Machine|Warehouse|VendingRoute|null
     {
         if (! $this->source_id || ! $this->normalizedSourceType()) {
             return null;
@@ -125,6 +127,7 @@ class CalendarEvent extends Model
             self::SOURCE_TYPE_PURCHASE => Purchase::query(),
             self::SOURCE_TYPE_ROUTE => VendingRoute::query(),
             self::SOURCE_TYPE_LOCATION => Location::query(),
+            self::SOURCE_TYPE_MACHINE => Machine::query(),
             self::SOURCE_TYPE_WAREHOUSE => Warehouse::query(),
             default => null,
         };
@@ -139,6 +142,7 @@ class CalendarEvent extends Model
             self::SOURCE_TYPE_PURCHASE => 'purchases.show',
             self::SOURCE_TYPE_ROUTE => 'routes.show',
             self::SOURCE_TYPE_LOCATION => 'locations.show',
+            self::SOURCE_TYPE_MACHINE => 'machines.show',
             self::SOURCE_TYPE_WAREHOUSE => 'warehouses.show',
             default => null,
         };
@@ -157,6 +161,7 @@ class CalendarEvent extends Model
             self::SOURCE_TYPE_PURCHASE => 'View Purchase',
             self::SOURCE_TYPE_ROUTE => 'View Route',
             self::SOURCE_TYPE_LOCATION => 'View Location',
+            self::SOURCE_TYPE_MACHINE => 'View Machine',
             self::SOURCE_TYPE_WAREHOUSE => 'View Warehouse',
             default => null,
         };
@@ -179,6 +184,7 @@ class CalendarEvent extends Model
             self::SOURCE_TYPE_PURCHASE,
             self::SOURCE_TYPE_ROUTE,
             self::SOURCE_TYPE_LOCATION,
+            self::SOURCE_TYPE_MACHINE,
             self::SOURCE_TYPE_WAREHOUSE,
         ];
     }

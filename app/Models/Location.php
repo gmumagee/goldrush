@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 
 class Location extends Model
 {
+    public const INVENTORY_LOCATION_NAME = 'Inventory';
+
     protected $table = 'tbl_locations';
 
     public $timestamps = false;
@@ -17,11 +21,66 @@ class Location extends Model
         'city',
         'state',
         'zip_code',
+        'is_inventory',
+    ];
+
+    protected $casts = [
+        'is_inventory' => 'boolean',
     ];
 
     public function account()
     {
         return $this->belongsTo(Account::class, 'account_id');
+    }
+
+    public function scopeInventory(Builder $query): Builder
+    {
+        return $query->where('is_inventory', true);
+    }
+
+    public function scopeNotInventory(Builder $query): Builder
+    {
+        return $query->whereNull('is_inventory');
+    }
+
+    public function isInventory(): bool
+    {
+        return (bool) $this->is_inventory;
+    }
+
+    public static function ensureInventoryLocationForAccount(int $accountId, string $locationName = self::INVENTORY_LOCATION_NAME): self
+    {
+        $existingLocation = static::query()
+            ->where('account_id', $accountId)
+            ->inventory()
+            ->first();
+
+        if ($existingLocation) {
+            return $existingLocation;
+        }
+
+        try {
+            return static::create([
+                'account_id' => $accountId,
+                'location_name' => $locationName,
+                'address' => null,
+                'city' => null,
+                'state' => null,
+                'zip_code' => null,
+                'is_inventory' => true,
+            ]);
+        } catch (QueryException $exception) {
+            $existingLocation = static::query()
+                ->where('account_id', $accountId)
+                ->inventory()
+                ->first();
+
+            if ($existingLocation) {
+                return $existingLocation;
+            }
+
+            throw $exception;
+        }
     }
 
     public function routeLocations()

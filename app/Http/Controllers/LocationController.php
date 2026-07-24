@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class LocationController extends Controller
@@ -35,6 +36,7 @@ class LocationController extends Controller
 
         $locations = Location::query()
             ->where('account_id', $accountId)
+            ->notInventory()
             ->with(['primaryRouteLocation.route', 'primaryLocationContact.contact'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($locationQuery) use ($search) {
@@ -49,7 +51,7 @@ class LocationController extends Controller
                                 ->orWhere('email', 'like', '%'.$search.'%')
                                 ->orWhere('phone', 'like', '%'.$search.'%')
                                 ->orWhere('mobile_phone', 'like', '%'.$search.'%');
-                        });
+                    });
                 });
             })
             ->orderBy('id', 'desc')
@@ -195,7 +197,7 @@ class LocationController extends Controller
         return view('locations.edit', [
             'location' => $location,
             'routes' => $this->routesForAccount($accountId),
-            'selectedRouteId' => $location->primaryRouteLocation()->value('route_id'),
+            'selectedRouteId' => $location->isInventory() ? null : $location->primaryRouteLocation()->value('route_id'),
         ]);
     }
 
@@ -234,6 +236,10 @@ class LocationController extends Controller
         $accountId = $this->currentAccountId($request);
         $location = $this->locationForAccount($accountId, $location, ['machines', 'services', 'routeLocations', 'documents']);
         $this->authorize('delete', $location);
+
+        if ($location->isInventory()) {
+            abort(403, 'Inventory locations cannot be deleted.');
+        }
 
         if ($location->machines()->exists() || $location->services()->exists()) {
             return back()->withErrors([
@@ -406,6 +412,16 @@ class LocationController extends Controller
 
     protected function syncPrimaryRouteMembership(int $accountId, Location $location, ?int $newRouteId): void
     {
+        if ($location->isInventory()) {
+            if ($newRouteId !== null) {
+                throw ValidationException::withMessages([
+                    'route_id' => 'Inventory locations cannot be assigned to routes.',
+                ]);
+            }
+
+            return;
+        }
+
         if ($newRouteId === null) {
             RouteLocation::query()
                 ->where('account_id', $accountId)

@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\Machine;
-use App\Models\RouteLocation;
-use App\Models\VendingRoute;
 use App\Services\DataDictionaryService;
 use App\Services\InventoryService;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +27,7 @@ class MachineController extends Controller
 
         $accountId = $this->currentAccountId($request);
         $search = trim((string) $request->string('search'));
+        $locationScope = trim((string) $request->string('location_scope'));
 
         $machines = Machine::query()
             ->where('account_id', $accountId)
@@ -46,6 +45,12 @@ class MachineController extends Controller
                         ->orWhere('status', 'like', '%'.$search.'%');
                 });
             })
+            ->when($locationScope === 'in_inventory', function ($query) {
+                $query->whereHas('location', fn ($locationQuery) => $locationQuery->inventory());
+            })
+            ->when($locationScope === 'deployed', function ($query) {
+                $query->whereHas('location', fn ($locationQuery) => $locationQuery->notInventory());
+            })
             // Order nonblank stored types together on the current page so grouping can use the raw tbl_machines.type value without scanning every account machine.
             ->orderByRaw("CASE WHEN TRIM(COALESCE(type, '')) = '' THEN 1 ELSE 0 END")
             ->orderByRaw("LOWER(TRIM(COALESCE(type, '')))")
@@ -60,6 +65,7 @@ class MachineController extends Controller
             'machines' => $machines,
             'machineGroups' => $this->buildMachineGroups($machines->getCollection()),
             'search' => $search,
+            'locationScope' => in_array($locationScope, ['in_inventory', 'deployed'], true) ? $locationScope : '',
         ]);
     }
 
@@ -208,75 +214,14 @@ class MachineController extends Controller
     {
         return Location::query()
             ->where('account_id', $accountId)
+            ->orderByRaw('CASE WHEN is_inventory = 1 THEN 0 ELSE 1 END')
             ->orderBy('location_name')
             ->get();
     }
 
     protected function ensureDefaultLocation(int $accountId): Location
     {
-        $existingLocation = Location::query()
-            ->where('account_id', $accountId)
-            ->orderBy('id')
-            ->first();
-
-        if ($existingLocation) {
-            return $existingLocation;
-        }
-
-        $route = VendingRoute::query()->firstOrCreate(
-            [
-                'account_id' => $accountId,
-                'route_name' => 'Default Route',
-            ],
-            [
-                'description' => 'Auto-created default route for machine assignment.',
-            ]
-        );
-
-        $location = Location::query()->firstOrCreate(
-            [
-                'account_id' => $accountId,
-                'location_name' => 'Default Location',
-            ],
-            [
-                'address' => null,
-                'city' => null,
-                'state' => null,
-                'zip_code' => null,
-            ]
-        );
-
-        $routeLocation = RouteLocation::query()->firstOrCreate(
-            [
-                'account_id' => $accountId,
-                'route_id' => $route->id,
-                'location_id' => $location->id,
-            ],
-            [
-                'stop_order' => (int) RouteLocation::query()
-                    ->where('account_id', $accountId)
-                    ->where('route_id', $route->id)
-                    ->max('stop_order') + 1,
-                'is_primary' => false,
-            ]
-        );
-
-        $hasPrimaryRoute = $location->routeLocations()
-            ->where('account_id', $accountId)
-            ->where('is_primary', true)
-            ->exists();
-
-        if (! $hasPrimaryRoute) {
-            $location->routeLocations()
-                ->where('account_id', $accountId)
-                ->update(['is_primary' => false]);
-
-            RouteLocation::query()
-                ->where('id', $routeLocation->id)
-                ->update(['is_primary' => true]);
-        }
-
-        return $location;
+        return Location::ensureInventoryLocationForAccount($accountId);
     }
 
     protected function machineForAccount(int $accountId, int $machineId, array $with = []): Machine
@@ -337,7 +282,7 @@ class MachineController extends Controller
 
         return [
             'key' => $storedType,
-            'label' => $storedType,
+            'label' => ucfirst($storedType),
             'is_uncategorized' => false,
         ];
     }

@@ -186,7 +186,7 @@ class BinController extends Controller
     {
         return Product::query()
             ->where('account_id', $accountId)
-            ->orderBy('product_name')
+            ->orderedForDropdown()
             ->get();
     }
 }

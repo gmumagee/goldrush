@@ -171,6 +171,42 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
         $this->assertSame($validWarehouse->id, $service->warehouse_id);
     }
 
+    public function test_command_uses_configured_schedule_timezone_when_no_date_option_is_provided(): void
+    {
+        config([
+            'app.timezone' => 'UTC',
+            'app.schedule_timezone' => 'America/Toronto',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-07-20 01:30:00', 'UTC'));
+
+        $account = $this->createAccount('Timezone Account');
+        $warehouse = $this->createWarehouse($account, 'Timezone Warehouse');
+        $route = $this->createRoute($account, 'Sunday Route', [
+            'scheduled_day' => 'Sunday',
+            'warehouse_id' => $warehouse->id,
+            'auto_schedule_enabled' => true,
+        ]);
+
+        $location = $this->createLocation($account, $route, 'Late Night Stop');
+        $this->attachLocationToRoute($account, $route, $location, 1);
+
+        $this->artisan('services:auto-schedule-routes')
+            ->expectsOutput('Auto-scheduling route services for 2026-07-26 Sunday')
+            ->expectsOutput('Routes found: 1')
+            ->expectsOutput('Services created: 1')
+            ->expectsOutput('Services skipped as duplicates: 0')
+            ->expectsOutput('Routes skipped without warehouse: 0')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('tbl_services', [
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'warehouse_id' => $warehouse->id,
+            'service_date' => '2026-07-26 00:00:00',
+        ]);
+    }
+
     protected function createAccount(string $name): Account
     {
         return Account::create([

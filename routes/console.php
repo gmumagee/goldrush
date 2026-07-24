@@ -11,4 +11,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command(AutoScheduleRouteServices::class)
     ->dailyAt('01:00')
+    ->timezone((string) config('app.schedule_timezone', config('app.timezone', 'UTC')))
     ->withoutOverlapping();

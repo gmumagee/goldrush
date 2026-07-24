@@ -117,6 +117,7 @@ class VendingRouteController extends Controller
         $assignedLocationIds = $route->routeLocations->pluck('location_id');
         $availableLocations = Location::query()
             ->where('account_id', $accountId)
+            ->notInventory()
             ->whereNotIn('id', $assignedLocationIds)
             ->orderBy('location_name')
             ->get();

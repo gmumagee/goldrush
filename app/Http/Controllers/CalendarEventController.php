@@ -7,6 +7,7 @@ use App\Models\CalendarEvent;
 use App\Models\CalendarReminder;
 use App\Models\DataDictionary;
 use App\Models\Location;
+use App\Models\Machine;
 use App\Models\Purchase;
 use App\Models\Service;
 use App\Models\User;
@@ -412,7 +413,7 @@ class CalendarEventController extends Controller
         int $accountId,
         CalendarEvent $calendarEvent,
         ?string $sourceType,
-        Service|Purchase|Location|Warehouse|VendingRoute|null $sourceRecord,
+        Service|Purchase|Location|Machine|Warehouse|VendingRoute|null $sourceRecord,
         string $selectedReminderOption,
         ?CarbonImmutable $customReminderAt,
     ): array {
@@ -517,7 +518,7 @@ class CalendarEventController extends Controller
         int $accountId,
         ?string $sourceType,
         ?int $sourceId
-    ): Service|Purchase|Location|Warehouse|VendingRoute|null {
+    ): Service|Purchase|Location|Machine|Warehouse|VendingRoute|null {
         if (! $sourceType || ! $sourceId) {
             return null;
         }
@@ -538,6 +539,10 @@ class CalendarEventController extends Controller
                 ->where('account_id', $accountId)
                 ->with('primaryRouteLocation.route')
                 ->find($sourceId),
+            CalendarEvent::SOURCE_TYPE_MACHINE => Machine::query()
+                ->where('account_id', $accountId)
+                ->with('location.primaryRouteLocation.route')
+                ->find($sourceId),
             CalendarEvent::SOURCE_TYPE_WAREHOUSE => Warehouse::query()
                 ->where('account_id', $accountId)
                 ->find($sourceId),
@@ -547,7 +552,7 @@ class CalendarEventController extends Controller
 
     protected function sourceDefaults(
         ?string $sourceType,
-        Service|Purchase|Location|Warehouse|VendingRoute|null $sourceRecord
+        Service|Purchase|Location|Machine|Warehouse|VendingRoute|null $sourceRecord
     ): array {
         if (! $sourceType || ! $sourceRecord) {
             return [];
@@ -586,6 +591,25 @@ class CalendarEventController extends Controller
                 'title' => $sourceRecord->location_name,
                 'location_id' => $sourceRecord->id,
                 'route_id' => $sourceRecord->primaryRouteLocation?->route_id,
+                'source_type' => $sourceType,
+                'source_id' => $sourceRecord->id,
+            ],
+            CalendarEvent::SOURCE_TYPE_MACHINE => [
+                'event_type' => CalendarEvent::EVENT_TYPE_MACHINE_INSTALLATION,
+                'title' => 'Machine Installation: '.trim(collect([
+                    $sourceRecord->type,
+                    $sourceRecord->model,
+                    $sourceRecord->serial_number,
+                ])->filter(fn (?string $value) => trim((string) $value) !== '')->implode(' · ')),
+                'location_id' => $sourceRecord->location_id,
+                'route_id' => $sourceRecord->location?->primaryRouteLocation?->route_id,
+                'start_at' => $sourceRecord->installed_on
+                    ? CarbonImmutable::instance($sourceRecord->installed_on)->startOfDay()
+                    : CarbonImmutable::now(),
+                'end_at' => $sourceRecord->installed_on
+                    ? CarbonImmutable::instance($sourceRecord->installed_on)->endOfDay()
+                    : null,
+                'all_day' => true,
                 'source_type' => $sourceType,
                 'source_id' => $sourceRecord->id,
             ],

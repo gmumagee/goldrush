@@ -58,7 +58,7 @@
                                                     <option value="">No product</option>
                                                     @foreach ($products as $product)
                                                         <option value="{{ $product->id }}" @selected((string) old('bins.'.$bin->id.'.product_id', $bin->product_id) === (string) $product->id)>
-                                                            {{ $product->product_name }}
+                                                            {{ $product->display_name }}
                                                         </option>
                                                     @endforeach
                                                 </select>

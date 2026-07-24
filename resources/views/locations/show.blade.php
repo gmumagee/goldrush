@@ -57,8 +57,13 @@
         <div class="mx-auto w-full max-w-7xl space-y-6">
             <div class="flex items-center justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">{{ $location->location_name }}</h1>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $location->routes->pluck('route_name')->join(' · ') ?: 'No route' }}</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">{{ $location->location_name }}</h1>
+                        @if ($location->isInventory())
+                            <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Inventory</span>
+                        @endif
+                    </div>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $location->isInventory() ? 'Inventory location' : ($location->routes->pluck('route_name')->join(' · ') ?: 'No route') }}</p>
                 </div>
                 <div class="flex gap-3">
                     @can('viewAny', \App\Models\Location::class)
@@ -417,7 +422,9 @@
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <div class="text-sm text-gray-500 dark:text-gray-400">Review the machines currently assigned to this location and inspect the latest current inventory snapshot for each bin.</div>
                             @can('create', \App\Models\Machine::class)
-                                <a href="{{ route('machines.create', ['location_id' => $location->id]) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
+                            @if (! $location->isInventory())
+                                <a href="{{ route('locations.machines.attach', $location) }}" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">Add Machine</a>
+                            @endif
                             @endcan
                         </div>
 
@@ -764,6 +771,7 @@
             </section>
 
             @can('delete', $location)
+            @if (! $location->isInventory())
                 <section class="panel border border-red-200 dark:border-red-500/40">
                     <div class="panel-header border-red-200 dark:border-red-500/40">
                         <div>
@@ -791,6 +799,7 @@
                         </form>
                     </div>
                 </section>
+            @endif
             @endcan
         </div>
     </div>

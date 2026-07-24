@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
+
+    'schedule_timezone' => env('APP_SCHEDULE_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
 
     /*
     |--------------------------------------------------------------------------
