@@ -72,6 +72,11 @@ class Account extends Model
         return $this->hasMany(Machine::class, 'account_id');
     }
 
+    public function backups()
+    {
+        return $this->hasMany(AccountBackup::class, 'account_id');
+    }
+
     public function bins()
     {
         return $this->hasMany(Bin::class, 'account_id');

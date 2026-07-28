@@ -41,7 +41,7 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringOrder($operationsSection, ['Calendar', 'Services']);
         $this->assertStringOrder($routeManagementSection, ['Locations', 'Machines', 'Routes']);
         $this->assertStringOrder($inventorySection, ['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
-        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Audit Log', 'Switch Account', 'Users']);
+        $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Import / Export', 'Audit Log', 'Switch Account', 'Users']);
 
         $this->assertSame(1, substr_count($content, 'Route Management'));
         $this->assertSame(1, substr_count($content, route('routes.index')));
@@ -64,6 +64,7 @@ class SidebarNavigationTest extends TestCase
         );
         $this->assertStringNotContainsString('Data Dictionary', $accountSection);
         $this->assertStringNotContainsString('Soon', $accountSection);
+        $this->assertStringContainsString('href="'.route('import-export.index').'"', $accountSection);
 
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
@@ -89,6 +90,35 @@ class SidebarNavigationTest extends TestCase
 
         $this->assertStringContainsString('Data Dictionary', $accountSection);
         $this->assertStringContainsString('href="'.route('data-dictionary.index').'"', $accountSection);
+        $this->assertStringContainsString('Import / Export', $accountSection);
+        $this->assertStringContainsString('href="'.route('import-export.index').'"', $accountSection);
+    }
+
+    public function test_import_export_screen_keeps_settings_open_and_highlights_the_link_for_permitted_roles(): void
+    {
+        foreach ([AccountUser::ROLE_OWNER, AccountUser::ROLE_VIEWER] as $role) {
+            $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+            $account = $this->createAccount('Import Export Sidebar '.strtolower($role).' Account');
+            $this->attachUserToAccount($user, $account, $role);
+
+            $response = $this->actingAs($user)
+                ->withSession(['current_account_id' => $account->id])
+                ->get(route('import-export.index'));
+
+            $response->assertOk();
+
+            $content = $response->getContent();
+            $accountSection = $this->extractSidebarSection($content, 'sidebar-account');
+
+            $this->assertStringContainsString(
+                "open: true,\n                    init() {\n                        const saved = localStorage.getItem('sidebar-account-open');",
+                $content
+            );
+            $this->assertStringContainsString(
+                'href="'.route('import-export.index').'" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"',
+                $accountSection
+            );
+        }
     }
 
     public function test_route_pages_expand_route_management_without_expanding_operations(): void
@@ -188,6 +218,7 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringContainsString('aria-controls="sidebar-account"', $content);
         $this->assertStringContainsString('Change Password', $accountSection);
         $this->assertStringContainsString('Switch Account', $accountSection);
+        $this->assertStringNotContainsString('Import / Export', $accountSection);
     }
 
     protected function createAccount(string $name): Account

@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Support\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Tests\TestCase;
 
 class SingleTenantModeTest extends TestCase
@@ -49,35 +51,26 @@ class SingleTenantModeTest extends TestCase
             ->assertDontSeeText('Switch Account');
     }
 
-    public function test_single_mode_first_registration_creates_the_configured_account_without_account_name_input(): void
+    public function test_single_mode_blocks_web_registration_even_without_an_existing_account(): void
     {
         Config::set('tenancy.mode', Tenancy::MODE_SINGLE);
         Config::set('tenancy.single_tenant_account_id', 1);
 
         $this->get(route('register'))
-            ->assertOk()
-            ->assertDontSeeText('Business / account name');
+            ->assertRedirect(route('login'));
 
         $response = $this->post(route('register'), [
             'name' => 'Single Owner',
             'email' => 'owner@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password-123!',
+            'password_confirmation' => 'Password-123!',
         ]);
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHasErrors('email');
 
-        $this->assertDatabaseCount('tbl_accounts', 1);
-        $this->assertDatabaseHas('tbl_accounts', [
-            'id' => 1,
-            'account_name' => config('app.name', 'GoldRush'),
-        ]);
-        $this->assertDatabaseHas('tbl_account_users', [
-            'account_id' => 1,
-            'role' => AccountUser::ROLE_OWNER,
-            'status' => AccountUser::STATUS_ACTIVE,
-        ]);
-        $this->assertAuthenticated();
+        $this->assertDatabaseCount('tbl_accounts', 0);
+        $this->assertDatabaseCount('tbl_users', 0);
     }
 
     public function test_single_mode_registration_does_not_create_a_second_account(): void
@@ -90,8 +83,8 @@ class SingleTenantModeTest extends TestCase
         $response = $this->post(route('register'), [
             'name' => 'Second User',
             'email' => 'second@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password-123!',
+            'password_confirmation' => 'Password-123!',
         ]);
 
         $response->assertRedirect(route('login'));
@@ -123,6 +116,8 @@ class SingleTenantModeTest extends TestCase
     public function test_multi_mode_registration_still_creates_a_new_account(): void
     {
         Config::set('tenancy.mode', Tenancy::MODE_MULTI);
+        Config::set('security.allow_self_registration', true);
+        Notification::fake();
 
         $this->get(route('register'))
             ->assertOk()
@@ -131,17 +126,25 @@ class SingleTenantModeTest extends TestCase
         $response = $this->post(route('register'), [
             'name' => 'Multi Owner',
             'email' => 'multi@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password-123!',
+            'password_confirmation' => 'Password-123!',
             'account_name' => 'Multi Tenant Account',
         ]);
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect(route('verification.notice'));
 
         $this->assertDatabaseCount('tbl_accounts', 1);
         $this->assertDatabaseHas('tbl_accounts', [
             'account_name' => 'Multi Tenant Account',
         ]);
+        $this->assertDatabaseHas('tbl_users', [
+            'email' => 'multi@example.com',
+            'email_verified_at' => null,
+        ]);
+        Notification::assertSentTo(
+            User::query()->where('email', 'multi@example.com')->firstOrFail(),
+            VerifyEmail::class
+        );
     }
 
     private function createAccount(string $name, ?int $id = null): Account

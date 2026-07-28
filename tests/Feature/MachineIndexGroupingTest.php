@@ -95,7 +95,7 @@ class MachineIndexGroupingTest extends TestCase
                     && $machineGroups[0]['key'] === 'Beverage Machine'
                     && $machineGroups[1]['key'] === 'legacy_type'
                     && $machineGroups[2]['key'] === 'Snack Machine'
-                    && $machineGroups[3]['key'] === ''
+                    && $machineGroups[3]['key'] === 'uncategorized'
                     && $machineGroups[0]['machines']->pluck('id')->all() === [$beverageMachine->id]
                     && $machineGroups[1]['machines']->pluck('id')->all() === [$legacyMachine->id]
                     && $machineGroups[2]['machines']->pluck('id')->all() === [$snackMachineB->id, $snackMachineA->id]

@@ -30,8 +30,10 @@
 
         <div class="flex items-center justify-between gap-4 pt-2">
             <div class="text-sm text-gray-500 dark:text-gray-400">
-                Need an account?
-                <a href="{{ route('register') }}" class="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">Register</a>
+                @if (config('security.allow_self_registration', false) && \App\Support\Tenancy::isMulti())
+                    Need an account?
+                    <a href="{{ route('register') }}" class="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">Register</a>
+                @endif
             </div>
 
             <x-button>Sign in</x-button>

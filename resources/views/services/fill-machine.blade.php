@@ -5,7 +5,7 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Fill Machine</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Service #{{ $service->id }} · {{ $machine->type }} · {{ $machine->serial_number ?: 'No serial' }}
+                        Service #{{ $service->id }} · {{ $machine->display_type ?: 'Machine' }} · {{ $machine->serial_number ?: 'No serial' }}
                     </p>
                 </div>
 
@@ -17,7 +17,7 @@
             <section class="panel">
                 <div class="panel-header">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ $machine->type }}</h2>
+                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ $machine->display_type ?: 'Machine' }}</h2>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter how many units were added to each bin during this fill step.</p>
                     </div>
                 </div>

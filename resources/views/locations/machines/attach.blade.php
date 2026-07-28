@@ -64,7 +64,7 @@
                                                         class="inventory-machine-checkbox rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                                                     >
                                                 </td>
-                                                <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->type ?: 'Machine #'.$machine->id }}</td>
+                                                <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->display_type ?: 'Machine #'.$machine->id }}</td>
                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->model ?: '—' }}</td>
                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->serial_number ?: '—' }}</td>
                                                 <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ trim((string) $machine->status) !== '' ? trim((string) $machine->status) : '—' }}</td>

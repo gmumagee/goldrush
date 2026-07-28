@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Account;
 use App\Models\AccountUser;
 use App\Models\SuperAdminAuditLog;
 use Closure;
@@ -40,6 +41,22 @@ class EnsureActiveCurrentAccountMember
             }
 
             return $next($request);
+        }
+
+        $account = Account::query()
+            ->select(['id', 'status'])
+            ->find($accountId);
+
+        if ($account && $account->status !== Account::STATUS_ACTIVE) {
+            $request->session()->forget('current_account_id');
+
+            if (Tenancy::isSingle()) {
+                abort(403, 'This account has been suspended.');
+            }
+
+            return redirect()
+                ->route('accounts.select')
+                ->withErrors(['account_id' => 'This account has been suspended.']);
         }
 
         // Account isolation: every account-scoped request must prove the

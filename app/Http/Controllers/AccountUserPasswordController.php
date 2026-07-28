@@ -27,7 +27,7 @@ class AccountUserPasswordController extends Controller
         $this->authorize('resetPassword', $membership);
 
         $validated = $request->validate([
-            'password' => ['required', 'string', 'confirmed', PasswordRule::min(8)],
+            'password' => ['required', 'string', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()->symbols()],
         ]);
 
         $membership->user->update([

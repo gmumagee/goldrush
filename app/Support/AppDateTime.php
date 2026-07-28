@@ -30,6 +30,13 @@ class AppDateTime
         return $time?->format(self::DISPLAY_TIME_FORMAT) ?? $fallback;
     }
 
+    public static function displayDateTime(mixed $value, string $fallback = '—'): string
+    {
+        $dateTime = self::toDisplayCarbon($value);
+
+        return $dateTime?->format(self::DISPLAY_DATE_FORMAT.' '.self::DISPLAY_TIME_FORMAT) ?? $fallback;
+    }
+
     public static function isoDate(mixed $value): ?string
     {
         // Preserve a machine-readable date when the visible text uses the app display format.

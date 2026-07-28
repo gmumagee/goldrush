@@ -7,6 +7,7 @@ use App\Models\Location;
 use App\Models\Machine;
 use App\Services\DataDictionaryService;
 use App\Services\InventoryService;
+use App\Support\EntityValidation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -180,30 +181,11 @@ class MachineController extends Controller
 
     protected function validateMachine(Request $request, int $accountId, ?Machine $machine = null): array
     {
-        $data = $request->validate([
-            'location_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('tbl_locations', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
-            ],
-            'type' => ['required', 'string', 'max:100'],
-            'serial_number' => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('tbl_machines', 'serial_number')
-                    ->where(fn ($query) => $query->where('account_id', $accountId))
-                    ->ignore($machine?->id),
-            ],
-            'model' => ['nullable', 'string', 'max:255'],
-            'status' => [
-                'required',
-                'string',
-                'max:50',
-                $this->activeDictionaryValueRule(DataDictionary::GROUP_MACHINE_STATUS, $accountId),
-            ],
-            'installed_on' => ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/'],
-        ]);
+        $data = $request->validate(EntityValidation::machineRules(
+            $accountId,
+            $machine,
+            ['nullable', 'regex:/^\d{2}-\d{2}-\d{4}$/']
+        ));
 
         $data['installed_on'] = $this->normalizeDateInput($data['installed_on'] ?? null, 'installed_on', true);
 

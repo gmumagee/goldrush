@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Models\VendingRoute;
 use App\Services\DataDictionaryService;
 use App\Services\DashboardSalesChartService;
+use App\Support\EntityValidation;
 use App\Support\AppDateTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
@@ -78,18 +79,7 @@ class LocationController extends Controller
 
         $accountId = $this->currentAccountId($request);
 
-        $data = $request->validate([
-            'route_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('tbl_routes', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
-            ],
-            'location_name' => ['required', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'state' => ['nullable', 'string', 'max:100'],
-            'zip_code' => ['nullable', 'string', 'max:20'],
-        ]);
+        $data = $request->validate(EntityValidation::locationRules($accountId));
 
         $data['account_id'] = $accountId;
 
@@ -207,18 +197,7 @@ class LocationController extends Controller
         $location = $this->locationForAccount($accountId, $location);
         $this->authorize('update', $location);
 
-        $data = $request->validate([
-            'route_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('tbl_routes', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
-            ],
-            'location_name' => ['required', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'state' => ['nullable', 'string', 'max:100'],
-            'zip_code' => ['nullable', 'string', 'max:20'],
-        ]);
+        $data = $request->validate(EntityValidation::locationRules($accountId));
 
         DB::transaction(function () use ($location, $data, $accountId) {
             $primaryRouteId = isset($data['route_id']) && $data['route_id'] !== null ? (int) $data['route_id'] : null;

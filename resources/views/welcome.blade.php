@@ -40,7 +40,9 @@
 
                 <div class="mt-10 flex flex-wrap gap-3">
                     <a href="{{ route('login') }}" class="inline-flex items-center rounded-xl bg-gray-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white">Login</a>
-                    <a href="{{ route('register') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Register</a>
+                    @if (config('security.allow_self_registration', false) && \App\Support\Tenancy::isMulti())
+                        <a href="{{ route('register') }}" class="inline-flex items-center rounded-xl border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Register</a>
+                    @endif
                 </div>
             </div>
 

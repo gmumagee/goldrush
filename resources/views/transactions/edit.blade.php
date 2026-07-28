@@ -34,7 +34,7 @@
                             <select id="machine_id" name="machine_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>
                                 @foreach ($machines as $machine)
                                     <option value="{{ $machine->id }}" @selected(old('machine_id', $transaction->machine_id) == $machine->id)>
-                                        {{ $machine->type }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
+                                        {{ $machine->display_type ?: 'Machine' }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
                                     </option>
                                 @endforeach
                             </select>
@@ -45,7 +45,7 @@
                             <select id="bin_id" name="bin_id" class="block w-full rounded-xl border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" required>
                                 @foreach ($bins as $bin)
                                     <option value="{{ $bin->id }}" @selected(old('bin_id', $transaction->bin_id) == $bin->id)>
-                                        {{ $bin->machine?->type ?? 'Machine' }} · {{ $bin->bin_code }} · {{ $bin->product?->product_name ?? 'No product' }}
+                                        {{ $bin->machine?->display_type ?: 'Machine' }} · {{ $bin->bin_code }} · {{ $bin->product?->product_name ?? 'No product' }}
                                     </option>
                                 @endforeach
                             </select>

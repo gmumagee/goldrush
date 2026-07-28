@@ -40,7 +40,7 @@
 
                         <div>
                             <dt class="text-gray-500 dark:text-gray-400">Machine</dt>
-                            <dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $transaction->machine?->type ?? '—' }}</dd>
+                            <dd class="mt-1 text-gray-800 dark:text-gray-100">{{ $transaction->machine?->display_type ?: '—' }}</dd>
                         </div>
 
                         <div>

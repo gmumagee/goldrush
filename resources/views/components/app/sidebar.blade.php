@@ -25,12 +25,13 @@
     $canViewDictionary = $currentUser?->can('viewAny', \App\Models\DataDictionary::class) ?? false;
     $canViewAccountUsers = $currentUser?->can('viewAny', \App\Models\AccountUser::class) ?? false;
     $canViewAuditLog = $currentUser?->can('viewAny', \App\Models\AuditLog::class) ?? false;
+    $canViewImportExport = $canViewProducts || $canViewMachines || $canViewLocations || $canViewContacts;
     $isSuperAdmin = $currentUser?->isSuperAdmin() ?? false;
 
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
     $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');
     $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*') || request()->routeIs('transactions.*');
-    $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('data-dictionary.*') || request()->routeIs('audit-log.*') || request()->is('users*') || request()->is('settings*');
+    $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('import-export.*') || request()->routeIs('data-dictionary.*') || request()->routeIs('audit-log.*') || request()->is('users*') || request()->is('settings*');
     $platformOpen = request()->routeIs('admin.*');
 
     $sectionButtonClasses = 'flex w-full min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition';
@@ -245,7 +246,7 @@
             </div>
             @endif
 
-            @if ($isSuperAdmin)
+            @if ($isSuperAdmin && $isMultiTenant)
             <div
                 x-data="{
                     open: {{ $platformOpen ? 'true' : 'false' }},
@@ -320,6 +321,9 @@
                     <li><a href="{{ route('password.edit') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('password.*') ? $activeChildClasses : $inactiveChildClasses }}">Change Password</a></li>
                     @if ($canViewContacts)
                         <li><a href="{{ route('contacts.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('contacts.*') ? $activeChildClasses : $inactiveChildClasses }}">Contacts</a></li>
+                    @endif
+                    @if ($canViewImportExport)
+                        <li><a href="{{ route('import-export.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('import-export.*') ? $activeChildClasses : $inactiveChildClasses }}">Import / Export</a></li>
                     @endif
                     @if ($isSuperAdmin)
                         <li><a href="{{ route('data-dictionary.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('data-dictionary.*') ? $activeChildClasses : $inactiveChildClasses }}">Data Dictionary</a></li>

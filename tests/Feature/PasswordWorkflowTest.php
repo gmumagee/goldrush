@@ -26,15 +26,15 @@ class PasswordWorkflowTest extends TestCase
             ->withSession(['current_account_id' => $account->id])
             ->put(route('password.update'), [
                 'current_password' => 'current-password',
-                'password' => 'new-password-123',
-                'password_confirmation' => 'new-password-123',
+                'password' => 'New-password-123!',
+                'password_confirmation' => 'New-password-123!',
             ])
             ->assertRedirect(route('password.edit'))
             ->assertSessionHas('status', 'Password updated successfully.');
 
         $user->refresh();
 
-        $this->assertTrue(Hash::check('new-password-123', $user->password));
+        $this->assertTrue(Hash::check('New-password-123!', $user->password));
         $this->assertFalse(Hash::check('current-password', $user->password));
     }
 
@@ -53,8 +53,8 @@ class PasswordWorkflowTest extends TestCase
             ->from(route('password.edit'))
             ->put(route('password.update'), [
                 'current_password' => 'wrong-password',
-                'password' => 'new-password-123',
-                'password_confirmation' => 'new-password-123',
+                'password' => 'New-password-123!',
+                'password_confirmation' => 'New-password-123!',
             ])
             ->assertRedirect(route('password.edit'))
             ->assertSessionHasErrors([
@@ -83,15 +83,15 @@ class PasswordWorkflowTest extends TestCase
             $this->actingAs($manager)
                 ->withSession(['current_account_id' => $account->id])
                 ->put(route('account-users.password.update', $membership), [
-                    'password' => 'reset-password-123',
-                    'password_confirmation' => 'reset-password-123',
+                    'password' => 'Reset-password-123!',
+                    'password_confirmation' => 'Reset-password-123!',
                 ])
                 ->assertRedirect(route('account-users.index'))
                 ->assertSessionHas('status', 'User password reset successfully.');
 
             $target->refresh();
 
-            $this->assertTrue(Hash::check('reset-password-123', $target->password));
+            $this->assertTrue(Hash::check('Reset-password-123!', $target->password));
             $this->assertFalse(Hash::check('target-password', $target->password));
         }
     }
@@ -117,8 +117,8 @@ class PasswordWorkflowTest extends TestCase
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
             ->put(route('account-users.password.update', $membership), [
-                'password' => 'reset-password-123',
-                'password_confirmation' => 'reset-password-123',
+                'password' => 'Reset-password-123!',
+                'password_confirmation' => 'Reset-password-123!',
             ])
             ->assertForbidden();
 
@@ -149,8 +149,8 @@ class PasswordWorkflowTest extends TestCase
         $this->actingAs($manager)
             ->withSession(['current_account_id' => $accountA->id])
             ->put(route('account-users.password.update', $membership), [
-                'password' => 'reset-password-123',
-                'password_confirmation' => 'reset-password-123',
+                'password' => 'Reset-password-123!',
+                'password_confirmation' => 'Reset-password-123!',
             ])
             ->assertNotFound();
 
@@ -177,8 +177,8 @@ class PasswordWorkflowTest extends TestCase
         $this->actingAs($user)
             ->withSession(['current_account_id' => $account->id])
             ->put(route('account-users.password.update', $membership), [
-                'password' => 'reset-password-123',
-                'password_confirmation' => 'reset-password-123',
+                'password' => 'Reset-password-123!',
+                'password_confirmation' => 'Reset-password-123!',
             ])
             ->assertForbidden();
 

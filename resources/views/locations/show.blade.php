@@ -455,7 +455,7 @@
                                                     <div class="machine-inventory-heading-main">
                                                         <div class="flex flex-wrap items-center gap-2">
                                                             <span class="font-semibold text-gray-800 dark:text-gray-100">
-                                                                {{ $machine->type ?: 'Machine #'.$machine->id }}
+                                                                {{ $machine->display_type ?: 'Machine #'.$machine->id }}
                                                             </span>
                                                             @if ($machine->serial_number)
                                                                 <span class="text-sm text-gray-500 dark:text-gray-400">

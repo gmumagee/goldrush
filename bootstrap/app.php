@@ -8,6 +8,7 @@ use App\Support\EnsureActiveCurrentAccountMember;
 use App\Support\EnsureCurrentAccountSelected;
 use App\Support\EnsureUserIsSuperAdmin;
 use App\Support\RestrictTechnicianToServiceScreens;
+use App\Support\SetSecurityHeaders;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(SetSecurityHeaders::class);
+
         $middleware->alias([
             'account.selected' => EnsureCurrentAccountSelected::class,
             'account.member' => EnsureActiveCurrentAccountMember::class,

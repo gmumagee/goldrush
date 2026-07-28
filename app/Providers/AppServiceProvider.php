@@ -28,7 +28,10 @@ use App\Policies\AuditLogPolicy;
 use App\Policies\DataDictionaryPolicy;
 use App\Policies\OperationalEntityPolicy;
 use App\Policies\ServicePolicy;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -46,6 +49,36 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (config('security.force_https', false)) {
+            URL::forceScheme('https');
+        }
+
+        RateLimiter::for('login', function ($request) {
+            $email = mb_strtolower(trim((string) $request->input('email')));
+
+            return Limit::perMinute(5)->by(($email !== '' ? $email : 'guest').'|'.$request->ip());
+        });
+
+        RateLimiter::for('register', fn ($request) => [
+            Limit::perMinutes(10, 3)->by($request->ip()),
+        ]);
+
+        RateLimiter::for('password-confirm', fn ($request) => [
+            Limit::perMinute(6)->by(($request->user()?->id ?? 'guest').'|'.$request->ip()),
+        ]);
+
+        RateLimiter::for('verification-resend', fn ($request) => [
+            Limit::perMinutes(10, 3)->by(($request->user()?->id ?? 'guest').'|'.$request->ip()),
+        ]);
+
+        RateLimiter::for('admin-backups', fn ($request) => [
+            Limit::perMinutes(10, 2)->by((string) ($request->user()?->id ?? 'guest')),
+        ]);
+
+        RateLimiter::for('admin-backup-downloads', fn ($request) => [
+            Limit::perMinute(10)->by((string) ($request->user()?->id ?? 'guest')),
+        ]);
+
         Account::observe(AccountObserver::class);
 
         foreach ([

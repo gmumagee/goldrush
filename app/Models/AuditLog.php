@@ -22,6 +22,7 @@ class AuditLog extends Model
         'auditable_type',
         'auditable_id',
         'event',
+        'batch_id',
         'changes',
         'created_at',
     ];
@@ -39,6 +40,8 @@ class AuditLog extends Model
     public static function entityTypeOptions(): array
     {
         return [
+            Account::class => 'Account',
+            AccountBackup::class => 'Account Backup',
             Service::class => 'Service',
             Transaction::class => 'Transaction',
             Purchase::class => 'Purchase',

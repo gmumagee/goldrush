@@ -29,6 +29,13 @@ class Machine extends Model
         'installed_on' => 'date',
     ];
 
+    public function getDisplayTypeAttribute(): string
+    {
+        $type = trim((string) $this->type);
+
+        return $type === '' ? '' : ucfirst($type);
+    }
+
     public function account()
     {
         return $this->belongsTo(Account::class, 'account_id');

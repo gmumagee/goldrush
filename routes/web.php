@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountSelectionController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
+use App\Http\Controllers\Admin\AccountBackupController as AdminAccountBackupController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AccountUserPasswordController;
 use App\Http\Controllers\AccountUserController;
@@ -25,11 +26,14 @@ use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\RouteLocationController;
+use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VendingRouteController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\WarehouseController;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -38,9 +42,9 @@ Route::get('/', function () {
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
-    Route::post('/login', [LoginController::class, 'store']);
+    Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
     Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
-    Route::post('/register', [RegisterController::class, 'register']);
+    Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:register');
 });
 
 Route::post('/logout', LogoutController::class)
@@ -48,20 +52,49 @@ Route::post('/logout', LogoutController::class)
     ->name('logout');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/verify-email', function () {
+        return view('auth.verify-email');
+    })->name('verification.notice');
+    Route::get('/verify-email/{id}/{hash}', function (EmailVerificationRequest $request) {
+        $request->fulfill();
+
+        return redirect('/dashboard')->with('status', 'Email verified successfully.');
+    })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+    Route::post('/email/verification-notification', function (Request $request) {
+        if ($request->user()?->hasVerifiedEmail()) {
+            return redirect('/dashboard');
+        }
+
+        $request->user()?->sendEmailVerificationNotification();
+
+        return back()->with('status', 'Verification link sent.');
+    })->middleware('throttle:verification-resend')->name('verification.send');
+
     Route::get('/confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
     Route::post('/confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:password-confirm')
         ->name('password.confirm.store');
 
-    Route::middleware('super.admin')->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware(['verified', 'super.admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/accounts', [AdminAccountController::class, 'index'])
             ->name('accounts.index');
+        Route::post('/accounts/{account}/block', [AdminAccountController::class, 'block'])
+            ->name('accounts.block');
+        Route::post('/accounts/{account}/unblock', [AdminAccountController::class, 'unblock'])
+            ->name('accounts.unblock');
+        Route::post('/accounts/{account}/backups', [AdminAccountBackupController::class, 'store'])
+            ->middleware(['password.confirm', 'throttle:admin-backups'])
+            ->name('accounts.backups.store');
+        Route::get('/account-backups/{accountBackup}/download', [AdminAccountBackupController::class, 'download'])
+            ->middleware(['password.confirm', 'throttle:admin-backup-downloads'])
+            ->name('account-backups.download');
     });
 
     Route::get('/accounts/select', [AccountSelectionController::class, 'edit'])->name('accounts.select');
     Route::post('/accounts/select', [AccountSelectionController::class, 'update']);
 
-    Route::middleware(['account.selected', 'account.member', 'super.admin'])->group(function () {
+    Route::middleware(['verified', 'account.selected', 'account.member', 'super.admin'])->group(function () {
         Route::get('/data-dictionary', [DataDictionaryController::class, 'index'])
             ->name('data-dictionary.index');
         Route::get('/data-dictionary/create', [DataDictionaryController::class, 'create'])
@@ -78,7 +111,18 @@ Route::middleware('auth')->group(function () {
             ->name('data-dictionary.activate');
     });
 
-    Route::middleware(['account.selected', 'account.member', 'technician.services'])->group(function () {
+    Route::middleware(['verified', 'account.selected', 'account.member'])->group(function () {
+        Route::get('/import-export', [ImportExportController::class, 'index'])
+            ->name('import-export.index');
+        Route::get('/import-export/export/{entity}', [ImportExportController::class, 'export'])
+            ->name('import-export.export');
+        Route::post('/import-export/import/analyze', [ImportExportController::class, 'analyzeImport'])
+            ->name('import-export.import.analyze');
+        Route::post('/import-export/import/confirm', [ImportExportController::class, 'confirmImport'])
+            ->name('import-export.import.confirm');
+    });
+
+    Route::middleware(['verified', 'account.selected', 'account.member', 'technician.services'])->group(function () {
         Route::get('/dashboard', DashboardController::class)
             ->name('dashboard');
 

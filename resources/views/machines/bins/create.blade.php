@@ -5,7 +5,7 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">Add Bins</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        {{ $machine->type }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
+                        {{ $machine->display_type ?: 'Machine' }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
                     </p>
                 </div>
 

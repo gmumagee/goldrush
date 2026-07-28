@@ -13,14 +13,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
 class RegisterController extends Controller
 {
     public function showRegistrationForm(): View|RedirectResponse
     {
-        if (Tenancy::isSingle() && Tenancy::hasSingleAccount()) {
+        if (! config('security.allow_self_registration', false) || Tenancy::isSingle()) {
             return redirect()->route('login');
         }
 
@@ -29,16 +29,16 @@ class RegisterController extends Controller
 
     public function register(Request $request): RedirectResponse
     {
-        if (Tenancy::isSingle() && Tenancy::hasSingleAccount()) {
+        if (! config('security.allow_self_registration', false) || Tenancy::isSingle()) {
             return redirect()
                 ->route('login')
-                ->withErrors(['email' => 'Self-registration is disabled in single-tenant mode.']);
+                ->withErrors(['email' => 'Self-registration is currently disabled.']);
         }
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:tbl_users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()->symbols()],
         ];
 
         if (Tenancy::isMulti()) {
@@ -53,18 +53,15 @@ class RegisterController extends Controller
                 'email' => strtolower($data['email']),
                 'password' => Hash::make($data['password']),
                 'status' => User::STATUS_ACTIVE,
+                'email_verified_at' => null,
             ]);
 
-            if (Tenancy::isSingle()) {
-                $account = Tenancy::ensureSingleAccount(config('app.name', 'GoldRush'), $data['email']);
-            } else {
-                $account = Account::create([
-                    'account_name' => $data['account_name'],
-                    'slug' => $this->generateUniqueAccountSlug($data['account_name']),
-                    'status' => Account::STATUS_ACTIVE,
-                    'billing_email' => $data['email'],
-                ]);
-            }
+            $account = Account::create([
+                'account_name' => $data['account_name'],
+                'slug' => $this->generateUniqueAccountSlug($data['account_name']),
+                'status' => Account::STATUS_ACTIVE,
+                'billing_email' => $data['email'],
+            ]);
 
             AccountUser::create([
                 'account_id' => $account->id,
@@ -79,6 +76,12 @@ class RegisterController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         $request->session()->put('current_account_id', $account->id);
+
+        if (config('security.require_verified_email', true)) {
+            $user->sendEmailVerificationNotification();
+
+            return redirect()->route('verification.notice');
+        }
 
         return redirect('/dashboard');
     }

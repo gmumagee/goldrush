@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Vendor;
+use App\Support\EntityValidation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -58,27 +58,11 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $accountId = $this->currentAccountId($request);
-        $this->normalizeSku($request);
-
-        $data = $request->validate([
-            'vendor_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('tbl_vendors', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
-            ],
-            'category' => ['nullable', 'string', 'max:100'],
-            'brand' => ['nullable', 'string', 'max:100'],
-            'sku' => [
-                'nullable',
-                'string',
-                'max:100',
-                Rule::unique('tbl_products', 'sku')->where(fn ($query) => $query->where('account_id', $accountId)),
-            ],
-            'product_name' => ['required', 'string', 'max:255'],
-            'size' => ['nullable', 'string', 'max:100'],
-            'package_type' => ['nullable', 'string', 'max:100'],
-            'barcode' => ['nullable', 'string', 'max:100'],
+        $request->merge([
+            'sku' => EntityValidation::normalizeSku($request->input('sku')),
         ]);
+
+        $data = $request->validate(EntityValidation::productRules($accountId));
 
         $data['account_id'] = $accountId;
 
@@ -112,29 +96,11 @@ class ProductController extends Controller
         $accountId = $this->currentAccountId($request);
         $product = $this->productForAccount($accountId, $product);
         $this->authorize('update', $product);
-        $this->normalizeSku($request);
-
-        $data = $request->validate([
-            'vendor_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('tbl_vendors', 'id')->where(fn ($query) => $query->where('account_id', $accountId)),
-            ],
-            'category' => ['nullable', 'string', 'max:100'],
-            'brand' => ['nullable', 'string', 'max:100'],
-            'sku' => [
-                'nullable',
-                'string',
-                'max:100',
-                Rule::unique('tbl_products', 'sku')
-                    ->where(fn ($query) => $query->where('account_id', $accountId))
-                    ->ignore($product->id),
-            ],
-            'product_name' => ['required', 'string', 'max:255'],
-            'size' => ['nullable', 'string', 'max:100'],
-            'package_type' => ['nullable', 'string', 'max:100'],
-            'barcode' => ['nullable', 'string', 'max:100'],
+        $request->merge([
+            'sku' => EntityValidation::normalizeSku($request->input('sku')),
         ]);
+
+        $data = $request->validate(EntityValidation::productRules($accountId, $product));
 
         $product->update($data);
 
@@ -171,12 +137,5 @@ class ProductController extends Controller
             ->where('account_id', $accountId)
             ->orderBy('vendor_name')
             ->get();
-    }
-
-    protected function normalizeSku(Request $request): void
-    {
-        $request->merge([
-            'sku' => ($sku = trim((string) $request->input('sku'))) !== '' ? $sku : null,
-        ]);
     }
 }

@@ -3,7 +3,7 @@
         <div class="mx-auto w-full max-w-7xl space-y-6">
             <div class="flex items-center justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">{{ $machine->type }}</h1>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 md:text-3xl">{{ $machine->display_type ?: 'Machine' }}</h1>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                         Machine #{{ $machine->id }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
                     </p>

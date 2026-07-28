@@ -7,6 +7,7 @@ use App\Models\DataDictionary;
 use App\Models\Location;
 use App\Models\LocationContact;
 use App\Services\DataDictionaryService;
+use App\Support\EntityValidation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -202,11 +203,7 @@ class LocationContactController extends Controller
 
     protected function validatedRelationshipData(Request $request, int $accountId): array
     {
-        $data = $request->validate([
-            'contact_role' => ['nullable', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_LOCATION_CONTACT_ROLE, $accountId)],
-            'is_primary' => ['nullable', 'boolean'],
-            'relationship_notes' => ['nullable', 'string'],
-        ]);
+        $data = $request->validate(EntityValidation::contactRelationshipRules($accountId));
 
         return [
             'contact_role' => $data['contact_role'] ?: null,
@@ -217,30 +214,8 @@ class LocationContactController extends Controller
 
     protected function validatedContactData(Request $request): array
     {
-        $data = $request->validate([
-            'first_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['nullable', 'string', 'max:100'],
-            'organization' => ['nullable', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'mobile_phone' => ['nullable', 'string', 'max:50'],
-            'contact_notes' => ['nullable', 'string'],
-        ]);
-
-        // New reusable contacts still need at least one identifying field.
-        if (
-            trim((string) ($data['first_name'] ?? '')) === ''
-            && trim((string) ($data['last_name'] ?? '')) === ''
-            && trim((string) ($data['organization'] ?? '')) === ''
-            && trim((string) ($data['email'] ?? '')) === ''
-            && trim((string) ($data['phone'] ?? '')) === ''
-            && trim((string) ($data['mobile_phone'] ?? '')) === ''
-        ) {
-            throw ValidationException::withMessages([
-                'first_name' => 'Enter at least a name, organization, email, or phone number.',
-            ]);
-        }
+        $data = $request->validate(EntityValidation::contactRules('contact_notes'));
+        EntityValidation::ensureContactHasIdentity($data);
 
         return [
             'first_name' => $data['first_name'] ?? null,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contact;
+use App\Support\EntityValidation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -118,30 +119,8 @@ class ContactController extends Controller
 
     protected function validatedContactData(Request $request): array
     {
-        $data = $request->validate([
-            'first_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['nullable', 'string', 'max:100'],
-            'organization' => ['nullable', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'mobile_phone' => ['nullable', 'string', 'max:50'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        // Prevent empty placeholder contacts that cannot be identified later.
-        if (
-            trim((string) ($data['first_name'] ?? '')) === ''
-            && trim((string) ($data['last_name'] ?? '')) === ''
-            && trim((string) ($data['organization'] ?? '')) === ''
-            && trim((string) ($data['email'] ?? '')) === ''
-            && trim((string) ($data['phone'] ?? '')) === ''
-            && trim((string) ($data['mobile_phone'] ?? '')) === ''
-        ) {
-            throw ValidationException::withMessages([
-                'first_name' => 'Enter at least a name, organization, email, or phone number.',
-            ]);
-        }
+        $data = $request->validate(EntityValidation::contactRules());
+        EntityValidation::ensureContactHasIdentity($data);
 
         return $data;
     }

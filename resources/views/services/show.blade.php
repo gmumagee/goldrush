@@ -489,7 +489,7 @@
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700/60">
                             @forelse ($service->location?->machines ?? collect() as $machine)
                                 <tr class="bg-white dark:bg-gray-800">
-                                    <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->type }}</td>
+                                    <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->display_type ?: 'Machine' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->serial_number ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->model ?: '—' }}</td>
                                     <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->status }}</td>
@@ -617,7 +617,7 @@
                                                             @php
                                                                 $machineLabel = $transaction->machine?->serial_number
                                                                     ?: $transaction->machine?->model
-                                                                    ?: $transaction->machine?->type
+                                                                    ?: $transaction->machine?->display_type
                                                                     ?: '—';
                                                                 $price = $transaction->price !== null ? number_format((float) $transaction->price, 2) : '—';
                                                                 $unitCost = $transaction->unit_cost !== null ? number_format((float) $transaction->unit_cost, 4) : '—';

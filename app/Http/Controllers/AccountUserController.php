@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -69,9 +70,6 @@ class AccountUserController extends Controller
 
         $accountId = $this->currentAccountId($request);
         $email = mb_strtolower(trim((string) $request->input('email')));
-        $existingUser = User::query()
-            ->whereRaw('LOWER(email) = ?', [$email])
-            ->first();
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -79,32 +77,20 @@ class AccountUserController extends Controller
             'role' => ['required', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_ACCOUNT_USER_ROLE, $accountId)],
             'status' => ['required', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_ACCOUNT_USER_STATUS, $accountId)],
             'user_status' => ['required', 'string', $this->activeDictionaryValueRule(DataDictionary::GROUP_USER_STATUS, $accountId)],
-            'password' => [$existingUser ? 'nullable' : 'required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()->symbols()],
         ]);
 
         $data['email'] = $email;
 
-        DB::transaction(function () use ($accountId, $data, $existingUser) {
-            if ($existingUser) {
-                $alreadyMember = AccountUser::query()
-                    ->where('account_id', $accountId)
-                    ->where('user_id', $existingUser->id)
-                    ->exists();
+        $user = DB::transaction(function () use ($accountId, $data) {
+            $emailInUse = User::query()
+                ->whereRaw('LOWER(email) = ?', [$data['email']])
+                ->exists();
 
-                if ($alreadyMember) {
-                    throw ValidationException::withMessages([
-                        'email' => 'This user already belongs to this account.',
-                    ]);
-                }
-
-                AccountUser::create([
-                    'account_id' => $accountId,
-                    'user_id' => $existingUser->id,
-                    'role' => $data['role'],
-                    'status' => $data['status'],
+            if ($emailInUse) {
+                throw ValidationException::withMessages([
+                    'email' => 'This email address cannot be added from this screen. Use a different email address.',
                 ]);
-
-                return;
             }
 
             $user = User::create([
@@ -112,6 +98,7 @@ class AccountUserController extends Controller
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
                 'status' => $data['user_status'],
+                'email_verified_at' => null,
             ]);
 
             AccountUser::create([
@@ -120,7 +107,13 @@ class AccountUserController extends Controller
                 'role' => $data['role'],
                 'status' => $data['status'],
             ]);
+
+            return $user;
         });
+
+        if (config('security.require_verified_email', true) && $user->status === User::STATUS_ACTIVE) {
+            $user->sendEmailVerificationNotification();
+        }
 
         return redirect()
             ->route('account-users.index')

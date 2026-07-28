@@ -35,7 +35,7 @@
                                 <option value="">Select a machine</option>
                                 @foreach ($machines as $machine)
                                     <option value="{{ $machine->id }}" @selected(old('machine_id', request('machine_id')) == $machine->id)>
-                                        {{ $machine->type }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
+                                        {{ $machine->display_type ?: 'Machine' }} · {{ $machine->serial_number ?: 'No serial' }} · {{ $machine->location?->location_name ?? 'No location' }}
                                     </option>
                                 @endforeach
                             </select>
@@ -47,7 +47,7 @@
                                 <option value="">Select a bin</option>
                                 @foreach ($bins as $bin)
                                     <option value="{{ $bin->id }}" @selected(old('bin_id', request('bin_id')) == $bin->id)>
-                                        {{ $bin->machine?->type ?? 'Machine' }} · {{ $bin->bin_code }} · {{ $bin->product?->product_name ?? 'No product' }}
+                                        {{ $bin->machine?->display_type ?: 'Machine' }} · {{ $bin->bin_code }} · {{ $bin->product?->product_name ?? 'No product' }}
                                     </option>
                                 @endforeach
                             </select>
@@ -55,7 +55,7 @@
 
                         @if ($selectedBin)
                             <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700/60 dark:bg-gray-900/40 dark:text-gray-300">
-                                Selected bin product defaults to {{ $selectedBin->product?->product_name ?? 'no product' }} and machine {{ $selectedBin->machine?->type ?? '—' }}. Fill transactions derive unit cost from the service warehouse.
+                                Selected bin product defaults to {{ $selectedBin->product?->product_name ?? 'no product' }} and machine {{ $selectedBin->machine?->display_type ?: '—' }}. Fill transactions derive unit cost from the service warehouse.
                             </div>
                         @endif
 
