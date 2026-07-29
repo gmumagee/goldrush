@@ -41,6 +41,13 @@ jobs:
             cd /var/www/goldrush
             git pull origin main
             composer install --no-dev --optimize-autoloader
+
+            # --- Pre-migration DB backup ---
+            echo "Backing up database to S3 before migrating..."
+            mysqldump --no-tablespaces db_goldrush | gzip | \
+              aws s3 cp - s3://goldrushvms-db-backups/pre-deploy-$(date +%F-%H%M%S).sql.gz
+            echo "Database backup complete."
+
             php artisan migrate --force
             php artisan config:clear
             php artisan config:cache
