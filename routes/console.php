@@ -1,9 +1,11 @@
 <?php
 
 use App\Console\Commands\AutoScheduleRouteServices;
+use App\Console\Commands\ArchiveAuditLog;
 use App\Console\Commands\PruneAccountBackups;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -19,3 +21,12 @@ Schedule::command(PruneAccountBackups::class)
     ->dailyAt('02:00')
     ->timezone((string) config('app.schedule_timezone', config('app.timezone', 'UTC')))
     ->withoutOverlapping();
+
+Schedule::command(ArchiveAuditLog::class)
+    ->monthlyOn(1, '04:00')
+    ->timezone((string) config('app.schedule_timezone', config('app.timezone', 'UTC')))
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->onFailure(function () {
+        Log::error('Scheduled audit-log:archive run failed.');
+    });
