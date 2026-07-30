@@ -26,6 +26,7 @@
                                 <tr>
                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">ID</th>
                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Account</th>
+                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Plan</th>
                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Created</th>
                                     <th class="px-5 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Members</th>
@@ -36,12 +37,33 @@
                                 @foreach ($accounts as $account)
                                     @php
                                         $recentBackups = ($backupsByAccount[$account->id] ?? collect())->take(5);
+                                        $planUsage = $planUsageByAccount[$account->id];
                                     @endphp
                                     <tr class="bg-white dark:bg-gray-800">
                                         <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">#{{ $account->id }}</td>
                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
                                             <div>{{ $account->account_name }}</div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400">{{ $account->slug }}</div>
+                                        </td>
+                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
+                                            <div class="font-medium text-gray-800 dark:text-gray-100">{{ $account->plan?->name ?? 'Unassigned' }}</div>
+                                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                {{ $planUsage['machine_count'] }} / {{ $planUsage['limit_label'] }} machines
+                                            </div>
+                                            @if ($planUsage['over_limit'])
+                                                <div class="mt-2 text-xs text-red-600 dark:text-red-300">
+                                                    Over limit by {{ $planUsage['overage'] }}.
+                                                </div>
+                                            @endif
+                                            <form method="POST" action="{{ route('admin.accounts.plan.update', $account) }}" class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                @csrf
+                                                <select name="plan_id" class="rounded-xl border-gray-300 bg-white px-3 py-2 text-xs text-gray-800 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+                                                    @foreach ($plans as $plan)
+                                                        <option value="{{ $plan->id }}" @selected((int) $account->plan_id === (int) $plan->id)>{{ $plan->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <button type="submit" class="inline-flex items-center rounded-xl border border-violet-300 px-3 py-2 text-xs font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10">Update Plan</button>
+                                            </form>
                                         </td>
                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
                                             @if ($account->status === \App\Models\Account::STATUS_ACTIVE)

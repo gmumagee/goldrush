@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AccountUser;
+use App\Models\Plan;
 use App\Models\User;
+use App\Support\Demo;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +22,7 @@ class RegisterController extends Controller
 {
     public function showRegistrationForm(): View|RedirectResponse
     {
-        if (! config('security.allow_self_registration', false) || Tenancy::isSingle()) {
+        if (Demo::isEnabled() || ! config('security.allow_self_registration', false) || Tenancy::isSingle()) {
             return redirect()->route('login');
         }
 
@@ -29,7 +31,7 @@ class RegisterController extends Controller
 
     public function register(Request $request): RedirectResponse
     {
-        if (! config('security.allow_self_registration', false) || Tenancy::isSingle()) {
+        if (Demo::isEnabled() || ! config('security.allow_self_registration', false) || Tenancy::isSingle()) {
             return redirect()
                 ->route('login')
                 ->withErrors(['email' => 'Self-registration is currently disabled.']);
@@ -57,6 +59,7 @@ class RegisterController extends Controller
             ]);
 
             $account = Account::create([
+                'plan_id' => Plan::FREE_ID,
                 'account_name' => $data['account_name'],
                 'slug' => $this->generateUniqueAccountSlug($data['account_name']),
                 'status' => Account::STATUS_ACTIVE,

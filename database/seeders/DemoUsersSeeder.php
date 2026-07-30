@@ -4,16 +4,21 @@ namespace Database\Seeders;
 
 use App\Models\AccountUser;
 use App\Models\User;
+use App\Support\Demo;
 use Illuminate\Support\Facades\Hash;
 
-class DemoUsersSeeder extends DemoSeeder
+class DemoUsersSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {
         $demoAccount = $this->demoAccount();
-        $otherAccount = $this->otherAccount();
 
         $demoUsers = [
+            [
+                'name' => Demo::sharedUserName(),
+                'email' => Demo::sharedUserEmail(),
+                'role' => AccountUser::ROLE_OWNER,
+            ],
             [
                 'name' => 'Owner User',
                 'email' => 'owner@example.com',
@@ -55,24 +60,6 @@ class DemoUsersSeeder extends DemoSeeder
                 ],
             );
         }
-
-        $otherOwner = $this->upsertUser('Other Owner', 'owner@other.test');
-
-        AccountUser::query()->updateOrCreate(
-            [
-                'account_id' => $otherAccount->id,
-                'user_id' => $otherOwner->id,
-            ],
-            [
-                'role' => AccountUser::ROLE_OWNER,
-                'status' => AccountUser::STATUS_ACTIVE,
-            ],
-        );
-
-        AccountUser::query()
-            ->where('account_id', $demoAccount->id)
-            ->where('user_id', $otherOwner->id)
-            ->delete();
     }
 
     protected function upsertUser(string $name, string $email): User

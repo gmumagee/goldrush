@@ -15,6 +15,52 @@
             @endif
             <x-validation-errors />
             <section class="panel">
+                <div class="panel-body flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">Plan Usage</p>
+                        <p class="mt-2 text-lg font-semibold text-gray-800 dark:text-gray-100">
+                            {{ $planUsage['machine_count'] }} / {{ $planUsage['limit_label'] }} machines used
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">· {{ $account->plan?->name ?? 'Unassigned' }} plan</span>
+                        </p>
+                        @if ($planUsage['over_limit'])
+                            <p class="mt-2 text-sm text-red-700 dark:text-red-300">
+                                Over limit by {{ $planUsage['overage'] }} machine{{ $planUsage['overage'] === 1 ? '' : 's' }}. Existing machines remain available, but new machines are blocked until the account is back under the limit or upgraded.
+                            </p>
+                        @elseif ($planUsage['at_limit'])
+                            <p class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                                This account is at its machine limit. New machine additions are blocked until the plan is upgraded.
+                            </p>
+                        @elseif ($planUsage['near_limit'])
+                            <p class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                                {{ $planUsage['remaining'] }} machine slot{{ $planUsage['remaining'] === 1 ? '' : 's' }} remaining on the current plan.
+                            </p>
+                        @elseif ($planUsage['is_unlimited'])
+                            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                Pro accounts are not blocked by machine count.
+                            </p>
+                        @else
+                            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                {{ $planUsage['remaining'] }} machine slot{{ $planUsage['remaining'] === 1 ? '' : 's' }} remaining on the current plan.
+                            </p>
+                        @endif
+                    </div>
+
+                    @if ($planUsage['suggested_plan'])
+                        <form method="POST" action="{{ route('plan-upgrade-intents.store') }}" class="flex flex-col gap-2 sm:items-end">
+                            @csrf
+                            <input type="hidden" name="plan_id" value="{{ $planUsage['suggested_plan']->id }}">
+                            <input type="hidden" name="source" value="machines_index">
+                            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500">
+                                Request {{ $planUsage['suggested_plan']->name }} Upgrade
+                            </button>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Placeholder upgrade flow only. No payment is processed in this phase.
+                            </p>
+                        </form>
+                    @endif
+                </div>
+            </section>
+            <section class="panel">
                 <div class="panel-body border-b border-gray-200 dark:border-gray-700/60">
                     <form method="GET" action="{{ route('machines.index') }}" class="grid gap-4 lg:grid-cols-[1fr_220px_auto]">
                         <x-input name="search" type="text" :value="$search" placeholder="Search serial number, model, or status" />

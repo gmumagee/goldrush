@@ -2,10 +2,29 @@
 
 namespace Database\Seeders;
 
-use Database\Seeders\Concerns\InteractsWithDemoData;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
-abstract class DemoSeeder extends Seeder
+class DemoSeeder extends Seeder
 {
-    use InteractsWithDemoData;
+    use WithoutModelEvents;
+
+    public function run(): void
+    {
+        $this->call([
+            PlanSeeder::class,
+            DataDictionarySeeder::class,
+            DemoAccountSeeder::class,
+            DemoUsersSeeder::class,
+            DemoWarehouseSeeder::class,
+            DemoVendorSeeder::class,
+            DemoProductSeeder::class,
+            DemoRouteSeeder::class,
+            DemoLocationSeeder::class,
+            DemoContactSeeder::class,
+            DemoMachineSeeder::class,
+            DemoPurchaseSeeder::class,
+            DemoServiceSeeder::class,
+        ]);
+    }
 }

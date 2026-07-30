@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Services\AccountExportService;
 use App\Services\CsvImportService;
+use App\Support\Demo;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,11 +27,15 @@ class ImportExportController extends Controller
      */
     public function index(Request $request): View
     {
+        abort_if(Demo::isEnabled(), 404);
+
         return $this->renderIndex($request);
     }
 
     public function export(Request $request, string $entity): StreamedResponse
     {
+        abort_if(Demo::isEnabled(), 404);
+
         $definition = $this->entityDefinitions()[$entity] ?? null;
 
         if (! $definition) {
@@ -51,6 +56,8 @@ class ImportExportController extends Controller
 
     public function analyzeImport(Request $request): View
     {
+        abort_if(Demo::isEnabled(), 404);
+
         $entity = (string) $request->input('entity');
 
         $this->authorizeImportEntity($request, $entity);
@@ -82,6 +89,8 @@ class ImportExportController extends Controller
 
     public function confirmImport(Request $request): RedirectResponse
     {
+        abort_if(Demo::isEnabled(), 404);
+
         $data = $request->validate([
             'entity' => ['required', 'string'],
             'token' => ['required', 'string'],

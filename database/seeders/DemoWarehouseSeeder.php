@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Warehouse;
 
-class DemoWarehouseSeeder extends DemoSeeder
+class DemoWarehouseSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {

@@ -53,7 +53,7 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
             ->expectsOutput('Routes found: 1')
             ->expectsOutput('Services created: 2')
             ->expectsOutput('Services skipped as duplicates: 0')
-            ->expectsOutput('Routes skipped without warehouse: 0')
+            ->expectsOutput('Routes with scheduling issues: 0')
             ->assertExitCode(0);
 
         $services = Service::query()
@@ -110,7 +110,7 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
             ->expectsOutput('Routes found: 1')
             ->expectsOutput('Services created: 0')
             ->expectsOutput('Services skipped as duplicates: 2')
-            ->expectsOutput('Routes skipped without warehouse: 0')
+            ->expectsOutput('Routes with scheduling issues: 0')
             ->assertExitCode(0);
 
         $this->assertDatabaseCount('tbl_services', 2);
@@ -118,7 +118,7 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
         $this->assertDatabaseCount('tbl_calendar_reminders', 2);
     }
 
-    public function test_command_skips_routes_without_valid_warehouse_and_does_not_assign_cross_account_users(): void
+    public function test_command_schedules_routes_with_issue_events_when_warehouse_or_assignment_is_invalid(): void
     {
         Carbon::setTestNow('2026-07-20 09:30:00');
 
@@ -150,17 +150,20 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
         $this->artisan('services:auto-schedule-routes', ['--date' => '2026-07-20'])
             ->expectsOutput('Auto-scheduling route services for 2026-07-27 Monday')
             ->expectsOutput('Routes found: 2')
-            ->expectsOutput('Services created: 1')
+            ->expectsOutput('Services created: 2')
             ->expectsOutput('Services skipped as duplicates: 0')
-            ->expectsOutput('Routes skipped without warehouse: 1')
+            ->expectsOutput('Routes with scheduling issues: 2')
             ->expectsOutput('Routes with invalid assigned technicians: 1')
             ->assertExitCode(0);
 
-        $this->assertDatabaseMissing('tbl_services', [
-            'account_id' => $accountA->id,
-            'location_id' => $missingWarehouseLocation->id,
-            'service_date' => '2026-07-27',
-        ]);
+        $missingWarehouseService = Service::query()
+            ->where('account_id', $accountA->id)
+            ->where('location_id', $missingWarehouseLocation->id)
+            ->firstOrFail();
+
+        $this->assertNull($missingWarehouseService->warehouse_id);
+
+        $this->assertSame('2026-07-27', $missingWarehouseService->service_date?->format('Y-m-d'));
 
         $service = Service::query()
             ->where('account_id', $accountA->id)
@@ -169,6 +172,82 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
 
         $this->assertNull($service->user_id);
         $this->assertSame($validWarehouse->id, $service->warehouse_id);
+
+        $warehouseIssueEvent = CalendarEvent::query()
+            ->where('account_id', $accountA->id)
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_ROUTE)
+            ->where('source_id', $missingWarehouseRoute->id)
+            ->firstOrFail();
+
+        $this->assertSame('Route Schedule', $warehouseIssueEvent->event_type);
+        $this->assertStringContainsString('No default warehouse is assigned.', (string) $warehouseIssueEvent->description);
+
+        $assignmentIssueEvent = CalendarEvent::query()
+            ->where('account_id', $accountA->id)
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_ROUTE)
+            ->where('source_id', $foreignUserRoute->id)
+            ->firstOrFail();
+
+        $this->assertStringContainsString(
+            'Assigned technician is outside the account scope or inactive; scheduled work remains unassigned.',
+            (string) $assignmentIssueEvent->description
+        );
+    }
+
+    public function test_command_creates_route_issue_event_when_a_route_stop_is_invalid_but_still_schedules_valid_stops(): void
+    {
+        Carbon::setTestNow('2026-07-20 11:00:00');
+
+        $account = $this->createAccount('Route Issue Account');
+        $warehouse = $this->createWarehouse($account, 'Issue Warehouse');
+        $route = $this->createRoute($account, 'Issue Route', [
+            'scheduled_day' => 'Monday',
+            'warehouse_id' => $warehouse->id,
+            'auto_schedule_enabled' => true,
+        ]);
+
+        $validLocation = $this->createLocation($account, $route, 'Valid Stop');
+        $this->attachLocationToRoute($account, $route, $validLocation, 1);
+
+        $foreignAccount = $this->createAccount('Foreign Route Issue');
+        $foreignRoute = $this->createRoute($foreignAccount, 'Foreign Route', [
+            'scheduled_day' => 'Tuesday',
+        ]);
+        $foreignLocation = $this->createLocation($foreignAccount, $foreignRoute, 'Foreign Stop');
+        RouteLocation::create([
+            'account_id' => $account->id,
+            'route_id' => $route->id,
+            'location_id' => $foreignLocation->id,
+            'stop_order' => 2,
+            'is_primary' => false,
+        ]);
+
+        $this->artisan('services:auto-schedule-routes', ['--date' => '2026-07-20'])
+            ->expectsOutput('Auto-scheduling route services for 2026-07-27 Monday')
+            ->expectsOutput('Routes found: 1')
+            ->expectsOutput('Services created: 1')
+            ->expectsOutput('Services skipped as duplicates: 0')
+            ->expectsOutput('Routes with scheduling issues: 1')
+            ->expectsOutput('Route stops skipped for invalid locations: 1')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('tbl_services', [
+            'account_id' => $account->id,
+            'location_id' => $validLocation->id,
+            'warehouse_id' => $warehouse->id,
+            'service_date' => '2026-07-27 00:00:00',
+        ]);
+
+        $issueEvent = CalendarEvent::query()
+            ->where('account_id', $account->id)
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_ROUTE)
+            ->where('source_id', $route->id)
+            ->firstOrFail();
+
+        $this->assertStringContainsString(
+            'Route stop #'.$foreignLocation->routeLocations()->where('route_id', $route->id)->firstOrFail()->id.' is missing a valid current-account location.',
+            (string) $issueEvent->description
+        );
     }
 
     public function test_command_uses_configured_schedule_timezone_when_no_date_option_is_provided(): void
@@ -196,7 +275,7 @@ class AutoScheduleRouteServicesCommandTest extends TestCase
             ->expectsOutput('Routes found: 1')
             ->expectsOutput('Services created: 1')
             ->expectsOutput('Services skipped as duplicates: 0')
-            ->expectsOutput('Routes skipped without warehouse: 0')
+            ->expectsOutput('Routes with scheduling issues: 0')
             ->assertExitCode(0);
 
         $this->assertDatabaseHas('tbl_services', [

@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\DataDictionary;
+use App\Models\Account;
 use App\Models\Location;
 use App\Models\Machine;
+use App\Services\AccountPlanService;
 use App\Services\DataDictionaryService;
 use App\Services\InventoryService;
 use App\Support\EntityValidation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -18,9 +21,10 @@ class MachineController extends Controller
 {
     protected const TYPES = ['soda', 'snack', 'combo', 'other'];
 
-    public function __construct(protected DataDictionaryService $dataDictionaryService)
-    {
-    }
+    public function __construct(
+        protected DataDictionaryService $dataDictionaryService,
+        protected AccountPlanService $accountPlanService,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -62,11 +66,17 @@ class MachineController extends Controller
             ->paginate(25)
             ->withQueryString();
 
+        $account = Account::query()
+            ->with('plan')
+            ->findOrFail($accountId);
+
         return view('machines.index', [
+            'account' => $account,
             'machines' => $machines,
             'machineGroups' => $this->buildMachineGroups($machines->getCollection()),
             'search' => $search,
             'locationScope' => in_array($locationScope, ['in_inventory', 'deployed'], true) ? $locationScope : '',
+            'planUsage' => $this->accountPlanService->usageSummary($account),
         ]);
     }
 
@@ -119,10 +129,15 @@ class MachineController extends Controller
         $accountId = $this->currentAccountId($request);
         $data = $this->validateMachine($request, $accountId);
 
-        $data['account_id'] = $accountId;
-        $data['location_id'] = $data['location_id'] ?? $this->ensureDefaultLocation($accountId)->id;
+        $machine = DB::transaction(function () use ($accountId, $data) {
+            $account = $this->accountPlanService->loadLockedAccount($accountId);
+            $this->accountPlanService->assertCanAddMachines($account);
 
-        $machine = Machine::create($data);
+            $data['account_id'] = $accountId;
+            $data['location_id'] = $data['location_id'] ?? $this->ensureDefaultLocation($accountId)->id;
+
+            return Machine::create($data);
+        });
 
         return redirect()
             ->route('machines.show', $machine)

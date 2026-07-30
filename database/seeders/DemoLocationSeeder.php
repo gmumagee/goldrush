@@ -6,7 +6,7 @@ use App\Models\Location;
 use App\Models\RouteLocation;
 use Illuminate\Support\Facades\DB;
 
-class DemoLocationSeeder extends DemoSeeder
+class DemoLocationSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {

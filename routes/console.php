@@ -3,6 +3,7 @@
 use App\Console\Commands\AutoScheduleRouteServices;
 use App\Console\Commands\ArchiveAuditLog;
 use App\Console\Commands\PruneAccountBackups;
+use App\Support\DemoResetScheduler;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -30,3 +31,5 @@ Schedule::command(ArchiveAuditLog::class)
     ->onFailure(function () {
         Log::error('Scheduled audit-log:archive run failed.');
     });
+
+app(DemoResetScheduler::class)->register(app(\Illuminate\Console\Scheduling\Schedule::class));

@@ -3,29 +3,25 @@
 namespace Database\Seeders;
 
 use App\Models\Account;
+use App\Models\Location;
+use App\Models\Plan;
+use App\Support\Demo;
 
-class DemoAccountSeeder extends DemoSeeder
+class DemoAccountSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {
-        Account::query()->updateOrCreate(
-            ['slug' => self::DEMO_ACCOUNT_SLUG],
+        $account = Account::query()->updateOrCreate(
+            ['slug' => Demo::accountSlug()],
             [
-                'account_name' => 'Demo Vending Company',
+                'plan_id' => Plan::PRO_ID,
+                'account_name' => 'GoldRush Public Demo',
                 'status' => Account::STATUS_ACTIVE,
-                'billing_email' => 'admin@example.com',
+                'billing_email' => 'demo@goldrush.example',
                 'phone' => '555-100-0000',
             ],
         );
 
-        Account::query()->updateOrCreate(
-            ['slug' => self::OTHER_ACCOUNT_SLUG],
-            [
-                'account_name' => 'Other Vending Company',
-                'status' => Account::STATUS_ACTIVE,
-                'billing_email' => 'owner@other.test',
-                'phone' => '555-200-0000',
-            ],
-        );
+        Location::ensureInventoryLocationForAccount($account->id);
     }
 }

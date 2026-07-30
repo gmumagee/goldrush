@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\AccountUser;
 use App\Models\User;
+use App\Support\SetSecurityHeaders;
 use App\Support\Tenancy;
 use Database\Seeders\DataDictionarySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -145,6 +147,37 @@ class AuthHardeningTest extends TestCase
             ])
             ->assertRedirect(route('import-export.index'))
             ->assertSessionHasErrors('import_file');
+    }
+
+    public function test_insecure_requests_do_not_send_upgrade_insecure_requests_csp_directive(): void
+    {
+        Config::set('security.headers_enabled', true);
+
+        $response = (new SetSecurityHeaders())->handle(
+            Request::create('http://192.168.1.181:8000/', 'GET'),
+            static fn () => response('ok')
+        );
+        $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
+
+        $this->assertStringNotContainsString('upgrade-insecure-requests', $contentSecurityPolicy);
+        $this->assertFalse($response->headers->has('Strict-Transport-Security'));
+    }
+
+    public function test_secure_requests_send_upgrade_insecure_requests_csp_directive(): void
+    {
+        Config::set('security.headers_enabled', true);
+
+        $response = (new SetSecurityHeaders())->handle(
+            Request::create('https://goldrush.test/', 'GET'),
+            static fn () => response('ok')
+        );
+        $contentSecurityPolicy = (string) $response->headers->get('Content-Security-Policy');
+
+        $this->assertStringContainsString('upgrade-insecure-requests', $contentSecurityPolicy);
+        $this->assertSame(
+            'max-age=31536000; includeSubDomains',
+            $response->headers->get('Strict-Transport-Security')
+        );
     }
 
     private function createAccount(string $name): Account

@@ -25,9 +25,10 @@ class CsvImportService
     public const TEMP_DIRECTORY = 'import-tmp';
     public const TOKEN_TTL_SECONDS = 7200;
 
-    public function __construct(protected ImportAuditLogger $auditLogger)
-    {
-    }
+    public function __construct(
+        protected ImportAuditLogger $auditLogger,
+        protected AccountPlanService $accountPlanService,
+    ) {}
 
     public function analyzeUpload(string $entity, UploadedFile $file, Account $account, int $userId): array
     {
@@ -212,6 +213,10 @@ class CsvImportService
             }
         } finally {
             fclose($handle);
+        }
+
+        if ($entity === 'machines') {
+            $rows = $this->applyMachinePlanPreviewLimit($rows, $accountId);
         }
 
         return [
@@ -488,6 +493,9 @@ class CsvImportService
             return;
         }
 
+        $account = $this->accountPlanService->loadLockedAccount($accountId);
+        $this->accountPlanService->assertCanAddMachines($account);
+
         $machine = Machine::create([
             ...$attributes,
             'account_id' => $accountId,
@@ -619,6 +627,43 @@ class CsvImportService
         }
 
         return sprintf("Possible duplicate: this contact looks similar to existing contact '%s'.", $duplicate->display_name);
+    }
+
+    protected function applyMachinePlanPreviewLimit(array $rows, int $accountId): array
+    {
+        $account = Account::query()
+            ->with('plan')
+            ->findOrFail($accountId);
+
+        $usage = $this->accountPlanService->usageSummary($account);
+        $projectedMachineCount = $usage['machine_count'];
+
+        foreach ($rows as $index => $row) {
+            if (($row['action'] ?? null) !== 'create' || ! ($row['can_commit'] ?? false)) {
+                continue;
+            }
+
+            if ($usage['is_unlimited']) {
+                $projectedMachineCount++;
+
+                continue;
+            }
+
+            if (($projectedMachineCount + 1) > $usage['machine_limit']) {
+                $rows[$index] = $this->errorRow(
+                    $row['row_number'],
+                    'error',
+                    $this->accountPlanService->limitExceededMessage($account, $projectedMachineCount),
+                    $row['key'] ?? null,
+                );
+
+                continue;
+            }
+
+            $projectedMachineCount++;
+        }
+
+        return $rows;
     }
 
     protected function successRow(int $rowNumber, string $action, ?string $key, array $attributes, ?string $warning = null): array

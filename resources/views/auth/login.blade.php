@@ -4,6 +4,20 @@
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Sign in to manage your vending operations.</p>
     </div>
 
+    @if (\App\Support\Demo::isEnabled())
+        <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <div class="font-semibold">Public demo available</div>
+                    <div class="mt-1">Enter the shared demo environment without creating an account. Demo data resets nightly.</div>
+                </div>
+                <a href="{{ route('demo.login') }}" class="inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-400">
+                    Enter Demo
+                </a>
+            </div>
+        </div>
+    @endif
+
     @if (session('status'))
         <div class="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900/60 dark:bg-green-500/10 dark:text-green-300">
             {{ session('status') }}
@@ -30,7 +44,7 @@
 
         <div class="flex items-center justify-between gap-4 pt-2">
             <div class="text-sm text-gray-500 dark:text-gray-400">
-                @if (config('security.allow_self_registration', false) && \App\Support\Tenancy::isMulti())
+                @if (! \App\Support\Demo::isEnabled() && config('security.allow_self_registration', false) && \App\Support\Tenancy::isMulti())
                     Need an account?
                     <a href="{{ route('register') }}" class="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300">Register</a>
                 @endif

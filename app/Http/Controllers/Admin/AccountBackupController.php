@@ -7,6 +7,7 @@ use App\Jobs\GenerateAccountBackup;
 use App\Models\Account;
 use App\Models\AccountBackup;
 use App\Models\AuditLog;
+use App\Support\Demo;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -89,6 +90,6 @@ class AccountBackupController extends Controller
 
     protected function ensureAvailable(): void
     {
-        abort_if(Tenancy::isSingle(), 404);
+        abort_if(Tenancy::isSingle() || Demo::isEnabled(), 404);
     }
 }

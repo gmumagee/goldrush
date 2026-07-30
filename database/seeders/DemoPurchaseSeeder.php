@@ -7,7 +7,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use Illuminate\Support\Facades\DB;
 
-class DemoPurchaseSeeder extends DemoSeeder
+class DemoPurchaseSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {

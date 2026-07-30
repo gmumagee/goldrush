@@ -6,7 +6,7 @@ use App\Models\Contact;
 use App\Models\LocationContact;
 use Illuminate\Support\Facades\DB;
 
-class DemoContactSeeder extends DemoSeeder
+class DemoContactSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {

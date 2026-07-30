@@ -33,6 +33,22 @@
         <div class="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <x-app.header />
 
+            @if (\App\Support\Demo::isEnabled())
+                <div class="border-b border-amber-200 bg-amber-50/95 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:px-6 lg:px-8">
+                    <div class="mx-auto flex w-full max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="font-medium">
+                            DEMO ENVIRONMENT — data resets nightly.
+                        </div>
+                        <a
+                            href="{{ \App\Support\Demo::bannerCtaUrl() }}"
+                            class="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-900 transition hover:bg-amber-100 dark:border-amber-400/40 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-500/10"
+                        >
+                            {{ \App\Support\Demo::bannerCtaLabel() }}
+                        </a>
+                    </div>
+                </div>
+            @endif
+
             <main class="grow">
                 {{ $slot }}
             </main>

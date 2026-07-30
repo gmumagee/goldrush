@@ -28,6 +28,7 @@ use App\Policies\AuditLogPolicy;
 use App\Policies\DataDictionaryPolicy;
 use App\Policies\OperationalEntityPolicy;
 use App\Policies\ServicePolicy;
+use App\Support\Demo;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -41,7 +42,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if (Demo::isEnabled()) {
+            config(['mail.default' => 'array']);
+        }
     }
 
     /**

@@ -14,6 +14,7 @@ class Account extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'plan_id',
         'account_name',
         'slug',
         'status',
@@ -21,10 +22,24 @@ class Account extends Model
         'phone',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (Account $account): void {
+            if ((int) $account->plan_id <= 0) {
+                $account->plan_id = Plan::FREE_ID;
+            }
+        });
+    }
+
     public function users()
     {
         return $this->belongsToMany(User::class, 'tbl_account_users', 'account_id', 'user_id')
             ->withPivot(['role', 'status']);
+    }
+
+    public function plan()
+    {
+        return $this->belongsTo(Plan::class, 'plan_id');
     }
 
     public function accountUsers()
@@ -72,6 +87,31 @@ class Account extends Model
         return $this->hasMany(Machine::class, 'account_id');
     }
 
+    public function machineCount(): int
+    {
+        if (array_key_exists('machine_count', $this->attributes)) {
+            return (int) $this->attributes['machine_count'];
+        }
+
+        if (array_key_exists('machines_count', $this->attributes)) {
+            return (int) $this->attributes['machines_count'];
+        }
+
+        if ($this->relationLoaded('machines')) {
+            return $this->machines->count();
+        }
+
+        return (int) $this->machines()->count();
+    }
+
+    public function isOverMachineLimit(): bool
+    {
+        $this->loadMissing('plan');
+
+        return $this->plan?->machine_limit !== null
+            && $this->machineCount() > $this->plan->machine_limit;
+    }
+
     public function backups()
     {
         return $this->hasMany(AccountBackup::class, 'account_id');
@@ -90,5 +130,10 @@ class Account extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class, 'account_id');
+    }
+
+    public function planUpgradeRequests()
+    {
+        return $this->hasMany(PlanUpgradeRequest::class, 'account_id');
     }
 }

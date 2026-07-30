@@ -6,6 +6,7 @@ use App\Models\AccountUser;
 use App\Models\DataDictionary;
 use App\Models\User;
 use App\Services\DataDictionaryService;
+use App\Support\Demo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -111,7 +112,7 @@ class AccountUserController extends Controller
             return $user;
         });
 
-        if (config('security.require_verified_email', true) && $user->status === User::STATUS_ACTIVE) {
+        if (! Demo::isEnabled() && config('security.require_verified_email', true) && $user->status === User::STATUS_ACTIVE) {
             $user->sendEmailVerificationNotification();
         }
 

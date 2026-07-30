@@ -15,6 +15,7 @@ use App\Http\Controllers\CalendarEventController;
 use App\Http\Controllers\CalendarReminderController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DataDictionaryController;
+use App\Http\Controllers\DemoLoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MachineBinController;
 use App\Http\Controllers\MachineController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\LocationContactController;
 use App\Http\Controllers\LocationDocumentController;
 use App\Http\Controllers\LocationMachineController;
 use App\Http\Controllers\PasswordController;
+use App\Http\Controllers\PlanUpgradeRequestController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\RouteLocationController;
@@ -32,13 +34,32 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VendingRouteController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\WarehouseController;
+use App\Support\Tenancy;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', function (Request $request) {
+    $user = $request->user();
+
+    if ($user) {
+        if (config('security.require_verified_email', true) && ! $user->hasVerifiedEmail()) {
+            return redirect()->route('verification.notice');
+        }
+
+        if (Tenancy::isSingle() || $request->session()->has('current_account_id')) {
+            return redirect()->route('dashboard');
+        }
+
+        return redirect()->route('accounts.select');
+    }
+
+    return redirect()->route('login');
+})->name('home');
+
+Route::post('/plan-upgrade-intents', [PlanUpgradeRequestController::class, 'store'])
+    ->name('plan-upgrade-intents.store');
+Route::get('/demo', DemoLoginController::class)->name('demo.login');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -83,6 +104,8 @@ Route::middleware('auth')->group(function () {
             ->name('accounts.block');
         Route::post('/accounts/{account}/unblock', [AdminAccountController::class, 'unblock'])
             ->name('accounts.unblock');
+        Route::post('/accounts/{account}/plan', [AdminAccountController::class, 'updatePlan'])
+            ->name('accounts.plan.update');
         Route::post('/accounts/{account}/backups', [AdminAccountBackupController::class, 'store'])
             ->middleware(['password.confirm', 'throttle:admin-backups'])
             ->name('accounts.backups.store');

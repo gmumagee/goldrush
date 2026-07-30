@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\DB;
 
 class AutoScheduleRouteServices extends Command
 {
+    protected const ROUTE_ISSUE_EVENT_TYPE = 'Route Schedule';
+    protected const ROUTE_ISSUE_EVENT_TITLE_PREFIX = 'Route Schedule: ';
+
     protected $signature = 'services:auto-schedule-routes {--account_id=} {--date=}';
 
     protected $description = 'Create location services 7 days ahead for auto-scheduled routes.';
@@ -53,9 +56,9 @@ class AutoScheduleRouteServices extends Command
 
         $servicesCreated = 0;
         $servicesSkippedAsDuplicates = 0;
-        $routesSkippedWithoutWarehouse = 0;
         $locationSkips = 0;
         $invalidUserWarnings = 0;
+        $routesWithIssues = 0;
 
         $this->info(sprintf(
             'Auto-scheduling route services for %s %s',
@@ -65,21 +68,31 @@ class AutoScheduleRouteServices extends Command
         $this->line('Routes found: '.$routes->count());
 
         foreach ($routes as $route) {
-            if (! $this->routeWarehouseIsValid($route)) {
-                $routesSkippedWithoutWarehouse++;
+            $routeIssues = [];
+            $locationIssues = [];
+            $resolvedWarehouseId = $this->resolveWarehouseIdForRoute($route);
+
+            if ($route->warehouse_id !== null && $resolvedWarehouseId === null) {
+                $routeIssues[] = 'Default warehouse is assigned outside the route account scope.';
                 $this->warn(sprintf(
-                    'Skipping route #%d (%s): no valid default warehouse is assigned.',
+                    'Route #%d (%s) default warehouse is outside the route account scope. Services will be created without a warehouse.',
                     $route->id,
                     $route->route_name
                 ));
-
-                continue;
+            } elseif ($route->warehouse_id === null) {
+                $routeIssues[] = 'No default warehouse is assigned.';
+                $this->warn(sprintf(
+                    'Route #%d (%s) has no default warehouse assigned. Services will be created without a warehouse.',
+                    $route->id,
+                    $route->route_name
+                ));
             }
 
             $assignedUserId = $this->resolveAssignedUserIdForRoute($route);
 
             if ($route->assigned_user_id && $assignedUserId === null) {
                 $invalidUserWarnings++;
+                $routeIssues[] = 'Assigned technician is outside the account scope or inactive; scheduled work remains unassigned.';
                 $this->warn(sprintf(
                     'Route #%d (%s) has an assigned technician outside the account scope. Services will be created unassigned.',
                     $route->id,
@@ -92,6 +105,10 @@ class AutoScheduleRouteServices extends Command
 
                 if (! $this->locationBelongsToRouteAccount($route, $location)) {
                     $locationSkips++;
+                    $locationIssues[] = sprintf(
+                        'Route stop #%d is missing a valid current-account location.',
+                        $routeLocation->id
+                    );
                     $this->warn(sprintf(
                         'Skipping route stop #%d on route #%d (%s): location is missing or belongs to another account.',
                         $routeLocation->id,
@@ -124,12 +141,13 @@ class AutoScheduleRouteServices extends Command
                     $location,
                     $targetDate,
                     $assignedUserId,
+                    $resolvedWarehouseId,
                     &$servicesCreated
                 ) {
                     $service = Service::create([
                         'account_id' => $route->account_id,
                         'location_id' => $location->id,
-                        'warehouse_id' => $route->warehouse_id,
+                        'warehouse_id' => $resolvedWarehouseId,
                         'user_id' => $assignedUserId,
                         'closed_by_user_id' => null,
                         'service_type' => Service::TYPE_LOCATION_SERVICE,
@@ -154,11 +172,20 @@ class AutoScheduleRouteServices extends Command
                     $servicesCreated++;
                 });
             }
+
+            $allIssues = [...$routeIssues, ...$locationIssues];
+
+            if ($allIssues !== []) {
+                $routesWithIssues++;
+                $this->upsertRouteIssueEvent($calendarService, $route, $targetDate, $assignedUserId, $resolvedWarehouseId, $allIssues);
+            } else {
+                $this->deleteRouteIssueEvent($route, $targetDate);
+            }
         }
 
         $this->line('Services created: '.$servicesCreated);
         $this->line('Services skipped as duplicates: '.$servicesSkippedAsDuplicates);
-        $this->line('Routes skipped without warehouse: '.$routesSkippedWithoutWarehouse);
+        $this->line('Routes with scheduling issues: '.$routesWithIssues);
 
         if ($locationSkips > 0) {
             $this->line('Route stops skipped for invalid locations: '.$locationSkips);
@@ -204,11 +231,17 @@ class AutoScheduleRouteServices extends Command
         return (int) $accountIdOption;
     }
 
-    protected function routeWarehouseIsValid(VendingRoute $route): bool
+    protected function resolveWarehouseIdForRoute(VendingRoute $route): ?int
     {
-        return $route->warehouse_id !== null
+        if (
+            $route->warehouse_id !== null
             && $route->warehouse !== null
-            && (int) $route->warehouse->account_id === (int) $route->account_id;
+            && (int) $route->warehouse->account_id === (int) $route->account_id
+        ) {
+            return (int) $route->warehouse_id;
+        }
+
+        return null;
     }
 
     protected function locationBelongsToRouteAccount(VendingRoute $route, ?Location $location): bool
@@ -288,5 +321,79 @@ class AutoScheduleRouteServices extends Command
                 $targetDate->format('m-d-Y')
             )
         );
+    }
+
+    protected function upsertRouteIssueEvent(
+        CalendarService $calendarService,
+        VendingRoute $route,
+        CarbonImmutable $targetDate,
+        ?int $assignedUserId,
+        ?int $warehouseId,
+        array $issues
+    ): void {
+        $event = $this->findRouteIssueEvent($route, $targetDate);
+
+        $description = implode("\n", array_merge(
+            ['Automatically scheduled route follow-up.'],
+            ['Issues requiring review:'],
+            array_map(fn (string $issue) => '- '.$issue, $issues),
+        ));
+
+        $data = [
+            'account_id' => $route->account_id,
+            'event_type' => self::ROUTE_ISSUE_EVENT_TYPE,
+            'title' => self::ROUTE_ISSUE_EVENT_TITLE_PREFIX.$route->route_name,
+            'description' => $description,
+            'start_at' => $targetDate->startOfDay(),
+            'end_at' => $targetDate->endOfDay(),
+            'all_day' => true,
+            'status' => CalendarEvent::STATUS_SCHEDULED,
+            'priority' => 'High',
+            'assigned_user_id' => $assignedUserId,
+            'location_id' => null,
+            'warehouse_id' => $warehouseId,
+            'route_id' => $route->id,
+            'source_type' => CalendarEvent::SOURCE_TYPE_ROUTE,
+            'source_id' => $route->id,
+            'created_by_user_id' => $event?->created_by_user_id,
+            'completed_at' => null,
+        ];
+
+        $event = $event
+            ? $calendarService->updateEvent($event, $data)
+            : $calendarService->createEvent($data);
+
+        $calendarService->syncReminder(
+            $event->refresh(),
+            CalendarService::REMINDER_OPTION_CUSTOM,
+            CarbonImmutable::now(),
+            sprintf(
+                'Route %s scheduled with configuration issues for %s',
+                $route->route_name,
+                $targetDate->format('m-d-Y')
+            )
+        );
+    }
+
+    protected function deleteRouteIssueEvent(VendingRoute $route, CarbonImmutable $targetDate): void
+    {
+        $event = $this->findRouteIssueEvent($route, $targetDate);
+
+        if ($event) {
+            $event->delete();
+        }
+    }
+
+    protected function findRouteIssueEvent(VendingRoute $route, CarbonImmutable $targetDate): ?CalendarEvent
+    {
+        return CalendarEvent::query()
+            ->where('account_id', $route->account_id)
+            ->where('route_id', $route->id)
+            ->where('source_type', CalendarEvent::SOURCE_TYPE_ROUTE)
+            ->where('source_id', $route->id)
+            ->where('event_type', self::ROUTE_ISSUE_EVENT_TYPE)
+            ->where('title', self::ROUTE_ISSUE_EVENT_TITLE_PREFIX.$route->route_name)
+            ->whereDate('start_at', $targetDate->toDateString())
+            ->first();
     }
 }

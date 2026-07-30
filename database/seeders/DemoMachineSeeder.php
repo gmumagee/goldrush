@@ -5,14 +5,17 @@ namespace Database\Seeders;
 use App\Models\Bin;
 use App\Models\Machine;
 
-class DemoMachineSeeder extends DemoSeeder
+class DemoMachineSeeder extends AbstractDemoSeeder
 {
     public function run(): void
     {
         $accountId = $this->demoAccount()->id;
+        $inventoryLocation = $this->demoAccount()->inventoryLocation()->firstOrFail();
 
         foreach ($this->machines() as $machineDefinition) {
-            $location = $this->locationForAccount($accountId, $machineDefinition['location_name']);
+            $location = ($machineDefinition['location_name'] ?? null) !== null
+                ? $this->locationForAccount($accountId, $machineDefinition['location_name'])
+                : $inventoryLocation;
 
             $machine = Machine::query()->updateOrCreate(
                 [
@@ -107,6 +110,14 @@ class DemoMachineSeeder extends DemoSeeder
                 'model' => 'Crane National 167',
                 'installed_on' => $installedOn,
                 'bin_layout' => 'snack',
+            ],
+            [
+                'location_name' => null,
+                'type' => 'Combo Machine',
+                'serial_number' => 'INV-COMBO-001',
+                'model' => 'AMS Sensit 40',
+                'installed_on' => null,
+                'bin_layout' => 'combo',
             ],
         ];
     }

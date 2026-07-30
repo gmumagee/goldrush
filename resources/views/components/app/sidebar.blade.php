@@ -25,8 +25,9 @@
     $canViewDictionary = $currentUser?->can('viewAny', \App\Models\DataDictionary::class) ?? false;
     $canViewAccountUsers = $currentUser?->can('viewAny', \App\Models\AccountUser::class) ?? false;
     $canViewAuditLog = $currentUser?->can('viewAny', \App\Models\AuditLog::class) ?? false;
-    $canViewImportExport = $canViewProducts || $canViewMachines || $canViewLocations || $canViewContacts;
-    $isSuperAdmin = $currentUser?->isSuperAdmin() ?? false;
+    $demoEnabled = \App\Support\Demo::isEnabled();
+    $canViewImportExport = ! $demoEnabled && ($canViewProducts || $canViewMachines || $canViewLocations || $canViewContacts);
+    $isSuperAdmin = ! $demoEnabled && ($currentUser?->isSuperAdmin() ?? false);
 
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
     $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');

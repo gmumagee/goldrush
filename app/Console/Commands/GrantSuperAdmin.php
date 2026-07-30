@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Support\Demo;
 use Illuminate\Console\Command;
 
 class GrantSuperAdmin extends Command
@@ -13,6 +14,12 @@ class GrantSuperAdmin extends Command
 
     public function handle(): int
     {
+        if (Demo::isEnabled()) {
+            $this->error('Super-admin changes are disabled while demo mode is enabled.');
+
+            return self::FAILURE;
+        }
+
         $user = User::query()
             ->where('email', strtolower((string) $this->argument('email')))
             ->first();

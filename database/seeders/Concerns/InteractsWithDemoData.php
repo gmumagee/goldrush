@@ -17,16 +17,10 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 trait InteractsWithDemoData
 {
     protected const DEMO_ACCOUNT_SLUG = 'demo-vending';
-    protected const OTHER_ACCOUNT_SLUG = 'other-vending';
 
     protected function demoAccount(): Account
     {
-        return $this->accountBySlug(self::DEMO_ACCOUNT_SLUG);
-    }
-
-    protected function otherAccount(): Account
-    {
-        return $this->accountBySlug(self::OTHER_ACCOUNT_SLUG);
+        return $this->accountBySlug((string) config('demo.account_slug', self::DEMO_ACCOUNT_SLUG));
     }
 
     protected function accountBySlug(string $slug): Account
