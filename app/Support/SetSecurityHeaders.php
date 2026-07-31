@@ -25,7 +25,8 @@ class SetSecurityHeaders
             "img-src 'self' data: https:",
             "font-src 'self' data: https://fonts.gstatic.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "script-src 'self' 'unsafe-inline'",
+            // Alpine's standard runtime evaluates x-* expressions with generated functions.
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
             "connect-src 'self'",
         ];
 
