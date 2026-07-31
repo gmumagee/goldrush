@@ -27,11 +27,13 @@ class CalendarService
 
     public function updateEvent(CalendarEvent $event, array $data): CalendarEvent
     {
+        $dismissedByUserId = $data['dismissed_by_user_id'] ?? null;
+
         $event->fill($this->normalizeEventData($data));
         $event->save();
 
         if ($event->isCompleted() || $event->isCancelled()) {
-            $this->dismissPendingReminders($event, $data['dismissed_by_user_id'] ?? null);
+            $this->dismissPendingReminders($event, $dismissedByUserId);
         }
 
         return $event->refresh();
@@ -217,6 +219,8 @@ class CalendarService
     {
         $status = $data['status'] ?? CalendarEvent::STATUS_SCHEDULED;
 
+        unset($data['dismissed_by_user_id']);
+
         $data['all_day'] = (bool) ($data['all_day'] ?? false);
         $data['source_type'] = isset($data['source_type']) && trim((string) $data['source_type']) !== ''
             ? strtolower(trim((string) $data['source_type']))
@@ -307,11 +311,12 @@ class CalendarService
             'completed_at' => $service->isServiceCompleted() || $service->isServiceClosed()
                 ? ($service->completed_at ?? $service->closed_at ?? now())
                 : null,
-            'dismissed_by_user_id' => $dismissedByUserId,
         ];
 
         if ($event) {
-            $this->updateEvent($event, $data);
+            $this->updateEvent($event, $data + [
+                'dismissed_by_user_id' => $dismissedByUserId,
+            ]);
 
             return $event->refresh();
         }
