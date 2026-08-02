@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\Bin;
 use App\Models\Contact;
+use App\Models\Expense;
 use App\Models\InventoryLedger;
 use App\Models\Location;
 use App\Models\Machine;
@@ -20,7 +21,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class AccountExportService
 {
     /**
-     * @return array<string, array{label:string, model:class-string}>
+     * @return array<string, array{label:string, model:class-string, supports_import?:bool}>
      */
     public function importExportEntityDefinitions(): array
     {
@@ -40,6 +41,11 @@ class AccountExportService
             'contacts' => [
                 'label' => 'Contacts',
                 'model' => Contact::class,
+            ],
+            'expenses' => [
+                'label' => 'Expenses',
+                'model' => Expense::class,
+                'supports_import' => false,
             ],
         ];
     }
@@ -151,10 +157,13 @@ class AccountExportService
                 'size',
                 'package_type',
                 'barcode',
+                'reorder_point',
                 'vendor_name',
             ],
             'machines' => [
                 'serial_number',
+                'key_number',
+                'telemetry_id',
                 'type',
                 'model',
                 'status',
@@ -183,6 +192,14 @@ class AccountExportService
                 'location_name',
                 'contact_role',
                 'is_primary',
+            ],
+            'expenses' => [
+                'expense_date',
+                'category',
+                'amount',
+                'location_name',
+                'vendor',
+                'description',
             ],
             'services' => [
                 'id',
@@ -286,6 +303,7 @@ class AccountExportService
             'machines' => $this->machineRows($account, $filters),
             'locations' => $this->locationRows($account, $filters),
             'contacts' => $this->contactRows($account, $filters),
+            'expenses' => $this->expenseRows($account, $filters),
             'services' => $this->serviceRows($account),
             'transactions' => $this->transactionRows($account),
             'purchases' => $this->purchaseRows($account),
@@ -328,6 +346,7 @@ class AccountExportService
                 $product->size,
                 $product->package_type,
                 $product->barcode,
+                $product->reorder_point,
                 $product->vendor?->vendor_name,
             ];
         }
@@ -369,6 +388,8 @@ class AccountExportService
         foreach ($machines->lazy(200) as $machine) {
             yield [
                 $machine->serial_number,
+                $machine->key_number,
+                $machine->telemetry_id,
                 $machine->type,
                 $machine->model,
                 $machine->status,
@@ -491,6 +512,31 @@ class AccountExportService
                     $locationContact->is_primary ? '1' : '0',
                 ];
             }
+        }
+    }
+
+    /**
+     * @return iterable<int, array<int, mixed>>
+     */
+    protected function expenseRows(Account $account, array $filters = []): iterable
+    {
+        $expenses = Expense::query()
+            ->where('account_id', $account->id)
+            ->with([
+                'location' => fn ($query) => $query->where('account_id', $account->id),
+            ])
+            ->orderByDesc('expense_date')
+            ->orderByDesc('id');
+
+        foreach ($expenses->lazy(200) as $expense) {
+            yield [
+                $expense->expense_date?->format('Y-m-d'),
+                $expense->category,
+                $expense->amount,
+                $expense->location?->location_name ?? 'General',
+                $expense->vendor,
+                $expense->description,
+            ];
         }
     }
 

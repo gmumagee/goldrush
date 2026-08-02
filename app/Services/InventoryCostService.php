@@ -4,9 +4,56 @@ namespace App\Services;
 
 use App\Models\InventoryLedger;
 use App\Models\Transaction;
+use Illuminate\Support\Collection;
 
 class InventoryCostService
 {
+    public function getAccountInventoryOnHand(int $accountId): Collection
+    {
+        return InventoryLedger::query()
+            ->from('tbl_inventory_ledger as l')
+            ->join('tbl_warehouses as w', function ($join) use ($accountId) {
+                $join->on('w.id', '=', 'l.warehouse_id')
+                    ->where('w.account_id', '=', $accountId);
+            })
+            ->join('tbl_products as p', function ($join) use ($accountId) {
+                $join->on('p.id', '=', 'l.product_id')
+                    ->where('p.account_id', '=', $accountId);
+            })
+            ->where('l.account_id', $accountId)
+            ->groupBy(
+                'l.warehouse_id',
+                'w.warehouse_name',
+                'l.product_id',
+                'p.category',
+                'p.sku',
+                'p.product_name',
+                'p.size',
+                'p.package_type'
+            )
+            ->selectRaw('
+                l.warehouse_id,
+                w.warehouse_name,
+                l.product_id,
+                p.category,
+                p.sku,
+                p.product_name,
+                p.size,
+                p.package_type,
+                COALESCE(SUM(l.quantity_delta), 0) as quantity_on_hand,
+                COALESCE(SUM(l.total_cost), 0) as inventory_value,
+                CASE
+                    WHEN COALESCE(SUM(l.quantity_delta), 0) > 0
+                    THEN ROUND(COALESCE(SUM(l.total_cost), 0) / SUM(l.quantity_delta), 4)
+                    ELSE 0
+                END as average_unit_cost
+            ')
+            ->orderBy('w.warehouse_name')
+            ->orderBy('p.category')
+            ->orderBy('p.product_name')
+            ->get();
+    }
+
     public function getWarehouseInventorySummary(int $accountId, int $warehouseId, int $productId): array
     {
         $inventory = InventoryLedger::query()

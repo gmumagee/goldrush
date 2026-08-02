@@ -63,6 +63,7 @@ class MachineIndexGroupingTest extends TestCase
             ->assertSee('x-show="open"', false)
             ->assertDontSee('data-bs-parent', false)
             ->assertSeeText('Serial Number')
+            ->assertSeeText('Telemetry ID')
             ->assertSeeText('Model')
             ->assertSeeText('Location')
             ->assertSeeText('Status')

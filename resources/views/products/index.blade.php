@@ -103,6 +103,7 @@
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Package Type</th>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Vendor</th>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Barcode</th>
+                                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Reorder Point</th>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Actions</th>
                                                 </tr>
                                             </thead>
@@ -116,6 +117,7 @@
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $product->package_type ?: '—' }}</td>
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $product->vendor?->vendor_name ?? '—' }}</td>
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $product->barcode ?: '—' }}</td>
+                                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $product->reorder_point !== null ? $product->reorder_point : '—' }}</td>
                                                         <td class="px-5 py-4">
                                                             <div class="flex flex-wrap gap-2">
                                                                 <a href="{{ route('products.show', $product) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">View</a>

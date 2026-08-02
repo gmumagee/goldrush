@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\AccountUser;
 use App\Models\Contact;
+use App\Models\Expense;
 use App\Models\Location;
 use App\Models\LocationContact;
 use App\Models\Machine;
@@ -50,6 +51,7 @@ class ImportExportTest extends TestCase
             ->assertSeeText('Machines')
             ->assertSeeText('Locations')
             ->assertSeeText('Contacts')
+            ->assertSeeText('Expenses')
             ->assertSeeText('Import order matters')
             ->assertSee('type="file"', false)
             ->assertSeeText('Analyze')
@@ -83,7 +85,7 @@ class ImportExportTest extends TestCase
             ->get(route('import-export.index'))
             ->assertForbidden();
 
-        foreach (['products', 'machines', 'locations', 'contacts'] as $entity) {
+        foreach (['products', 'machines', 'locations', 'contacts', 'expenses'] as $entity) {
             $this->actingAs($user)
                 ->withSession(['current_account_id' => $account->id])
                 ->get(route('import-export.export', ['entity' => $entity]))
@@ -113,6 +115,7 @@ class ImportExportTest extends TestCase
             'size' => '12 oz',
             'package_type' => 'Can',
             'barcode' => '1234567890',
+            'reorder_point' => 18,
         ]);
         $blankProduct = $this->createProduct($account, [
             'vendor_id' => null,
@@ -123,6 +126,7 @@ class ImportExportTest extends TestCase
             'size' => null,
             'package_type' => null,
             'barcode' => null,
+            'reorder_point' => null,
         ]);
         $foreignProduct = $this->createProduct($otherAccount, [
             'vendor_id' => $foreignVendor->id,
@@ -149,6 +153,7 @@ class ImportExportTest extends TestCase
             'size',
             'package_type',
             'barcode',
+            'reorder_point',
             'vendor_name',
         ], $rows[0]);
         $this->assertCount(3, $rows);
@@ -160,6 +165,7 @@ class ImportExportTest extends TestCase
             '12 oz',
             'Can',
             '1234567890',
+            '18',
             $vendor->vendor_name,
         ], $rows);
         $this->assertContains([
@@ -167,6 +173,7 @@ class ImportExportTest extends TestCase
             'Snack',
             '',
             'Pretzels',
+            '',
             '',
             '',
             '',
@@ -180,6 +187,7 @@ class ImportExportTest extends TestCase
             $foreignProduct->size,
             $foreignProduct->package_type,
             $foreignProduct->barcode,
+            (string) $foreignProduct->reorder_point,
             $foreignVendor->vendor_name,
         ], $rows);
     }
@@ -202,6 +210,8 @@ class ImportExportTest extends TestCase
         $inventoryMachine = $this->createMachine($account, $inventoryLocation, [
             'type' => 'snack',
             'serial_number' => 'INV-100',
+            'key_number' => 'KEY-INV',
+            'telemetry_id' => 'TEL-INV-100',
             'model' => 'Inventory Model',
             'status' => Machine::STATUS_ACTIVE,
             'installed_on' => '2026-07-01',
@@ -209,6 +219,8 @@ class ImportExportTest extends TestCase
         $deployedMachine = $this->createMachine($account, $location, [
             'type' => 'combo',
             'serial_number' => 'DEP-200',
+            'key_number' => null,
+            'telemetry_id' => null,
             'model' => 'Deployed Model',
             'status' => Machine::STATUS_REPAIR,
             'installed_on' => null,
@@ -216,6 +228,8 @@ class ImportExportTest extends TestCase
         $foreignMachine = $this->createMachine($otherAccount, $otherInventoryLocation, [
             'type' => 'soda',
             'serial_number' => 'FOR-300',
+            'key_number' => 'KEY-FOR',
+            'telemetry_id' => 'TEL-FOR-300',
             'model' => 'Foreign Model',
             'status' => Machine::STATUS_ACTIVE,
             'installed_on' => '2026-07-02',
@@ -231,6 +245,8 @@ class ImportExportTest extends TestCase
 
         $this->assertSame([
             'serial_number',
+            'key_number',
+            'telemetry_id',
             'type',
             'model',
             'status',
@@ -240,6 +256,8 @@ class ImportExportTest extends TestCase
         $this->assertCount(3, $rows);
         $this->assertContains([
             'INV-100',
+            'KEY-INV',
+            'TEL-INV-100',
             'snack',
             'Inventory Model',
             Machine::STATUS_ACTIVE,
@@ -248,6 +266,8 @@ class ImportExportTest extends TestCase
         ], $rows);
         $this->assertContains([
             'DEP-200',
+            '',
+            '',
             'combo',
             'Deployed Model',
             Machine::STATUS_REPAIR,
@@ -255,7 +275,92 @@ class ImportExportTest extends TestCase
             $location->location_name,
         ], $rows);
         $this->assertFalse(collect($rows)->contains(fn (array $row) => ($row[0] ?? null) === $foreignMachine->serial_number));
-        $this->assertContains($inventoryLocation->location_name, collect($rows)->pluck(5)->filter()->all());
+        $this->assertContains($inventoryLocation->location_name, collect($rows)->pluck(7)->filter()->all());
+    }
+
+    public function test_expenses_export_streams_general_and_location_tied_rows_for_the_current_account_only(): void
+    {
+        Carbon::setTestNow('2026-08-02 10:00:00');
+        CarbonImmutable::setTestNow('2026-08-02 10:00:00');
+
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Export Expense Account');
+        $otherAccount = $this->createAccount('Export Expense Foreign');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
+
+        $route = $this->createRoute($account, 'Expense Export Route');
+        $location = $this->createCustomerLocation($account, $route, 'Expense Export Stop');
+        $otherRoute = $this->createRoute($otherAccount, 'Other Expense Export Route');
+        $otherLocation = $this->createCustomerLocation($otherAccount, $otherRoute, 'Foreign Expense Stop');
+
+        $generalExpense = $this->createExpense($account, [
+            'location_id' => null,
+            'category' => Expense::CATEGORY_FUEL,
+            'amount' => 44.10,
+            'expense_date' => '2026-08-02',
+            'vendor' => 'Shell',
+            'description' => 'General expense',
+        ]);
+        $locationExpense = $this->createExpense($account, [
+            'location_id' => $location->id,
+            'category' => Expense::CATEGORY_MAINTENANCE,
+            'amount' => 19.75,
+            'expense_date' => '2026-08-01',
+            'vendor' => 'FixIt',
+            'description' => 'Location expense',
+        ]);
+        $foreignExpense = $this->createExpense($otherAccount, [
+            'location_id' => $otherLocation->id,
+            'category' => Expense::CATEGORY_RENT,
+            'amount' => 88.00,
+            'expense_date' => '2026-08-02',
+            'vendor' => 'Foreign Vendor',
+            'description' => 'Foreign expense',
+        ]);
+
+        $rows = $this->parseCsv(
+            $this->actingAs($user)
+                ->withSession(['current_account_id' => $account->id])
+                ->get(route('import-export.export', ['entity' => 'expenses']))
+                ->assertOk()
+                ->assertDownload('expenses-'.$account->slug.'-2026-08-02.csv')
+        );
+
+        $this->assertSame([
+            'expense_date',
+            'category',
+            'amount',
+            'location_name',
+            'vendor',
+            'description',
+        ], $rows[0]);
+        $this->assertContains([
+            '2026-08-02',
+            Expense::CATEGORY_FUEL,
+            '44.10',
+            'General',
+            'Shell',
+            'General expense',
+        ], $rows);
+        $this->assertContains([
+            '2026-08-01',
+            Expense::CATEGORY_MAINTENANCE,
+            '19.75',
+            $location->location_name,
+            'FixIt',
+            'Location expense',
+        ], $rows);
+        $this->assertNotContains([
+            '2026-08-02',
+            $foreignExpense->category,
+            '88.00',
+            $otherLocation->location_name,
+            'Foreign Vendor',
+            'Foreign expense',
+        ], $rows);
+        $this->assertCount(3, $rows);
+        $this->assertTrue($generalExpense->exists);
+        $this->assertTrue($locationExpense->exists);
     }
 
     public function test_locations_export_excludes_inventory_location_and_includes_primary_route_and_contact_summary(): void
@@ -515,6 +620,7 @@ class ImportExportTest extends TestCase
             'size' => null,
             'package_type' => null,
             'barcode' => null,
+            'reorder_point' => null,
         ], $attributes));
     }
 
@@ -544,6 +650,24 @@ class ImportExportTest extends TestCase
             'mobile_phone' => null,
             'notes' => null,
         ], $attributes));
+    }
+
+    protected function createExpense(Account $account, array $attributes): Expense
+    {
+        $expense = new Expense([
+            'location_id' => $attributes['location_id'] ?? null,
+            'category' => $attributes['category'] ?? Expense::CATEGORY_OTHER,
+            'amount' => $attributes['amount'] ?? 10.00,
+            'expense_date' => $attributes['expense_date'] ?? '2026-08-02',
+            'vendor' => $attributes['vendor'] ?? null,
+            'description' => $attributes['description'] ?? null,
+        ]);
+
+        $expense->account_id = $account->id;
+        $expense->created_by_user_id = $attributes['created_by_user_id'] ?? null;
+        $expense->save();
+
+        return $expense;
     }
 
     protected function attachContactToLocation(

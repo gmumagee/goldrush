@@ -139,9 +139,9 @@ class AccountPlanEnforcementTest extends TestCase
         }
 
         $file = $this->createImportFile(
-            ['serial_number', 'type', 'model', 'status', 'installed_on', 'location_name'],
+            ['serial_number', 'key_number', 'telemetry_id', 'type', 'model', 'status', 'installed_on', 'location_name'],
             [
-                ['CSV-011', 'snack', 'CSV Blocked', Machine::STATUS_ACTIVE, '2026-07-29', $location->location_name],
+                ['CSV-011', '', '', 'snack', 'CSV Blocked', Machine::STATUS_ACTIVE, '2026-07-29', $location->location_name],
             ]
         );
 

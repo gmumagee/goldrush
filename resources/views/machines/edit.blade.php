@@ -56,6 +56,17 @@
                                 <x-input id="serial_number" name="serial_number" type="text" :value="old('serial_number', $machine->serial_number)" />
                             </div>
                             <div>
+                                <x-label for="key_number" value="Key Number" />
+                                <x-input id="key_number" name="key_number" type="text" :value="old('key_number', $machine->key_number)" />
+                            </div>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <div>
+                                <x-label for="telemetry_id" value="Telemetry ID" />
+                                <x-input id="telemetry_id" name="telemetry_id" type="text" :value="old('telemetry_id', $machine->telemetry_id)" />
+                            </div>
+                            <div>
                                 <x-label for="model" value="Model" />
                                 <x-input id="model" name="model" type="text" :value="old('model', $machine->model)" />
                             </div>

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\Bin;
+use App\Models\Expense;
 use App\Models\InventoryLedger;
 use App\Models\Machine;
 use App\Models\Product;
@@ -117,11 +118,26 @@ class AuditLoggingTest extends TestCase
         ]);
         $inventoryLedger->delete();
 
+        $expense = new Expense([
+            'location_id' => $fixture['location']->id,
+            'category' => Expense::CATEGORY_OTHER,
+            'amount' => 18.25,
+            'expense_date' => '2026-07-22',
+            'vendor' => 'Audit Vendor',
+            'description' => 'Audit expense',
+        ]);
+        $expense->account_id = $fixture['account']->id;
+        $expense->created_by_user_id = $user->id;
+        $expense->save();
+        $expense->update(['amount' => 20.00]);
+        $expense->delete();
+
         $this->assertAuditEvents($fixture['account']->id, $user->id, Service::class, $service->id, ['created', 'updated', 'deleted']);
         $this->assertAuditEvents($fixture['account']->id, $user->id, Transaction::class, $transaction->id, ['created', 'updated', 'deleted']);
         $this->assertAuditEvents($fixture['account']->id, $user->id, Purchase::class, $purchase->id, ['created', 'updated', 'deleted']);
         $this->assertAuditEvents($fixture['account']->id, $user->id, PurchaseItem::class, $purchaseItem->id, ['created', 'updated', 'deleted']);
         $this->assertAuditEvents($fixture['account']->id, $user->id, InventoryLedger::class, $inventoryLedger->id, ['created', 'deleted']);
+        $this->assertAuditEvents($fixture['account']->id, $user->id, Expense::class, $expense->id, ['created', 'updated', 'deleted']);
     }
 
     public function test_update_that_changes_nothing_does_not_write_an_updated_audit_row(): void

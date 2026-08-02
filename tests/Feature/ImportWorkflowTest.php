@@ -41,13 +41,14 @@ class ImportWorkflowTest extends TestCase
             'sku' => 'SKU-UPDATE',
             'product_name' => 'Original Cola',
             'brand' => 'Old Brand',
+            'reorder_point' => 3,
         ]);
 
         $file = $this->createImportFile(
-            ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name', 'account_id'],
+            ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name', 'account_id'],
             [
-                ['SKU-UPDATE', 'Beverage', 'New Brand', 'Updated Cola', '20 oz', 'Bottle', '111', 'Preview Vendor', (string) $otherAccount->id],
-                ['SKU-CREATE', 'Snack', 'Fresh Brand', 'New Chips', '', '', '', '', (string) $otherAccount->id],
+                ['SKU-UPDATE', 'Beverage', 'New Brand', 'Updated Cola', '20 oz', 'Bottle', '111', '14', 'Preview Vendor', (string) $otherAccount->id],
+                ['SKU-CREATE', 'Snack', 'Fresh Brand', 'New Chips', '', '', '', '', '', (string) $otherAccount->id],
             ]
         );
 
@@ -91,11 +92,13 @@ class ImportWorkflowTest extends TestCase
             'vendor_id' => $vendor->id,
             'brand' => 'New Brand',
             'product_name' => 'Updated Cola',
+            'reorder_point' => 14,
         ]);
         $this->assertDatabaseHas('tbl_products', [
             'account_id' => $account->id,
             'sku' => 'SKU-CREATE',
             'product_name' => 'New Chips',
+            'reorder_point' => null,
         ]);
         $this->assertDatabaseMissing('tbl_products', [
             'account_id' => $otherAccount->id,
@@ -127,10 +130,10 @@ class ImportWorkflowTest extends TestCase
         $location = $this->createCustomerLocation($account, $route, 'Known Machine Stop');
 
         $file = $this->createImportFile(
-            ['serial_number', 'type', 'model', 'status', 'installed_on', 'location_name'],
+            ['serial_number', 'key_number', 'telemetry_id', 'type', 'model', 'status', 'installed_on', 'location_name'],
             [
-                ['SER-100', 'snack', 'Valid Machine', Machine::STATUS_ACTIVE, '2026-07-27', $location->location_name],
-                ['SER-200', 'combo', 'Invalid Machine', Machine::STATUS_ACTIVE, '2026-07-27', 'Missing Stop'],
+                ['SER-100', 'KEY-100', 'TEL-100', 'snack', 'Valid Machine', Machine::STATUS_ACTIVE, '2026-07-27', $location->location_name],
+                ['SER-200', '', 'TEL-200', 'combo', 'Invalid Machine', Machine::STATUS_ACTIVE, '2026-07-27', 'Missing Stop'],
             ]
         );
 
@@ -166,11 +169,105 @@ class ImportWorkflowTest extends TestCase
         $this->assertDatabaseHas('tbl_machines', [
             'account_id' => $account->id,
             'serial_number' => 'SER-100',
+            'key_number' => 'KEY-100',
+            'telemetry_id' => 'TEL-100',
             'location_id' => $location->id,
         ]);
         $this->assertDatabaseMissing('tbl_machines', [
             'account_id' => $account->id,
             'serial_number' => 'SER-200',
+        ]);
+    }
+
+    public function test_machine_import_rejects_duplicate_telemetry_ids_within_the_same_account(): void
+    {
+        Storage::fake('private');
+
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Import Machine Telemetry Account');
+        $otherAccount = $this->createAccount('Import Machine Telemetry Other');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_OWNER);
+        $this->createDictionaryEntry(null, DataDictionary::GROUP_MACHINE_STATUS, Machine::STATUS_ACTIVE, Machine::STATUS_ACTIVE);
+
+        $route = $this->createRoute($account, 'Machine Telemetry Route');
+        $location = $this->createCustomerLocation($account, $route, 'Machine Telemetry Stop');
+        $otherRoute = $this->createRoute($otherAccount, 'Other Machine Telemetry Route');
+        $otherLocation = $this->createCustomerLocation($otherAccount, $otherRoute, 'Other Machine Telemetry Stop');
+
+        Machine::create([
+            'account_id' => $account->id,
+            'location_id' => $location->id,
+            'type' => 'snack',
+            'serial_number' => 'EXISTING-100',
+            'key_number' => 'KEY-EXISTING',
+            'telemetry_id' => 'TEL-DUPLICATE',
+            'model' => 'Existing Model',
+            'status' => Machine::STATUS_ACTIVE,
+            'installed_on' => '2026-07-20',
+        ]);
+
+        Machine::create([
+            'account_id' => $otherAccount->id,
+            'location_id' => $otherLocation->id,
+            'type' => 'combo',
+            'serial_number' => 'OTHER-100',
+            'key_number' => 'KEY-OTHER',
+            'telemetry_id' => 'TEL-SHARED',
+            'model' => 'Other Model',
+            'status' => Machine::STATUS_ACTIVE,
+            'installed_on' => '2026-07-20',
+        ]);
+
+        $duplicatePreview = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('import-export.import.analyze'), [
+                'entity' => 'machines',
+                'import_file' => $this->createImportFile(
+                    ['serial_number', 'key_number', 'telemetry_id', 'type', 'model', 'status', 'installed_on', 'location_name'],
+                    [
+                        ['SER-300', 'KEY-300', 'TEL-DUPLICATE', 'snack', 'Duplicate Telemetry', Machine::STATUS_ACTIVE, '2026-07-27', $location->location_name],
+                    ]
+                ),
+            ]);
+
+        $duplicatePreview->assertOk();
+
+        $duplicatePreviewData = $duplicatePreview->viewData('importPreview');
+
+        $this->assertSame('error', $duplicatePreviewData['rows'][0]['action']);
+        $this->assertStringContainsString('telemetry id', strtolower($duplicatePreviewData['rows'][0]['message']));
+
+        $sharedPreview = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('import-export.import.analyze'), [
+                'entity' => 'machines',
+                'import_file' => $this->createImportFile(
+                    ['serial_number', 'key_number', 'telemetry_id', 'type', 'model', 'status', 'installed_on', 'location_name'],
+                    [
+                        ['SER-400', 'KEY-400', 'TEL-SHARED', 'snack', 'Shared Telemetry', Machine::STATUS_ACTIVE, '2026-07-27', $location->location_name],
+                    ]
+                ),
+            ]);
+
+        $sharedPreview->assertOk();
+
+        $sharedPreviewData = $sharedPreview->viewData('importPreview');
+
+        $this->assertSame('create', $sharedPreviewData['rows'][0]['action']);
+
+        $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->post(route('import-export.import.confirm'), [
+                'entity' => 'machines',
+                'token' => $sharedPreviewData['token'],
+            ])
+            ->assertRedirect(route('import-export.index'))
+            ->assertSessionHas('status', 'Imported: 1 created, 0 updated.');
+
+        $this->assertDatabaseHas('tbl_machines', [
+            'account_id' => $account->id,
+            'serial_number' => 'SER-400',
+            'telemetry_id' => 'TEL-SHARED',
         ]);
     }
 
@@ -289,9 +386,9 @@ class ImportWorkflowTest extends TestCase
             ->post(route('import-export.import.analyze'), [
                 'entity' => 'products',
                 'import_file' => $this->createImportFile(
-                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name'],
+                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name'],
                     [
-                        ['TOK-100', 'Beverage', 'Batch One', 'First File Cola', '', '', '', ''],
+                        ['TOK-100', 'Beverage', 'Batch One', 'First File Cola', '', '', '', '', ''],
                     ]
                 ),
             ]);
@@ -304,9 +401,9 @@ class ImportWorkflowTest extends TestCase
             ->post(route('import-export.import.analyze'), [
                 'entity' => 'products',
                 'import_file' => $this->createImportFile(
-                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name'],
+                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name'],
                     [
-                        ['TOK-200', 'Beverage', 'Batch Two', 'Second File Cola', '', '', '', ''],
+                        ['TOK-200', 'Beverage', 'Batch Two', 'Second File Cola', '', '', '', '', ''],
                     ]
                 ),
             ])
@@ -344,9 +441,9 @@ class ImportWorkflowTest extends TestCase
             ->post(route('import-export.import.analyze'), [
                 'entity' => 'products',
                 'import_file' => $this->createImportFile(
-                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name'],
+                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name'],
                     [
-                        ['EXP-100', 'Beverage', 'Brand', 'Expired Cola', '', '', '', ''],
+                        ['EXP-100', 'Beverage', 'Brand', 'Expired Cola', '', '', '', '', ''],
                     ]
                 ),
             ]);
@@ -379,10 +476,10 @@ class ImportWorkflowTest extends TestCase
             ->post(route('import-export.import.analyze'), [
                 'entity' => 'products',
                 'import_file' => $this->createImportFile(
-                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name'],
+                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name'],
                     [
-                        ['RB-100', 'Beverage', 'Brand', 'Rollback Cola A', '', '', '', ''],
-                        ['RB-200', 'Beverage', 'Brand', 'Rollback Cola B', '', '', '', ''],
+                        ['RB-100', 'Beverage', 'Brand', 'Rollback Cola A', '', '', '', '', ''],
+                        ['RB-200', 'Beverage', 'Brand', 'Rollback Cola B', '', '', '', '', ''],
                     ]
                 ),
             ]);
@@ -435,8 +532,8 @@ class ImportWorkflowTest extends TestCase
             ->post(route('import-export.import.analyze'), [
                 'entity' => 'products',
                 'import_file' => $this->createImportFile(
-                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name'],
-                    [['VIEW-100', 'Beverage', 'Brand', 'Viewer Cola', '', '', '', '']]
+                    ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name'],
+                    [['VIEW-100', 'Beverage', 'Brand', 'Viewer Cola', '', '', '', '', '']]
                 ),
             ])
             ->assertForbidden();
@@ -564,6 +661,7 @@ class ImportWorkflowTest extends TestCase
             'size' => null,
             'package_type' => null,
             'barcode' => null,
+            'reorder_point' => null,
         ], $attributes));
     }
 

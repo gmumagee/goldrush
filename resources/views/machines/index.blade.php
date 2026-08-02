@@ -119,6 +119,7 @@
                                             <thead class="bg-gray-50 dark:bg-gray-800/80">
                                                 <tr>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Serial Number</th>
+                                                    <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Telemetry ID</th>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Model</th>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Location</th>
                                                     <th class="px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
@@ -134,6 +135,7 @@
                                                     @endphp
                                                     <tr class="bg-white dark:bg-gray-800">
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->serial_number ?: '—' }}</td>
+                                                        <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $machine->telemetry_id ?: '—' }}</td>
                                                         <td class="px-5 py-4 font-medium text-gray-800 dark:text-gray-100">{{ $machine->model ?: '—' }}</td>
                                                         <td class="px-5 py-4 text-gray-600 dark:text-gray-300">
                                                             <div class="flex flex-wrap items-center gap-2">

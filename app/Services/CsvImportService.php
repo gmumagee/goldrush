@@ -234,8 +234,8 @@ class CsvImportService
     public function expectedHeaders(string $entity): array
     {
         return match ($entity) {
-            'products' => ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'vendor_name'],
-            'machines' => ['serial_number', 'type', 'model', 'status', 'installed_on', 'location_name'],
+            'products' => ['sku', 'category', 'brand', 'product_name', 'size', 'package_type', 'barcode', 'reorder_point', 'vendor_name'],
+            'machines' => ['serial_number', 'key_number', 'telemetry_id', 'type', 'model', 'status', 'installed_on', 'location_name'],
             'locations' => ['location_name', 'address', 'city', 'state', 'zip_code', 'primary_route_name', 'primary_contact_name', 'primary_contact_email', 'primary_contact_phone'],
             'contacts' => ['first_name', 'last_name', 'organization', 'title', 'email', 'phone', 'mobile_phone', 'location_name', 'contact_role', 'is_primary'],
             default => [],
@@ -313,6 +313,7 @@ class CsvImportService
             'size' => $this->nullable($row['size'] ?? null),
             'package_type' => $this->nullable($row['package_type'] ?? null),
             'barcode' => $this->nullable($row['barcode'] ?? null),
+            'reorder_point' => $this->nullable($row['reorder_point'] ?? null),
         ];
 
         $errors = $this->validationErrors(EntityValidation::productRules($accountId, $existingProduct), $attributes);
@@ -344,6 +345,8 @@ class CsvImportService
             'location_id' => $locationResolution['record']?->id,
             'type' => $this->nullable($row['type'] ?? null),
             'serial_number' => $serialNumber,
+            'key_number' => $this->nullable($row['key_number'] ?? null),
+            'telemetry_id' => $this->nullable($row['telemetry_id'] ?? null),
             'model' => $this->nullable($row['model'] ?? null),
             'status' => $this->nullable($row['status'] ?? null),
             'installed_on' => $this->nullable($row['installed_on'] ?? null),

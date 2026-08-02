@@ -35,7 +35,7 @@
                         </div>
                     </div>
                     <div class="panel-body">
-                        <dl class="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                        <dl class="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
                             <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
                                 <dt class="text-gray-500 dark:text-gray-400">Location</dt>
                                 <dd class="mt-1 truncate font-medium text-gray-800 dark:text-gray-100">{{ $machine->location?->location_name ?? '—' }}</dd>
@@ -47,6 +47,14 @@
                             <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
                                 <dt class="text-gray-500 dark:text-gray-400">Model</dt>
                                 <dd class="mt-1 font-medium text-gray-800 dark:text-gray-100">{{ $machine->model ?: '—' }}</dd>
+                            </div>
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
+                                <dt class="text-gray-500 dark:text-gray-400">Key Number</dt>
+                                <dd class="mt-1 font-medium text-gray-800 dark:text-gray-100">{{ $machine->key_number ?: '—' }}</dd>
+                            </div>
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
+                                <dt class="text-gray-500 dark:text-gray-400">Telemetry ID</dt>
+                                <dd class="mt-1 font-medium text-gray-800 dark:text-gray-100">{{ $machine->telemetry_id ?: '—' }}</dd>
                             </div>
                             <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/40">
                                 <dt class="text-gray-500 dark:text-gray-400">Status</dt>

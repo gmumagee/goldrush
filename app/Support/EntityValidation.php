@@ -31,6 +31,7 @@ class EntityValidation
             'size' => ['nullable', 'string', 'max:100'],
             'package_type' => ['nullable', 'string', 'max:100'],
             'barcode' => ['nullable', 'string', 'max:100'],
+            'reorder_point' => ['nullable', 'integer', 'min:0'],
         ];
     }
 
@@ -51,6 +52,15 @@ class EntityValidation
                 'string',
                 'max:255',
                 Rule::unique('tbl_machines', 'serial_number')
+                    ->where(fn ($query) => $query->where('account_id', $accountId))
+                    ->ignore($machine?->id),
+            ],
+            'key_number' => ['nullable', 'string', 'max:50'],
+            'telemetry_id' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('tbl_machines', 'telemetry_id')
                     ->where(fn ($query) => $query->where('account_id', $accountId))
                     ->ignore($machine?->id),
             ],

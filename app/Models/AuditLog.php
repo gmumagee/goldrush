@@ -47,6 +47,7 @@ class AuditLog extends Model
             Purchase::class => 'Purchase',
             PurchaseItem::class => 'Purchase Item',
             InventoryLedger::class => 'Inventory Ledger',
+            Expense::class => 'Expense',
         ];
     }
 

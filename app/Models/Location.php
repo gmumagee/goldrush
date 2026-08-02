@@ -21,11 +21,19 @@ class Location extends Model
         'city',
         'state',
         'zip_code',
+        'service_interval_days',
+        'sales_tax_rate',
+        'commission_rate',
+        'commission_on_net',
         'is_inventory',
     ];
 
     protected $casts = [
         'is_inventory' => 'boolean',
+        'service_interval_days' => 'integer',
+        'sales_tax_rate' => 'decimal:4',
+        'commission_rate' => 'decimal:4',
+        'commission_on_net' => 'boolean',
     ];
 
     public function account()
@@ -106,6 +114,13 @@ class Location extends Model
     public function machines()
     {
         return $this->hasMany(Machine::class, 'location_id');
+    }
+
+    public function accessHours()
+    {
+        return $this->hasMany(LocationAccessHour::class, 'location_id')
+            ->orderByRaw('CASE day_of_week WHEN 1 THEN 1 WHEN 2 THEN 2 WHEN 3 THEN 3 WHEN 4 THEN 4 WHEN 5 THEN 5 WHEN 6 THEN 6 WHEN 0 THEN 7 ELSE 8 END')
+            ->orderBy('id');
     }
 
     public function services()

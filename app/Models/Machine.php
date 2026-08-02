@@ -20,6 +20,8 @@ class Machine extends Model
         'location_id',
         'type',
         'serial_number',
+        'key_number',
+        'telemetry_id',
         'model',
         'status',
         'installed_on',

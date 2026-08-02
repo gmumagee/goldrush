@@ -17,6 +17,7 @@
     $canViewMachines = $currentUser?->can('viewAny', \App\Models\Machine::class) ?? false;
     $canViewRoutes = $currentUser?->can('viewAny', \App\Models\VendingRoute::class) ?? false;
     $canViewProducts = $currentUser?->can('viewAny', \App\Models\Product::class) ?? false;
+    $canViewExpenses = $currentUser?->can('viewAny', \App\Models\Expense::class) ?? false;
     $canViewPurchases = $currentUser?->can('viewAny', \App\Models\Purchase::class) ?? false;
     $canViewTransactions = $currentUser?->can('viewAny', \App\Models\Transaction::class) ?? false;
     $canViewVendors = $currentUser?->can('viewAny', \App\Models\Vendor::class) ?? false;
@@ -25,13 +26,15 @@
     $canViewDictionary = $currentUser?->can('viewAny', \App\Models\DataDictionary::class) ?? false;
     $canViewAccountUsers = $currentUser?->can('viewAny', \App\Models\AccountUser::class) ?? false;
     $canViewAuditLog = $currentUser?->can('viewAny', \App\Models\AuditLog::class) ?? false;
+    $canViewReports = $currentMembership?->canGenerateReports() ?? false;
     $demoEnabled = \App\Support\Demo::isEnabled();
-    $canViewImportExport = ! $demoEnabled && ($canViewProducts || $canViewMachines || $canViewLocations || $canViewContacts);
+    $canViewImportExport = ! $demoEnabled && ($canViewProducts || $canViewMachines || $canViewLocations || $canViewContacts || $canViewExpenses);
     $isSuperAdmin = ! $demoEnabled && ($currentUser?->isSuperAdmin() ?? false);
 
     $routeManagementOpen = request()->routeIs('routes.*') || request()->routeIs('routes.locations.*') || request()->routeIs('locations.*') || request()->routeIs('machines.*') || request()->routeIs('bins.*');
     $operationsOpen = request()->routeIs('services.*') || request()->routeIs('calendar-events.*');
-    $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*') || request()->routeIs('transactions.*');
+    $inventoryOpen = request()->routeIs('products.*') || request()->routeIs('expenses.*') || request()->routeIs('vendors.*') || request()->routeIs('warehouses.*') || request()->routeIs('purchases.*') || request()->routeIs('transactions.*');
+    $reportsOpen = request()->routeIs('reports.*');
     $accountOpen = request()->routeIs('accounts.*') || request()->routeIs('account-users.*') || request()->routeIs('password.*') || request()->routeIs('contacts.*') || request()->routeIs('import-export.*') || request()->routeIs('data-dictionary.*') || request()->routeIs('audit-log.*') || request()->is('users*') || request()->is('settings*');
     $platformOpen = request()->routeIs('admin.*');
 
@@ -194,7 +197,7 @@
             </div>
             @endif
 
-            @if ($showOperationalNav && ($canViewProducts || $canViewPurchases || $canViewTransactions || $canViewVendors || $canViewWarehouses))
+            @if ($showOperationalNav && ($canViewProducts || $canViewExpenses || $canViewPurchases || $canViewTransactions || $canViewVendors || $canViewWarehouses))
             <div
                 x-data="{
                     open: {{ $inventoryOpen ? 'true' : 'false' }},
@@ -231,6 +234,9 @@
                     @if ($canViewProducts)
                         <li><a href="{{ route('products.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('products.*') ? $activeChildClasses : $inactiveChildClasses }}">Products</a></li>
                     @endif
+                    @if ($canViewExpenses)
+                        <li><a href="{{ route('expenses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('expenses.*') ? $activeChildClasses : $inactiveChildClasses }}">Expenses</a></li>
+                    @endif
                     @if ($canViewPurchases)
                         <li><a href="{{ route('purchases.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('purchases.*') ? $activeChildClasses : $inactiveChildClasses }}">Purchases</a></li>
                     @endif
@@ -242,6 +248,56 @@
                     @endif
                     @if ($canViewWarehouses)
                         <li><a href="{{ route('warehouses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('warehouses.*') ? $activeChildClasses : $inactiveChildClasses }}">Warehouses</a></li>
+                    @endif
+                </ul>
+            </div>
+            @endif
+
+            @if ($showOperationalNav && $canViewReports)
+            <div
+                x-data="{
+                    open: {{ $reportsOpen ? 'true' : 'false' }},
+                    init() {
+                        const saved = localStorage.getItem('sidebar-reports-open');
+                        this.open = {{ $reportsOpen ? 'true' : 'false' }} || saved === 'true';
+                        this.$watch('open', value => localStorage.setItem('sidebar-reports-open', value));
+                    }
+                }"
+            >
+                <button
+                    type="button"
+                    class="{{ $sectionButtonClasses }} {{ $sectionButtonStateClasses }}"
+                    @click="open = !open"
+                    :aria-expanded="open.toString()"
+                    aria-controls="sidebar-reports"
+                >
+                    <span class="flex min-w-0 items-center gap-3">
+                        <svg class="h-5 w-5 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M2 12h2V6H2zm5 0h2V2H7zm5 0h2V8h-2zM1 14h14v1H1z" />
+                        </svg>
+                        <span class="truncate leading-5">Reports</span>
+                    </span>
+                    <span
+                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none text-gray-400 transition-transform duration-200"
+                        :class="open ? 'rotate-90' : ''"
+                        aria-hidden="true"
+                    >
+                        ›
+                    </span>
+                </button>
+
+                <ul id="sidebar-reports" x-show="open" x-transition.origin.top.duration.200ms x-cloak class="mt-1 space-y-1 pl-3">
+                    <li><a href="{{ route('reports.cash-flow') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.cash-flow') ? $activeChildClasses : $inactiveChildClasses }}">Cash Flow</a></li>
+                    <li><a href="{{ route('reports.driver-cash-tally') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.driver-cash-tally') ? $activeChildClasses : $inactiveChildClasses }}">Driver Cash Tally</a></li>
+                    <li><a href="{{ route('reports.cash-collected') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.cash-collected') ? $activeChildClasses : $inactiveChildClasses }}">Cash Collected</a></li>
+                    <li><a href="{{ route('reports.inventory-on-hand') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.inventory-on-hand') ? $activeChildClasses : $inactiveChildClasses }}">Inventory On Hand</a></li>
+                    <li><a href="{{ route('reports.inventory-consumed') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.inventory-consumed') ? $activeChildClasses : $inactiveChildClasses }}">Inventory Consumed</a></li>
+                    <li><a href="{{ route('reports.purchases-by-vendor') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.purchases-by-vendor') ? $activeChildClasses : $inactiveChildClasses }}">Purchases by Vendor</a></li>
+                    <li><a href="{{ route('reports.sales-by-location') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.sales-by-location') ? $activeChildClasses : $inactiveChildClasses }}">Sales by Location</a></li>
+                    <li><a href="{{ route('reports.profit-loss') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.profit-loss') || request()->routeIs('reports.pnl') ? $activeChildClasses : $inactiveChildClasses }}">Profit &amp; Loss</a></li>
+                    <li><a href="{{ route('reports.commission') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('reports.commission') ? $activeChildClasses : $inactiveChildClasses }}">Commission Report</a></li>
+                    @if ($canViewExpenses)
+                        <li><a href="{{ route('expenses.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition {{ request()->routeIs('expenses.*') ? $activeChildClasses : $inactiveChildClasses }}">Expenses</a></li>
                     @endif
                 </ul>
             </div>

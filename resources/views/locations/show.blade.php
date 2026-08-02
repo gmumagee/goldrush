@@ -119,13 +119,13 @@
                     </div>
                 </div>
                 <div class="panel-body">
-                    {{-- Keep the summary fields locked into the requested two-row desktop grid. --}}
+                    {{-- Keep the summary fields locked into a stable desktop grid while still stacking cleanly on smaller screens. --}}
                     <div
                         class="forced-location-summary-grid"
                         style="
                             display: grid !important;
                             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-                            grid-template-rows: auto auto !important;
+                            grid-template-rows: auto auto auto !important;
                             column-gap: 2rem !important;
                             row-gap: 1.5rem !important;
                             width: 100% !important;
@@ -186,6 +186,55 @@
                                     —
                                 @endif
                             </div>
+                        </div>
+
+                        <div style="grid-column: 1 / 2; min-width: 0;">
+                            <div class="text-muted mb-1">Service Pattern</div>
+                            <div class="font-semibold text-gray-800 dark:text-gray-100">
+                                {{ $servicePatternLabel }}
+                            </div>
+                        </div>
+
+                        <div style="grid-column: 2 / 3; min-width: 0;">
+                            <div class="text-muted mb-1">Sales Tax Rate</div>
+                            <div class="font-semibold text-gray-800 dark:text-gray-100">
+                                {{ $salesTaxRateLabel }}
+                            </div>
+                        </div>
+
+                        <div style="grid-column: 3 / 4; min-width: 0;">
+                            <div class="text-muted mb-1">Commission</div>
+                            <div class="font-semibold text-gray-800 dark:text-gray-100">
+                                {{ $commissionLabel }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700/60">
+                        <div class="mb-3 flex items-center justify-between gap-3">
+                            <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">Access Hours</h3>
+                            @if (! collect($accessHourRows)->contains(fn (array $row) => $row['is_open']))
+                                <span class="text-sm text-gray-500 dark:text-gray-400">No hours set.</span>
+                            @endif
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full table-fixed divide-y divide-gray-200 text-sm dark:divide-gray-700/60">
+                                <thead class="bg-gray-50 dark:bg-gray-800/80">
+                                    <tr>
+                                        @foreach ($accessHourRows as $row)
+                                            <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400">{{ $row['label'] }}</th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800">
+                                    <tr>
+                                        @foreach ($accessHourRows as $row)
+                                            <td class="px-4 py-4 text-center text-gray-600 dark:text-gray-300">{{ $row['hours'] }}</td>
+                                        @endforeach
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

@@ -24,6 +24,7 @@ class Product extends Model
         'size',
         'package_type',
         'barcode',
+        'reorder_point',
     ];
 
     public function scopeOrderedForDropdown(Builder $query): Builder

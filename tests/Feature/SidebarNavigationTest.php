@@ -29,6 +29,7 @@ class SidebarNavigationTest extends TestCase
         $routeManagementSection = $this->extractSidebarSection($content, 'sidebar-route-management');
         $inventorySection = $this->extractSidebarSection($content, 'sidebar-inventory');
         $operationsSection = $this->extractSidebarSection($content, 'sidebar-operations');
+        $reportsSection = $this->extractSidebarSection($content, 'sidebar-reports');
         $accountSection = $this->extractSidebarSection($content, 'sidebar-account');
 
         $this->assertStringOrder($content, [
@@ -36,11 +37,13 @@ class SidebarNavigationTest extends TestCase
             'aria-controls="sidebar-operations"',
             'aria-controls="sidebar-route-management"',
             'aria-controls="sidebar-inventory"',
+            'aria-controls="sidebar-reports"',
             'aria-controls="sidebar-account"',
         ]);
         $this->assertStringOrder($operationsSection, ['Calendar', 'Services']);
         $this->assertStringOrder($routeManagementSection, ['Locations', 'Machines', 'Routes']);
-        $this->assertStringOrder($inventorySection, ['Products', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
+        $this->assertStringOrder($inventorySection, ['Products', 'Expenses', 'Purchases', 'Transactions', 'Vendors', 'Warehouses']);
+        $this->assertStringOrder($reportsSection, ['Cash Flow', 'Driver Cash Tally', 'Cash Collected', 'Inventory On Hand', 'Inventory Consumed', 'Purchases by Vendor', 'Sales by Location', 'Profit &amp; Loss', 'Commission Report', 'Expenses']);
         $this->assertStringOrder($accountSection, ['Change Password', 'Contacts', 'Import / Export', 'Audit Log', 'Switch Account', 'Users']);
 
         $this->assertSame(1, substr_count($content, 'Route Management'));
@@ -57,6 +60,46 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringNotContainsString(
             'href="'.route('transactions.index').'"',
             $operationsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.cash-flow').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.driver-cash-tally').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.cash-collected').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.inventory-on-hand').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.inventory-consumed').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.purchases-by-vendor').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.sales-by-location').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('expenses.index').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.commission').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.profit-loss').'"',
+            $reportsSection
         );
         $this->assertStringContainsString(
             'href="'.route('routes.index').'"',
@@ -213,12 +256,59 @@ class SidebarNavigationTest extends TestCase
         $this->assertStringNotContainsString('aria-controls="sidebar-operations"', $content);
         $this->assertStringNotContainsString('aria-controls="sidebar-route-management"', $content);
         $this->assertStringNotContainsString('aria-controls="sidebar-inventory"', $content);
+        $this->assertStringNotContainsString('aria-controls="sidebar-reports"', $content);
         $this->assertStringContainsString('href="'.route('services.index').'"', $content);
         $this->assertStringContainsString('<span class="opacity-100">Services</span>', $content);
         $this->assertStringContainsString('aria-controls="sidebar-account"', $content);
         $this->assertStringContainsString('Change Password', $accountSection);
         $this->assertStringContainsString('Switch Account', $accountSection);
         $this->assertStringNotContainsString('Import / Export', $accountSection);
+    }
+
+    public function test_reports_routes_expand_reports_group_and_highlight_active_link_for_manage_roles(): void
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Reports Sidebar Account');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_MANAGER);
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('reports.commission'));
+
+        $response->assertOk();
+
+        $content = $response->getContent();
+        $reportsSection = $this->extractSidebarSection($content, 'sidebar-reports');
+
+        $this->assertStringContainsString(
+            "open: true,\n                    init() {\n                        const saved = localStorage.getItem('sidebar-reports-open');",
+            $content
+        );
+        $this->assertStringContainsString(
+            'href="'.route('reports.commission').'" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('expenses.index').'"',
+            $reportsSection
+        );
+        $this->assertStringContainsString(
+            'href="'.route('expenses.index').'"',
+            $this->extractSidebarSection($content, 'sidebar-inventory')
+        );
+    }
+
+    public function test_reports_routes_are_forbidden_for_viewers(): void
+    {
+        $user = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Viewer Reports Account');
+        $this->attachUserToAccount($user, $account, AccountUser::ROLE_VIEWER);
+
+        $response = $this->actingAs($user)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('reports.commission'));
+
+        $response->assertForbidden();
     }
 
     protected function createAccount(string $name): Account

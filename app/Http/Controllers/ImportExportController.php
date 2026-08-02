@@ -21,7 +21,8 @@ class ImportExportController extends Controller
 
     /**
      * CSV headers intentionally match the planned import template:
-     * products upsert by sku; machines by serial_number plus in-account location_name;
+     * products upsert by sku; machines by serial_number plus in-account location_name
+     * and optional key_number / telemetry_id metadata;
      * contacts export one row per contact-location pair; locations need a unique-key
      * decision before import is implemented.
      */
@@ -130,7 +131,13 @@ class ImportExportController extends Controller
         $gate = Gate::forUser($request->user());
 
         return collect($this->entityDefinitions())
-            ->filter(fn (array $definition) => $gate->allows($ability, $definition['model']))
+            ->filter(function (array $definition) use ($ability, $gate): bool {
+                if ($ability === 'create' && array_key_exists('supports_import', $definition) && $definition['supports_import'] === false) {
+                    return false;
+                }
+
+                return $gate->allows($ability, $definition['model']);
+            })
             ->map(fn (array $definition, string $key) => [
                 'key' => $key,
                 'label' => $definition['label'],

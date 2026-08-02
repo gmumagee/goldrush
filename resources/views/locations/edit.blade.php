@@ -57,6 +57,8 @@
                             </div>
                         </div>
 
+                        @include('locations._operational-fields')
+
                         <div class="flex items-center justify-end gap-3">
                             <a href="{{ route('locations.show', $location) }}" class="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Cancel</a>
                             <x-button>Save Location</x-button>

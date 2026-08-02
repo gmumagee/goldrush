@@ -17,6 +17,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DataDictionaryController;
 use App\Http\Controllers\DemoLoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\MachineBinController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\LocationController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\RouteLocationController;
 use App\Http\Controllers\ImportExportController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VendingRouteController;
@@ -180,6 +182,27 @@ Route::middleware('auth')->group(function () {
         Route::resource('vendors', VendorController::class);
         Route::resource('products', ProductController::class);
         Route::resource('contacts', ContactController::class);
+        Route::resource('expenses', ExpenseController::class)->except(['show']);
+        Route::get('/reports/purchases-by-vendor', [ReportsController::class, 'purchasesByVendor'])
+            ->name('reports.purchases-by-vendor');
+        Route::get('/reports/inventory-on-hand', [ReportsController::class, 'inventoryOnHand'])
+            ->name('reports.inventory-on-hand');
+        Route::get('/reports/inventory-consumed', [ReportsController::class, 'inventoryConsumed'])
+            ->name('reports.inventory-consumed');
+        Route::get('/reports/cash-flow', [ReportsController::class, 'cashFlow'])
+            ->name('reports.cash-flow');
+        Route::get('/reports/driver-cash-tally', [ReportsController::class, 'driverCashTally'])
+            ->name('reports.driver-cash-tally');
+        Route::get('/reports/cash-collected', [ReportsController::class, 'cashCollected'])
+            ->name('reports.cash-collected');
+        Route::get('/reports/sales-by-location', [ReportsController::class, 'salesByLocation'])
+            ->name('reports.sales-by-location');
+        Route::get('/reports/profit-loss', [ReportsController::class, 'profitLoss'])
+            ->name('reports.profit-loss');
+        Route::get('/reports/commission', [ReportsController::class, 'commission'])
+            ->name('reports.commission');
+        Route::get('/reports/pnl', [ReportsController::class, 'pnl'])
+            ->name('reports.pnl');
         Route::resource('purchases', PurchaseController::class)->only(['index', 'create', 'store', 'show']);
         Route::resource('calendar-events', CalendarEventController::class);
         Route::post('/calendar-events/{calendarEvent}/complete', [CalendarEventController::class, 'complete'])

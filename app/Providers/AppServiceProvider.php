@@ -10,6 +10,7 @@ use App\Models\CalendarEvent;
 use App\Models\CalendarReminder;
 use App\Models\Contact;
 use App\Models\DataDictionary;
+use App\Models\Expense;
 use App\Models\Location;
 use App\Models\LocationContact;
 use App\Models\LocationDocument;
@@ -26,6 +27,7 @@ use App\Observers\AccountObserver;
 use App\Policies\AccountUserPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\DataDictionaryPolicy;
+use App\Policies\ExpensePolicy;
 use App\Policies\OperationalEntityPolicy;
 use App\Policies\ServicePolicy;
 use App\Support\Demo;
@@ -104,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
             Gate::policy($modelClass, OperationalEntityPolicy::class);
         }
 
+        Gate::policy(Expense::class, ExpensePolicy::class);
         Gate::policy(Service::class, ServicePolicy::class);
         Gate::policy(AccountUser::class, AccountUserPolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
