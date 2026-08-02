@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -255,26 +256,34 @@ class ReportsController extends Controller
                 ->sum('amount_collected')
         );
 
-        $expensesCents = $this->toCentsOrZero(
-            Expense::query()
-                ->where('account_id', $accountId)
-                ->whereDate('expense_date', '>=', $filters['date_from'])
-                ->whereDate('expense_date', '<=', $filters['date_to'])
-                ->sum('amount')
-        );
+        $expensesCents = 0;
 
-        $inventoryPurchasesCents = $this->toCentsOrZero(
-            DB::table('tbl_purchase_items as purchase_items')
-                ->join('tbl_purchases as purchases', function ($join) use ($accountId) {
-                    $join->on('purchases.id', '=', 'purchase_items.purchase_id')
-                        ->where('purchases.account_id', '=', $accountId);
-                })
-                ->where('purchase_items.account_id', $accountId)
-                ->whereDate('purchases.purchase_date', '>=', $filters['date_from'])
-                ->whereDate('purchases.purchase_date', '<=', $filters['date_to'])
-                ->whereRaw('LOWER(TRIM(purchases.status)) = ?', [mb_strtolower(Purchase::STATUS_POSTED)])
-                ->sum('purchase_items.line_total')
-        );
+        if ($this->expensesTableAvailable()) {
+            $expensesCents = $this->toCentsOrZero(
+                Expense::query()
+                    ->where('account_id', $accountId)
+                    ->whereDate('expense_date', '>=', $filters['date_from'])
+                    ->whereDate('expense_date', '<=', $filters['date_to'])
+                    ->sum('amount')
+            );
+        }
+
+        $inventoryPurchasesCents = 0;
+
+        if ($this->purchaseTablesAvailable()) {
+            $inventoryPurchasesCents = $this->toCentsOrZero(
+                DB::table('tbl_purchase_items as purchase_items')
+                    ->join('tbl_purchases as purchases', function ($join) use ($accountId) {
+                        $join->on('purchases.id', '=', 'purchase_items.purchase_id')
+                            ->where('purchases.account_id', '=', $accountId);
+                    })
+                    ->where('purchase_items.account_id', $accountId)
+                    ->whereDate('purchases.purchase_date', '>=', $filters['date_from'])
+                    ->whereDate('purchases.purchase_date', '<=', $filters['date_to'])
+                    ->whereRaw('LOWER(TRIM(purchases.status)) = ?', [mb_strtolower(Purchase::STATUS_POSTED)])
+                    ->sum('purchase_items.line_total')
+            );
+        }
 
         $commissions = $commissionCalculationService->calculateForAccount($accountId, $filters['date_from'], $filters['date_to']);
         $netCashFlowCents = $cashInCents - $expensesCents - $inventoryPurchasesCents - $commissions['total_cents'];
@@ -747,6 +756,16 @@ class ReportsController extends Controller
             ->where('account_id', $accountId)
             ->orderBy('vendor_name')
             ->get(['id', 'vendor_name']);
+    }
+
+    protected function expensesTableAvailable(): bool
+    {
+        return Schema::hasTable('tbl_expenses');
+    }
+
+    protected function purchaseTablesAvailable(): bool
+    {
+        return Schema::hasTable('tbl_purchases') && Schema::hasTable('tbl_purchase_items');
     }
 
     protected function validatedProfitLossFilters(Request $request): array

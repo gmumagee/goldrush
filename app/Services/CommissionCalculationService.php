@@ -6,11 +6,19 @@ use App\Models\Expense;
 use App\Models\Location;
 use App\Models\Service;
 use App\Support\Money;
+use Illuminate\Support\Facades\Schema;
 
 class CommissionCalculationService
 {
     public function calculateForAccount(int $accountId, string $dateFrom, string $dateTo): array
     {
+        if (! $this->commissionSchemaAvailable()) {
+            return [
+                'total_cents' => 0,
+                'locations' => collect(),
+            ];
+        }
+
         $locations = Location::query()
             ->where('account_id', $accountId)
             ->whereNotNull('commission_rate')
@@ -78,6 +86,14 @@ class CommissionCalculationService
             'total_cents' => $breakdown->sum('commission_cents'),
             'locations' => $breakdown,
         ];
+    }
+
+    protected function commissionSchemaAvailable(): bool
+    {
+        return Schema::hasTable('tbl_locations')
+            && Schema::hasColumn('tbl_locations', 'commission_rate')
+            && Schema::hasColumn('tbl_locations', 'commission_on_net')
+            && Schema::hasTable('tbl_expenses');
     }
 
     protected function multiplyMoneyByRate(int $cents, string $rate): int

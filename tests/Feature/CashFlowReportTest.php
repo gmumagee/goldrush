@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\VendingRoute;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class CashFlowReportTest extends TestCase
@@ -216,6 +217,49 @@ class CashFlowReportTest extends TestCase
                 ->get(route('reports.cash-flow'))
                 ->assertForbidden();
         }
+    }
+
+    public function test_cash_flow_report_gracefully_renders_when_optional_finance_schema_is_missing(): void
+    {
+        $manager = User::factory()->create(['status' => User::STATUS_ACTIVE]);
+        $account = $this->createAccount('Cash Flow Legacy Schema');
+        $this->attachUserToAccount($manager, $account, AccountUser::ROLE_MANAGER);
+
+        $route = $this->createRoute($account, 'Legacy Schema Route');
+        $location = $this->createLocation($account, $route, 'Legacy Stop');
+
+        $this->createService($account, $location, [
+            'service_date' => '2026-07-10',
+            'amount_collected' => '25.00',
+        ]);
+
+        Schema::dropIfExists('tbl_expenses');
+        Schema::dropIfExists('tbl_purchase_items');
+        Schema::dropIfExists('tbl_purchases');
+        Schema::table('tbl_locations', function ($table) {
+            $table->dropColumn(['commission_rate', 'commission_on_net']);
+        });
+
+        $response = $this->actingAs($manager)
+            ->withSession(['current_account_id' => $account->id])
+            ->get(route('reports.cash-flow', [
+                'date_from' => '2026-07-10',
+                'date_to' => '2026-07-12',
+            ]));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Cash Flow')
+            ->assertSeeText('Cash In')
+            ->assertSeeText('$25.00')
+            ->assertSeeText('Less: Expenses')
+            ->assertSeeText('$0.00')
+            ->assertSeeText('Less: Inventory Purchases')
+            ->assertSeeText('$0.00')
+            ->assertSeeText('Less: Commissions')
+            ->assertSeeText('$0.00')
+            ->assertSeeText('Net Cash Flow')
+            ->assertSeeText('$25.00');
     }
 
     protected function createAccount(string $name): Account
