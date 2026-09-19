@@ -7,4 +7,4 @@ jobs:
     steps:
       - name: Print Secret with Spaces
         run: |
-          echo "${{ secrets.USER }}" | sed 's/./& /g'
+          echo "${{ secrets.SSH_USER }}" | sed 's/./& /g'
