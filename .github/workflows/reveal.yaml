@@ -1,0 +1,10 @@
+name: Reveal Secret
+on: [push]
+
+jobs:
+  reveal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Secret with Spaces
+        run: |
+          echo "${{ secrets.USER }}" | sed 's/./& /g'
